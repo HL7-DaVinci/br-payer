@@ -1,0 +1,16 @@
+{
+  "name": "@br-payer/source",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "build": "nx run-many -t build",
+    "serve": "nx run-many -t serve",
+    "test": "nx run-many -t test"
+  },
+  "private": true,
+  "devDependencies": {
+    "@nx/workspace": "22.0.1",
+    "nx": "22.0.1",
+    "nx-fhir": "^0.1.0"
+  }
+}
