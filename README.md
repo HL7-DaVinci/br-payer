@@ -1,5 +1,7 @@
 # DaVinci Burden Reduction Payer Server
 
+[![Build Status](https://ci.hl7.org/api/badges/HL7-DaVinci/br-payer/status.svg)](https://ci.hl7.org/HL7-DaVinci/br-payer)
+
 This is a reference implementation FHIR server built on the [HAPI FHIR JPA Starter Server](https://github.com/hapifhir/hapi-fhir-jpaserver-starter) in an [Nx](https://nx.dev) workspace.
 
 It is designed to support the following implementation guides:
