@@ -1,0 +1,65 @@
+---
+kind: pipeline
+name: latest-amd64
+type: docker
+platform:
+  arch: amd64
+  os: linux
+steps:
+  - name: publish
+    image: plugins/docker
+    settings:
+      repo: hlseven/davinci-br-payer
+      tags: [latest-linux-amd64]
+      # auto_tag: true
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+trigger:
+  branch:
+    - main
+---
+kind: pipeline
+name: latest-arm64
+type: docker
+platform:
+  arch: arm64
+  os: linux
+steps:
+  - name: publish
+    image: plugins/docker
+    settings:
+      repo: hlseven/davinci-br-payer
+      tags: [latest-linux-arm64]
+      # auto_tag: true
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+trigger:
+  branch:
+    - main
+---
+name: manifest
+kind: pipeline
+type: docker
+depends_on:
+  - latest-amd64
+  - latest-arm64
+steps:
+  - name: publish-manifest
+    image: plugins/manifest
+    settings:
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      target: hlseven/davinci-br-payer:latest
+      template: hlseven/davinci-br-payer:latest-OS-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm64
+trigger:
+  status:
+    - success
