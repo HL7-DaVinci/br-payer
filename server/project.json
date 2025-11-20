@@ -3,13 +3,13 @@
   "$schema": "../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "server/src",
+  "packageBase": "org.hl7.davinci",
+  "fhirVersion": "R4",
+  "hapiReleaseVersion": "8.4.0-3",
+  "pluginVersion": "0.1.1",
   "tags": [
     "nx-fhir-server",
     "fhir",
     "server"
-  ],
-  "packageBase": "org.hl7.davinci",
-  "fhirVersion": "R4",
-  "hapiReleaseVersion": "8.4.0",
-  "pluginVersion": "0.0.0-e2e"
+  ]
 }

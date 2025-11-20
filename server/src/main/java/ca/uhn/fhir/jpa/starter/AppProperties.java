@@ -21,9 +21,9 @@ import java.util.Set;
 
 import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
 
+@EnableConfigurationProperties
 @ConfigurationProperties(prefix = "hapi.fhir")
 @Configuration
-@EnableConfigurationProperties
 public class AppProperties {
 
 	private final Set<String> auto_version_reference_at_paths = new HashSet<>();
@@ -61,7 +61,15 @@ public class AppProperties {
 	private Boolean filter_search_enabled = true;
 	private Boolean graphql_enabled = false;
 	private Boolean binary_storage_enabled = false;
-	private Integer inline_resource_storage_below_size = 0;
+
+	public enum BinaryStorageMode {
+		DATABASE,
+		FILESYSTEM
+	}
+
+	private BinaryStorageMode binary_storage_mode = BinaryStorageMode.DATABASE;
+	private String binary_storage_filesystem_base_directory;
+	private Integer inline_resource_storage_below_size;
 	private Boolean bulk_export_enabled = false;
 	private Boolean bulk_import_enabled = false;
 	private Boolean default_pretty_print = true;
@@ -118,6 +126,9 @@ public class AppProperties {
 	private Map<String, RemoteSystem> remote_terminology_service = null;
 	private Boolean match_url_cache_enabled = false;
 	private Boolean index_storage_optimized = false;
+	private Boolean mark_resources_for_reindexing_upon_search_parameter_change = true;
+	private Integer reindex_thread_count = null;
+	private Integer expunge_thread_count = null;
 
 	public List<String> getCustomInterceptorClasses() {
 		return custom_interceptor_classes;
@@ -483,6 +494,22 @@ public class AppProperties {
 		this.binary_storage_enabled = binary_storage_enabled;
 	}
 
+	public BinaryStorageMode getBinary_storage_mode() {
+		return binary_storage_mode;
+	}
+
+	public void setBinary_storage_mode(BinaryStorageMode binary_storage_mode) {
+		this.binary_storage_mode = binary_storage_mode;
+	}
+
+	public String getBinary_storage_filesystem_base_directory() {
+		return binary_storage_filesystem_base_directory;
+	}
+
+	public void setBinary_storage_filesystem_base_directory(String binary_storage_filesystem_base_directory) {
+		this.binary_storage_filesystem_base_directory = binary_storage_filesystem_base_directory;
+	}
+
 	public Integer getInline_resource_storage_below_size() {
 		return inline_resource_storage_below_size;
 	}
@@ -783,6 +810,32 @@ public class AppProperties {
 
 	public void setIndex_storage_optimized(boolean theIndex_storage_optimized) {
 		index_storage_optimized = theIndex_storage_optimized;
+	}
+
+	public boolean getMark_resources_for_reindexing_upon_search_parameter_change() {
+		return defaultIfNull(mark_resources_for_reindexing_upon_search_parameter_change, true);
+	}
+
+	public void setMark_resources_for_reindexing_upon_search_parameter_change(
+			Boolean mark_resources_for_reindexing_upon_search_parameter_change) {
+		this.mark_resources_for_reindexing_upon_search_parameter_change =
+				mark_resources_for_reindexing_upon_search_parameter_change;
+	}
+
+	public Integer getReindex_thread_count() {
+		return reindex_thread_count;
+	}
+
+	public void setReindex_thread_count(Integer reindex_thread_count) {
+		this.reindex_thread_count = reindex_thread_count;
+	}
+
+	public Integer getExpunge_thread_count() {
+		return expunge_thread_count;
+	}
+
+	public void setExpunge_thread_count(Integer expunge_thread_count) {
+		this.expunge_thread_count = expunge_thread_count;
 	}
 
 	public JpaStorageSettings.StoreMetaSourceInformationEnum getStore_meta_source_information() {
