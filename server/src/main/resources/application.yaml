@@ -36,6 +36,12 @@ management:
       export:
         enabled: true
 
+initial-data:
+  - examples-crd
+  - examples-dtr
+  - examples-pas
+  - library  # CQL-related resources copied from /library folder in project root
+
 spring:
   # -------------------------------------------------------------------------------
   # A. Spring AI — Model Context Protocol (MCP)
@@ -81,6 +87,11 @@ spring:
   main:
     allow-bean-definition-overriding: false
     allow-circular-references: true
+
+  devtools:
+    restart:
+      additional-paths:
+        - ../library  # Watch library directory for changes during development
 
   autoconfigure:
     # This exclude is only needed for setups not using Elasticsearch where the elasticsearch sniff is not needed.
@@ -155,7 +166,7 @@ hapi:
     # use_apache_address_strategy_https: false
     # custom_content_path: ./custom               # folder name must be 'custom'
     # app_content_path: ./configs/app            # served under /web/app
-    # server_address: http://hapi.fhir.org/baseR4
+    server_address: http://localhost:8080/fhir
     # defer_indexing_for_codesystems_of_size: 101
 
     # -------------------------------------------------------------------------------
@@ -199,7 +210,7 @@ hapi:
     # C. Clinical Reasoning / CQL / Care Gaps / CDS Hooks
     # -------------------------------------------------------------------------------
     cr:
-      enabled: false                            # exposes Clinical Reasoning operation endpoints
+      enabled: true                            # exposes Clinical Reasoning operation endpoints
       caregaps:
         reporter: "default"
         section_author: "default"
@@ -246,7 +257,7 @@ hapi:
         terminology_parameter_mode: FILTER_IN_MEMORY       # AUTO | USE_VALUE_SET_URL | USE_INLINE_CODES | FILTER_IN_MEMORY
         profile_mode: DECLARED                             # ENFORCED | DECLARED | OPTIONAL | TRUST | OFF
     cdshooks:
-      enabled: false
+      enabled: true
       clientIdHeaderName: client_id
 
     # -------------------------------------------------------------------------------
@@ -446,3 +457,9 @@ hapi:
     # R. LastN (analytics)
     # -------------------------------------------------------------------------------
     # lastn_enabled: true
+
+
+    # -------------------------------------------------------------------------------
+    # Custom properties
+    # -------------------------------------------------------------------------------
+    dtr_launch_url: http://localhost:3005/launch

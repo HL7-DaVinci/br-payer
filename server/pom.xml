@@ -424,9 +424,27 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <version>${spring_boot_version}</version>
+            <optional>true</optional>
+        </dependency>
+
     </dependencies>
 
     <build>
+
+        <!-- Include external library directory in classpath -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../library</directory>
+                <targetPath>library</targetPath>
+            </resource>
+        </resources>
 
         <pluginManagement>
             <plugins>

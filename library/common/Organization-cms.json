@@ -1,0 +1,33 @@
+{
+  "resourceType": "Organization",
+  "id": "cms",
+  "name": "Centers for Medicare & Medicaid Services",
+  "identifier": [
+    {
+      "use": "official",
+      "system": "urn:oid:2.16.840.1.113883.6.300",
+      "value": "00001"
+    }
+  ],
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/organization-role",
+          "code": "payer"
+        }
+      ]
+    }
+  ],
+  "address": [
+    {
+      "line": [
+        "7500 Security Boulevard"
+      ],
+      "city": "Baltimore",
+      "state": "MD",
+      "postalCode": "21244",
+      "country": "USA"
+    }
+  ]
+}

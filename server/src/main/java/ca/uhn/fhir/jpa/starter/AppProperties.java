@@ -847,6 +847,20 @@ public class AppProperties {
 		this.store_meta_source_information = store_meta_source_information;
 	}
 
+
+	// custom added properties
+
+	private String dtrLaunchUrl = "http://localhost:8080/dtr-fhir-server/baseR4";
+	public String getDtrLaunchUrl() {
+		return dtrLaunchUrl;
+	}
+	public void setDtrLaunchUrl(String dtrLaunchUrl) {
+		this.dtrLaunchUrl = dtrLaunchUrl;
+	}
+	
+	// end custom added properties
+
+
 	public static class Cors {
 		private Boolean allow_Credentials = true;
 		private List<String> allowed_origin = List.of("*");
