@@ -44,6 +44,7 @@ import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.param.CompositeAndListParam;
 import ca.uhn.fhir.rest.param.CompositeOrListParam;
 import ca.uhn.fhir.rest.param.CompositeParam;
@@ -196,9 +197,11 @@ public class OrderSignService {
 
     for (Reference payorRef : coverage.getPayor()) {
       Organization org = resolveOrganization(payorRef, coverage, coverageBundle, request);
+      // logger.info("Resolved Organization for payor reference {}: {}", payorRef.getReference(), org != null ? org.getIdElement().getIdPart() : "null");
       if (org != null) {
         // Look for identifier with the target system
         for (Identifier identifier : org.getIdentifier()) {
+          // logger.info("Checking identifier {} for system {}", identifier.getValue(), identifier.getSystem());
           if (targetSystem.equals(identifier.getSystem()) && identifier.hasValue()) {
             payorCodes.add(identifier.getValue());
           }
@@ -249,7 +252,7 @@ public class OrderSignService {
     }
 
     // 4. Try to resolve from the server
-    org = resolveOrganizationFromServer(reference);
+    org = resolveOrganizationFromServer(request, ref.getReferenceElement().getIdPart());
     if (org != null) {
       return org;
     }
@@ -308,29 +311,19 @@ public class OrderSignService {
   }
 
   /**
-   * Resolves an Organization from the FHIR server.
+   * Resolves an Organization from the FHIR server supplied by the CDS request.
    */
-  private Organization resolveOrganizationFromServer(String reference) {
+  private Organization resolveOrganizationFromServer(CdsServiceRequestJson request, String orgId) {
     try {
-      // Extract the ID from the reference (e.g., "Organization/123" -> "123")
-      String orgId = reference;
-      if (reference.contains("/")) {
-        orgId = reference.substring(reference.lastIndexOf("/") + 1);
-      }
-      // Remove any URL prefix
-      if (orgId.contains("|")) {
-        orgId = orgId.substring(0, orgId.indexOf("|"));
-      }
-
-      IBaseResource resource = daoRegistry
-          .getResourceDao(Organization.class)
-          .read(new org.hl7.fhir.r4.model.IdType("Organization", orgId), new SystemRequestDetails());
+      String fhirServerBase = request.getFhirServer();
+      IGenericClient client = FhirContext.forR4Cached().newRestfulGenericClient(fhirServerBase);
+      IBaseResource resource = client.read().resource(Organization.class).withId(orgId).execute();
       
       if (resource instanceof Organization org) {
         return org;
       }
     } catch (Exception e) {
-      logger.debug("Could not resolve Organization {} from server: {}", reference, e.getMessage());
+      logger.debug("Could not resolve Organization {} from server: {}", orgId, e.getMessage());
     }
     return null;
   }
@@ -340,7 +333,7 @@ public class OrderSignService {
    */
   private List<PlanDefinition> findPlanDefinitions(Coding code, List<String> payorCodes, String hook) {
 
-    logger.info("Finding PlanDefinitions for code: {}, payorCodes: {}, hook: {}", code, payorCodes, hook);
+    logger.info("Finding PlanDefinitions for code: {}|{}, payorCodes: {}, hook: {}", code.getSystem(), code.getCode(), payorCodes, hook);
 
     List<PlanDefinition> plans = new ArrayList<>();
 
