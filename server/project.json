@@ -5,8 +5,8 @@
   "sourceRoot": "server/src",
   "packageBase": "org.hl7.davinci",
   "fhirVersion": "R4",
-  "hapiReleaseVersion": "8.4.0-3",
-  "pluginVersion": "0.1.1",
+  "hapiReleaseVersion": "8.6.0-1",
+  "pluginVersion": "0.1.2",
   "tags": [
     "nx-fhir-server",
     "fhir",
