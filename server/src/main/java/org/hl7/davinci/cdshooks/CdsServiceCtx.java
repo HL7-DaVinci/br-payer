@@ -3,41 +3,32 @@ package org.hl7.davinci.cdshooks;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.opencds.cqf.fhir.cr.hapi.common.IPlanDefinitionProcessorFactory;
+import org.hl7.davinci.cdshooks.services.OrderSelectService;
+import org.hl7.davinci.cdshooks.services.OrderSignService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
-import ca.uhn.fhir.jpa.starter.AppProperties;
-
+/**
+ * Configuration to register CDS services.
+ */
 @Configuration
 public class CdsServiceCtx {
 
-   private static AppProperties appProperties;
-   private static DaoRegistry daoRegistry;
-   private static IPlanDefinitionProcessorFactory planDefinitionProcessorFactory;
-
-   public static void setAppProperties(AppProperties newAppProperties) {
-      appProperties = newAppProperties;
-   }
-   
-   public static void setDaoRegistry(DaoRegistry newDaoRegistry) {
-      daoRegistry = newDaoRegistry;
-   }
-
-   public static void setPlanDefinitionProcessorFactory(IPlanDefinitionProcessorFactory newPlanDefinitionProcessorFactory) {
-      planDefinitionProcessorFactory = newPlanDefinitionProcessorFactory;
-   }
-
    @Bean
    public OrderSignService orderSignService() {
-      return new OrderSignService(appProperties, daoRegistry, planDefinitionProcessorFactory);
+      return new OrderSignService();
    }
 
    @Bean
-   public List<Object> cdsServices(OrderSignService orderSignService) {
+   public OrderSelectService orderSelectService() {
+      return new OrderSelectService();
+   }
+
+   @Bean
+   public List<Object> cdsServices(OrderSignService orderSignService, OrderSelectService orderSelectService) {
       List<Object> services = new ArrayList<>();
       services.add(orderSignService);
+      services.add(orderSelectService);
       return services;
    }
 

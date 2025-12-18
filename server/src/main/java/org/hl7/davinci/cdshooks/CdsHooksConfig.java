@@ -1,45 +1,48 @@
 package org.hl7.davinci.cdshooks;
 
-import org.opencds.cqf.fhir.cr.hapi.common.IPlanDefinitionProcessorFactory;
+import org.hl7.davinci.cdshooks.shared.CdsPrefetchInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
-import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
-import ca.uhn.fhir.jpa.starter.AppProperties;
+import ca.uhn.fhir.interceptor.api.IInterceptorService;
 import ca.uhn.hapi.fhir.cdshooks.svc.CdsHooksContextBooter;
-import jakarta.annotation.PostConstruct;
 
+/**
+ * Configuration for CDS Hooks services with access to parent context.
+ */
 @Configuration
 public class CdsHooksConfig {
 
-  private static final Logger logger = LoggerFactory.getLogger(CdsHooksConfig.class);
-  
-  @Autowired
-  private CdsHooksContextBooter booter;
+  private final Logger logger = LoggerFactory.getLogger(CdsHooksConfig.class);
 
   @Autowired
-  private AppProperties appProperties;
+  private ApplicationContext applicationContext;
 
   @Autowired
-  private DaoRegistry daoRegistry;
+  private IInterceptorService interceptorService;
 
-  @Autowired
-  private IPlanDefinitionProcessorFactory planDefinitionProcessorFactory;
+  /**
+   * Creates a parent-aware CdsHooksContextBooter.
+   * The @Primary annotation ensures this bean overrides the default from StarterCdsHooksConfig.
+   */
+  @Bean
+  @Primary
+  public CdsHooksContextBooter cdsHooksContextCustomBooter() {
 
-  @PostConstruct
-  public void registerCdsServices() {
-    logger.info("Registering CDS Services with parent context");
-
-    CdsServiceCtx.setAppProperties(appProperties);
-    CdsServiceCtx.setDaoRegistry(daoRegistry);
-    CdsServiceCtx.setPlanDefinitionProcessorFactory(planDefinitionProcessorFactory);
-
+    logger.info("Creating custom booter for CDS hooks with parent ApplicationContext.");
+    interceptorService.registerInterceptor(new CdsPrefetchInterceptor());
+    
+    CdsHooksContextCustomBooter booter = new CdsHooksContextCustomBooter();
+    booter.setParentContext(applicationContext);
     booter.setDefinitionsClass(CdsServiceCtx.class);
     booter.start();
-    booter.buildCdsServiceCache();
-
+    
+    return booter;
   }
 
 }

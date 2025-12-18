@@ -1,12 +1,12 @@
 {
   "resourceType": "PlanDefinition",
-  "id": "HospitalBedsAndAccessories",
-  "url": "http://example.org/fhir/PlanDefinition/HospitalBedsAndAccessories",
+  "id": "ImmunosuppressiveDrugs",
+  "url": "http://example.org/fhir/PlanDefinition/ImmunosuppressiveDrugs",
   "version": "1.0.0",
-  "name": "HospitalBedsAndAccessories",
-  "title": "Hospital Beds and Accessories",
+  "name": "ImmunosuppressiveDrugs",
+  "title": "Immunosuppressive Drugs",
   "status": "active",
-  "description": "Hospital Beds and Accessories devices",
+  "description": "Immunosuppressive Drugs",
   "useContext": [
     {
       "code": {
@@ -39,19 +39,27 @@
       "valueCodeableConcept": {
         "coding": [
           {
-            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
-            "code": "E0250"
+            "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+            "code": "105585"
           },
           {
-            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
-            "code": "E0251"
+            "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+            "code": "105611"
+          },
+          {
+            "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+            "code": "197388"
+          },
+          {
+            "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+            "code": "239983"
           }
         ]
       }
     }
   ],
   "library": [
-    "Library/HospitalBedsAndAccessoriesRule"
+    "Library/ImmunosuppressiveDrugsRule"
   ],
   "action": [
     {
@@ -95,6 +103,44 @@
             "language": "text/cql-identifier",
             "expression": "Coverage Info Extension"
           }
+        }
+      ],
+      "action": [
+        {
+          "id": "questionnaire-order",
+          "dynamicValue": [
+            {
+              "path": "action.resource.reference",
+              "expression": {
+                "language": "text/cql-identifier",
+                "expression": "Questionnaire Order Url"
+              }
+            }
+          ]
+        },
+        {
+          "id": "questionnaire-dispense",
+          "dynamicValue": [
+            {
+              "path": "action.resource.reference",
+              "expression": {
+                "language": "text/cql-identifier",
+                "expression": "Questionnaire Dispense Url"
+              }
+            }
+          ]
+        },
+        {
+          "id": "questionnaire-progress-note",
+          "dynamicValue": [
+            {
+              "path": "action.resource.reference",
+              "expression": {
+                "language": "text/cql-identifier",
+                "expression": "Questionnaire Progress Note Url"
+              }
+            }
+          ]
         }
       ]
     }

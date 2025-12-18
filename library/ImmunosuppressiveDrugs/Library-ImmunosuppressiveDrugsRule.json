@@ -1,0 +1,61 @@
+{
+  "resourceType": "Library",
+  "id": "ImmunosuppressiveDrugsRule",
+  "url": "http://example.org/fhir/Library/ImmunosuppressiveDrugsRule",
+  "name": "ImmunosuppressiveDrugsRule",
+  "version": "1.0.0",
+  "title": "Immunosuppressive Drugs CRD Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "ImmunosuppressiveDrugsRule.cql"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "Condition",
+      "codeFilter": [
+        {
+          "path": "code",
+          "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.81"
+        }
+      ]
+    },
+    {
+      "type": "Procedure",
+      "codeFilter": [
+        {
+          "path": "code",
+          "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.90"
+        }
+      ]
+    },
+    {
+      "type": "MedicationRequest",
+      "codeFilter": [
+        {
+          "path": "code",
+          "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.192"
+        }
+      ]
+    },
+    {
+      "type": "MedicationRequest",
+      "codeFilter": [
+        {
+          "path": "code",
+          "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.193"
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 library HospitalBedsAndAccessoriesRule version '1.0.0'
-using FHIR version '4.0.0'
-include FHIRHelpers version '4.0.0' called FHIRHelpers
+using FHIR version '4.0.1'
+include FHIRHelpers version '4.0.1' called FHIRHelpers
 
 context Patient
 
@@ -53,7 +53,7 @@ define "Get Detail":
       'The patient is ' + ToString("Age") + ' years old, so no documentation is required.'
       
 // Whether the service is covered: 'covered' | 'not-covered' | 'conditional'
-define "Coverage Covered":
+define "Covered":
   'covered'
 
 // Whether prior authorization is needed: 'auth-needed' | 'no-auth' | 'satisfied'
@@ -63,20 +63,22 @@ define "PA Needed":
 // Whether additional documentation is needed:
 // 'clinical' | 'admin' | 'patient' | 'conditional' | 'no-doc'
 define "Doc Needed":
-  if "Documentation Required" then 'clinical' else 'no-doc'
+  if "Documentation Required" then 'admin' else null
 
-// Questionnaire URL for DTR launch (if documentation is needed)
-define "Questionnaire Order Url":
-  if "Documentation Required" then
-    'Questionnaire/HospitalBedsAndAccessories'
-  else
-    ''    
 
-define "Questionnaire Face to Face Url":
+define "Questionnaires":
   if "Documentation Required" then
-    'Questionnaire/HospitalBedsAndAccessoriesFaceToFace'
-  else
-    ''
+    {
+      FHIR.Extension {
+        url: FHIR.uri { value: 'questionnaire' },
+        value: FHIR.canonical { value: 'Questionnaire/HospitalBedsAndAccessories' }
+      },
+      FHIR.Extension {
+        url: FHIR.uri { value: 'questionnaire' },
+        value: FHIR.canonical { value: 'Questionnaire/HospitalBedsAndAccessoriesFaceToFace' }
+      }
+    }
+  else null
 
 // Reason for the coverage determination
 define "Coverage Reason":
@@ -88,3 +90,42 @@ define "Coverage Reason":
 // Link to additional information
 define "Info Needed":
   "Documentation Required"
+
+define "Coverage Info Inner Extensions":
+  Flatten({
+    {
+      FHIR.Extension {
+        url: FHIR.uri { value: 'covered' },
+        value: FHIR.code { value: "Covered" }
+      },
+      FHIR.Extension {
+        url: FHIR.uri { value: 'pa-needed' },
+        value: FHIR.code { value: "PA Needed" }
+      }
+    },
+    if "Doc Needed" is not null then
+      {
+        FHIR.Extension {
+          url: FHIR.uri { value: 'doc-needed' },
+          value: FHIR.code { value: "Doc Needed" }
+        }
+      }
+    else {}
+    ,
+    if "Questionnaires" is not null then
+      "Questionnaires"
+    else {}
+    ,
+    {
+      FHIR.Extension {
+        url: FHIR.uri { value: 'reason' },
+        value: FHIR.CodeableConcept { text: FHIR.string { value: "Coverage Reason" } }
+      }
+    }
+  })
+
+define "Coverage Info Extension":
+  Extension {
+      url: FHIR.uri { value: 'http://hl7.org/fhir/us/davinci-crd/StructureDefinition/ext-coverage-information' },
+      extension: "Coverage Info Inner Extensions"
+  }
