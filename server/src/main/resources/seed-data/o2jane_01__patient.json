@@ -1,0 +1,39 @@
+{
+  "resourceType": "Patient",
+  "id": "pat016",
+  "gender": "female",
+  "birthDate": "1976-02-23",
+  "address": [
+    {
+      "use": "home",
+      "type": "both",
+      "state": "NY",
+      "city": "Buffalo",
+      "postalCode": "14203",
+      "line": ["55 E Huron Street"]
+    }
+  ],
+  "name": [
+    {
+      "use": "official",
+      "family": "Wilson",
+      "given": ["Ada", "Lovelace", "Wilson"]
+    }
+  ],
+  "identifier" : [
+    {
+      "use" : "usual",
+      "type" : {
+        "coding" : [
+          {
+            "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code" : "MR"
+          }
+        ],
+        "text" : "Medical Record Number"
+      },
+      "system" : "http://hl7.org/fhir/sid/us-medicare",
+      "value" : "0M981276431AA"
+    }
+  ]
+}

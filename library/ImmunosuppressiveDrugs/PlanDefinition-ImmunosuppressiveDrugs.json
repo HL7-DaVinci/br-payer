@@ -104,44 +104,6 @@
             "expression": "Coverage Info Extension"
           }
         }
-      ],
-      "action": [
-        {
-          "id": "questionnaire-order",
-          "dynamicValue": [
-            {
-              "path": "action.resource.reference",
-              "expression": {
-                "language": "text/cql-identifier",
-                "expression": "Questionnaire Order Url"
-              }
-            }
-          ]
-        },
-        {
-          "id": "questionnaire-dispense",
-          "dynamicValue": [
-            {
-              "path": "action.resource.reference",
-              "expression": {
-                "language": "text/cql-identifier",
-                "expression": "Questionnaire Dispense Url"
-              }
-            }
-          ]
-        },
-        {
-          "id": "questionnaire-progress-note",
-          "dynamicValue": [
-            {
-              "path": "action.resource.reference",
-              "expression": {
-                "language": "text/cql-identifier",
-                "expression": "Questionnaire Progress Note Url"
-              }
-            }
-          ]
-        }
       ]
     }
   ]

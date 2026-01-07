@@ -6,6 +6,8 @@ import java.util.List;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.MedicationRequest;
+import org.hl7.fhir.r4.model.MedicationStatement;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Practitioner;
@@ -26,6 +28,8 @@ public class HookResourceContext {
   private List<Organization> organizations = new ArrayList<>();
   private List<Resource> orders = new ArrayList<>();
   private List<Appointment> appointments = new ArrayList<>();
+  private List<MedicationStatement> medicationStatements = new ArrayList<>();
+  private List<MedicationRequest> medicationHistory = new ArrayList<>();
   private Task task;
 
   public Patient getPatient() {
@@ -118,5 +122,29 @@ public class HookResourceContext {
 
   public void setTask(Task task) {
     this.task = task;
+  }
+
+  public List<MedicationStatement> getMedicationStatements() {
+    return medicationStatements;
+  }
+
+  public void setMedicationStatements(List<MedicationStatement> medicationStatements) {
+    this.medicationStatements = medicationStatements;
+  }
+
+  public void addMedicationStatement(MedicationStatement medicationStatement) {
+    this.medicationStatements.add(medicationStatement);
+  }
+
+  public List<MedicationRequest> getMedicationHistory() {
+    return medicationHistory;
+  }
+
+  public void setMedicationHistory(List<MedicationRequest> medicationHistory) {
+    this.medicationHistory = medicationHistory;
+  }
+
+  public void addMedicationHistory(MedicationRequest medicationRequest) {
+    this.medicationHistory.add(medicationRequest);
   }
 }

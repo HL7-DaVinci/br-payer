@@ -1,0 +1,51 @@
+{
+  "resourceType": "ServiceRequest",
+  "id": "servreq-pat014-hhs",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/profile-servicerequest"
+    ]
+  },
+  "basedOn": [
+    {
+      "reference": "CarePlan/careplan-pat014-hhs"
+    }
+  ],
+  "status": "draft",
+  "intent": "order",
+  "code": {
+    "coding": [
+      {
+        "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+        "code": "G0180",
+        "display": "Medicare-covered home health services under a home health plan of care"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/pat014"
+  },
+  "encounter": {
+    "reference": "Encounter/enc-pat014-hhs"
+  },
+  "occurrenceDateTime": "2020-06-08",
+  "authoredOn": "2020-06-08",
+  "requester": {
+    "display": "Smythe Juliette, MD"
+  },
+  "performer": [
+    {
+      "reference": "Practitioner/pra1255"
+    }
+  ],
+  "insurance": [
+    {
+      "reference": "Coverage/cov014"
+    }
+  ],
+  "relevantHistory": [
+    {
+      "reference": "Provenance/provenance-pat014-hhs"
+    }
+  ]
+}

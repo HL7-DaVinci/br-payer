@@ -12,6 +12,7 @@ import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.MedicationRequest;
+import org.hl7.fhir.r4.model.MedicationStatement;
 import org.hl7.fhir.r4.model.NutritionOrder;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
@@ -303,7 +304,7 @@ public class ResourceResolver {
       }
     }
 
-    // Extract performer (from order-dispatch)
+    // Extract performer
     Object performerPrefetch = request.getPrefetch("performer");
     if (performerPrefetch instanceof Practitioner practitioner) {
       context.addPractitioner(practitioner);
@@ -323,9 +324,21 @@ public class ResourceResolver {
       context.setAppointments(extractFromBundle(appointmentsBundle, Appointment.class));
     }
 
-    // Extract task (from order-dispatch)
+    // Extract task
     Task task = (Task) request.getContext().get("task");
     context.setTask(task);
+
+    // Extract medications
+    Bundle medicationsBundle = (Bundle) request.getPrefetch("medications");
+    if (medicationsBundle != null) {
+      context.setMedicationStatements(extractFromBundle(medicationsBundle, MedicationStatement.class));
+    }
+
+    // Extract medication history
+    Bundle medicationHistoryBundle = (Bundle) request.getPrefetch("medicationHistory");
+    if (medicationHistoryBundle != null) {
+      context.setMedicationHistory(extractFromBundle(medicationHistoryBundle, MedicationRequest.class));
+    }
 
     return context;
   }

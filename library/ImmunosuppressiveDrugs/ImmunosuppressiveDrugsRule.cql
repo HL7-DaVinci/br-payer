@@ -1,15 +1,70 @@
 library ImmunosuppressiveDrugsRule version '1.0.0'
 using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1' called FHIRHelpers
-
-parameter medication_request MedicationRequest
-parameter medication_dispense MedicationDispense
-parameter medication_statement MedicationStatement
+include CRDHelpers version '1.0.0' called CRD
+include CoverageExtensions version '1.0.0' called Ext
 
 context Patient
 
+// ============================================================
+// ORDER EXTRACTION
+// ============================================================
+
+define "Medication Requests":
+  [MedicationRequest]
+
+define "Medication Request":
+  First("Medication Requests")
+
+define "Medication Dispenses":
+  [MedicationDispense]
+
+define "Medication Dispense":
+  First("Medication Dispenses")
+
+define "Medication Statements":
+  [MedicationStatement]
+
+define "Medication Statement":
+  First("Medication Statements")
+
+define "Requested Medication Coding":
+  Coalesce(
+    CRD."Get Medication Code"("Medication Request"),
+    if "Medication Dispense".medication is CodeableConcept then
+      ("Medication Dispense".medication as CodeableConcept).coding
+    else null
+  )
+
+define "Statement Medication Coding":
+  if "Medication Statement".medication is CodeableConcept then
+    ("Medication Statement".medication as CodeableConcept).coding
+  else null
+
+// ============================================================
+// COVERAGE INFORMATION
+// ============================================================
+
+define "Coverage":
+  First([Coverage])
+
+define "Coverage Reference":
+  FHIR.Reference {
+    reference: FHIR.string { value: 'Coverage/' + "Coverage".id.value }
+  }
+
+define "Assertion Date":
+  Today()
+
+define "Assertion ID":
+  'immuno-drugs-' + ToString("Assertion Date") + '-' + "Coverage".id.value
+
+// ============================================================
+// COVERAGE DETERMINATION LOGIC
+// ============================================================
+
 define "Rule Applies":
-    true
+  true
 
 define "Prior Authorization Required":
   false
@@ -17,17 +72,29 @@ define "Prior Authorization Required":
 define "Documentation Required":
   true
 
-define "Info Link":
-    'https://www.cms.gov/Outreach-and-Education/Medicare-Learning-Network-MLN/MLNProducts/Downloads/ProviderComplianceTipsforHospitalBedsandAccessories-ICN909476.pdf'
+define "Medication Code":
+  CRD."Get First Code"("Requested Medication Coding")
 
-define "Questionnaire Order Url":
-    'Questionnaire/ImmunosuppressiveDrugs'
+define "Medication Statement Code":
+  CRD."Get First Code"("Statement Medication Coding")
 
-define "Questionnaire Dispense Url":
-    'Questionnaire/ImmunosuppressiveDrugs'
+define "Alternative Therapy":
+  if "Medication Code" in { '105611', '239983' }
+  then Code { code: '197388', display: 'Azathioprine 50 MG Oral', system: 'http://www.nlm.nih.gov/research/umls/rxnorm' }
+  else null
 
-define "Questionnaire Progress Note Url":
-    'Questionnaire/ImmunosuppressiveDrugsProgressNote'
+define "Drug Interaction":
+  if "Medication Code" in { '105585' }
+    and "Medication Statement Code" in { '105611', '197388', '239983' }
+    then true
+  else if "Medication Code" in { '105611', '197388', '239983' }
+    and "Medication Statement Code" in { '105585' }
+    then true
+  else false
+
+// ============================================================
+// CARD CONTENT
+// ============================================================
 
 define "Get Summary":
   if "Documentation Required" then
@@ -39,111 +106,66 @@ define "Get Detail":
   if "Alternative Therapy" is not null then
     'Alternative therapy available: ' + "Alternative Therapy".display
   else if "Drug Interaction" then
-    'Drug interaction detected between requested medication and current medications'
+    'Drug interaction detected between requested medication (' +
+    CRD."Codes To String"("Requested Medication Coding") +
+    ') and current medications (' +
+    CRD."Codes To String"("Statement Medication Coding") + ').'
   else
-    'Immunosuppressive drug coverage evaluation'
+    'Immunosuppressive drug coverage evaluation for ' +
+    CRD."Codes To String"("Requested Medication Coding") + '.'
+
+// ============================================================
+// COVERAGE EXTENSION VALUES
+// ============================================================
 
 define "Covered":
   'covered'
 
 define "PA Needed":
-  if "Prior Authorization Required" then 'auth-needed' else 'no-auth'
+  if "Prior Authorization Required" then 'auth-needed' else null
 
 define "Doc Needed":
-  if "Documentation Required" then 'clinical' else null
+  if "Documentation Required" then { 'clinical' } else null
 
+// doc-purpose: withpa | withclaim | withorder | retain-doc | OTH
+define "Doc Purpose":
+  if "Documentation Required" then { 'withorder' } else null
+
+define "Info Needed":
+  null as List<String>
+
+define "Questionnaire URLs":
+  { 
+    'Questionnaire/ImmunosuppressiveDrugs',
+    'Questionnaire/ImmunosuppressiveDrugsProgressNote' 
+  }
+
+// reason: CodeableConcept (use text-only for custom reasons)
 define "Coverage Reason":
   if "Alternative Therapy" is not null then
-    'Alternative therapy recommended: ' + "Alternative Therapy".display
+    { Ext."Reason From Text"('Alternative therapy recommended: ' + "Alternative Therapy".display) }
   else if "Drug Interaction" then
-    'Drug interaction detected - review required'
+    { Ext."Reason From Text"('Drug interaction detected - review required') }
   else if "Documentation Required" then
-    'Clinical documentation required for immunosuppressive drug coverage'
+    { Ext."Reason From Text"('Clinical documentation required for immunosuppressive drug coverage') }
   else
-    'Standard coverage applies'
+    { Ext."Reason From Text"('Standard coverage applies') }
 
-define "Questionnaires":
-  {
-    FHIR.Extension {
-      url: FHIR.uri { value: 'questionnaire' },
-      value: FHIR.canonical { value: "Questionnaire Order Url" }
-    },
-    FHIR.Extension {
-      url: FHIR.uri { value: 'questionnaire' },
-      value: FHIR.canonical { value: "Questionnaire Progress Note Url" }
-    }
-  }
-
-define "Coverage Info Inner Extensions":
-  Flatten({
-    {
-      FHIR.Extension {
-        url: FHIR.uri { value: 'covered' },
-        value: FHIR.code { value: "Covered" }
-      },
-      FHIR.Extension {
-        url: FHIR.uri { value: 'pa-needed' },
-        value: FHIR.code { value: "PA Needed" }
-      }
-    },
-    if "Doc Needed" is not null then
-      {
-        FHIR.Extension {
-          url: FHIR.uri { value: 'doc-needed' },
-          value: FHIR.code { value: "Doc Needed" }
-        }
-      }
-    else {}
-    ,
-    "Questionnaires",
-    {
-      FHIR.Extension {
-        url: FHIR.uri { value: 'reason' },
-        value: FHIR.CodeableConcept { text: FHIR.string { value: "Coverage Reason" } }
-      }
-    }
-  })
+// ============================================================
+// FINAL EXTENSION (using shared builder)
+// ============================================================
 
 define "Coverage Info Extension":
-  FHIR.Extension {
-    url: FHIR.uri { value: 'http://hl7.org/fhir/us/davinci-crd/StructureDefinition/ext-coverage-information' },
-    extension: "Coverage Info Inner Extensions"
-  }
-
-define "Requested Medication":
-  medication_request
-
-define "Dispensed Medication":
-  medication_dispense
-
-define "Medication Coding From Parameter":
-  Coalesce(medication_request.medication.coding, medication_dispense.medication.coding)
-
-define "Medication Statement Coding From Parameter":
-  medication_statement.medication.coding
-
-define "Medication Code":
-  First("Medication Coding From Parameter").code.value
-
-define "Medication Statement Code":
-  First("Medication Statement Coding From Parameter").code.value
-  
-define "Alternative Therapy":
-  if "Medication Code" in { '105611', '239983' }
-  then Code { code: '197388', display: 'Azathioprine 50 MG Oral', system: 'http://www.nlm.nih.gov/research/umls/rxnorm' }
-  else null
-
-define "Drug Interaction":
-  if "Medication Code" in { '105585' } 
-    and "Medication Statement Code" in { '105611', '197388', '239983' }
-    then true
-  else if "Medication Code" in { '105611', '197388', '239983' } 
-    and "Medication Statement Code" in { '105585' }
-    then true
-  else false
-
-define "Requested Drug Code":
-  "Medication Coding From Parameter"
-
-define "Statement Drug Code":
-  "Medication Statement Coding From Parameter"
+  Ext."Build Coverage Info Extension"(
+    "Coverage Reference",
+    "Covered",
+    "Assertion Date",
+    "Assertion ID",
+    "PA Needed",
+    "Doc Needed",
+    "Doc Purpose",
+    "Info Needed",
+    "Questionnaire URLs",
+    "Coverage Reason",
+    "Requested Medication Coding"
+  )

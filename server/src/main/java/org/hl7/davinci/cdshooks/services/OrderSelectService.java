@@ -3,12 +3,12 @@ package org.hl7.davinci.cdshooks.services;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.cdshooks.shared.CdsServiceBase;
 import org.hl7.davinci.cdshooks.shared.HookResourceContext;
 import org.hl7.fhir.r4.model.Resource;
 
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
-import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import ca.uhn.hapi.fhir.cdshooks.api.CdsPrefetchFailureMode;
 import ca.uhn.hapi.fhir.cdshooks.api.CdsService;
 import ca.uhn.hapi.fhir.cdshooks.api.CdsServicePrefetch;
@@ -21,10 +21,22 @@ public class OrderSelectService extends CdsServiceBase {
 
   private List<String> selections;
 
-  @CdsService(value = "order-select-crd", hook = "order-select", title = "CRD Order Select Hook", description = "CRD order-select hook for early coverage requirements discovery", allowAutoFhirClientPrefetch = true, prefetch = {
-      @CdsServicePrefetch(value = "user", query = "{{context.userId}}", failureMode = CdsPrefetchFailureMode.OMIT),
+  @CdsService(
+    value = "order-select-crd",
+    hook = "order-select",
+    title = "CRD Order Select Hook",
+    description = "Indicates coverage requirements associated with draft orders, including expectations for prior authorization, recommended therapy alternatives, etc.",
+    allowAutoFhirClientPrefetch = true,
+    prefetch = {
       @CdsServicePrefetch(value = "patient", query = "Patient/{{context.patientId}}"),
-      @CdsServicePrefetch(value = "coverage", query = "Coverage?patient={{context.patientId}}")
+      @CdsServicePrefetch(value = "coverage", query = "Coverage?patient={{context.patientId}}&status=active"),
+      @CdsServicePrefetch(value = "encounter", query = "Encounter/{{context.encounterId}}", failureMode = CdsPrefetchFailureMode.OMIT),
+      @CdsServicePrefetch(value = "practitionerRoles", query = "PractitionerRole?practitioner={{context.userId}}", failureMode = CdsPrefetchFailureMode.OMIT),
+      @CdsServicePrefetch(value = "practitioner", query = "Practitioner/{{context.userId}}", failureMode = CdsPrefetchFailureMode.OMIT),
+      // Historical orders for duplicate therapy detection, step therapy, and frequency limits
+      @CdsServicePrefetch(value = "deviceHistory", query = "DeviceRequest?patient={{context.patientId}}&status=active,on-hold,completed", failureMode = CdsPrefetchFailureMode.OMIT),
+      @CdsServicePrefetch(value = "medicationHistory", query = "MedicationRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT),
+      @CdsServicePrefetch(value = "serviceHistory", query = "ServiceRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT)
   })
   public CdsServiceResponseJson handleRequest(CdsServiceRequestJson request) {
     this.selections = extractSelections(request);
@@ -38,18 +50,18 @@ public class OrderSelectService extends CdsServiceBase {
 
   @Override
   protected void validateResourceContext(HookResourceContext context) {
-    if (context.getPatient() == null) {
-      throw new InvalidRequestException("Patient is required");
-    }
-    if (context.getCoverage() == null) {
-      throw new InvalidRequestException(
-          "Coverage is required - CRD clients must provide the primary coverage");
-    }
+    // Patient validation is handled by HAPI prefetch layer (no failureMode.OMIT)
+    // Coverage is optional for supporting hooks - if missing, base class returns empty response
+
     if (context.getOrders().isEmpty()) {
-      throw new InvalidRequestException("draftOrders context is required");
+      throw new CdsHooksException.BadRequestException(
+        "draftOrders context is required but was empty or missing."
+      );
     }
     if (selections == null || selections.isEmpty()) {
-      throw new InvalidRequestException("selections context is required");
+      throw new CdsHooksException.BadRequestException(
+        "selections context is required but was empty or missing."
+      );
     }
   }
 

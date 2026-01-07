@@ -1,0 +1,39 @@
+{
+  "resourceType": "Patient",
+  "id": "pat013",
+  "gender": "male",
+  "birthDate": "1956-12-01",
+  "address": [
+    {
+      "use": "home",
+      "type": "both",
+      "state": "VA",
+      "city": "Reston",
+      "postalCode": "20190",
+      "line": ["11951 Freedom Drive Suite 1322"]
+    }
+  ],
+  "name": [
+    {
+      "use": "official",
+      "family": "Quinton",
+      "given": ["Vlad", "Alan", "Nestor"]
+    }
+  ],
+  "identifier" : [
+    {
+      "use" : "usual",
+      "type" : {
+        "coding" : [
+          {
+            "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code" : "MR"
+          }
+        ],
+        "text" : "Medical Record Number"
+      },
+      "system" : "http://hl7.org/fhir/sid/us-medicare",
+      "value" : "0M987654001AZ"
+    }
+  ]
+}

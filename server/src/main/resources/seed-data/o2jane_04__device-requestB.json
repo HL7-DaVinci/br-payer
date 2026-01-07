@@ -1,0 +1,35 @@
+{
+  "resourceType": "DeviceRequest",
+  "id": "devreq236",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/profile-devicerequest"
+    ]
+  },
+  "status": "draft",
+  "intent": "original-order",
+  "codeCodeableConcept": {
+    "coding": [
+      {
+        "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+        "code": "E0607",
+        "display": "Home blood glucose monitor"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/pat016"
+  },
+  "authoredOn": "2023-01-01T00:00:00Z",
+  "requester": {
+    "reference": "Practitioner/pra-hfairchild"
+  },
+  "performer": {
+    "reference": "Practitioner/pra1234"
+  },
+  "insurance": [
+    {
+      "reference": "Coverage/cov016"
+    }
+  ]
+}

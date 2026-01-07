@@ -6,7 +6,7 @@
   "name": "HospitalBedsAndAccessories",
   "title": "Hospital Beds and Accessories",
   "status": "active",
-  "description": "Hospital Beds and Accessories devices",
+  "description": "Hospital Beds and Accessories devices - provides coverage guidance with hook-specific behavior for order-select (alternatives) and order-sign (documentation requirements)",
   "useContext": [
     {
       "code": {
@@ -45,6 +45,14 @@
           {
             "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
             "code": "E0251"
+          },
+          {
+            "system": "http://bluebutton.cms.gov/resources/codesystem/hcpcs",
+            "code": "E0250"
+          },
+          {
+            "system": "http://bluebutton.cms.gov/resources/codesystem/hcpcs",
+            "code": "E0251"
           }
         ]
       }
@@ -55,6 +63,100 @@
   ],
   "action": [
     {
+      "id": "alternative-suggestion",
+      "title": "Alternative Therapy Suggestion",
+      "description": "Suggest lower-cost alternatives during order selection",
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "CRD order-select: Early guidance before provider commits to an order"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "order-select"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Has Lower Cost Alternative"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Alternative Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Alternative Detail"
+          }
+        }
+      ]
+    },
+    {
+      "id": "documentation-warning",
+      "title": "Documentation Warning",
+      "description": "Warn about missing documentation at order signing",
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "CRD order-sign: Final check before order is submitted"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "order-sign"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Missing Required Documentation"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Documentation Warning Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Documentation Warning Detail"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coverage-info",
+      "title": "Coverage Information",
+      "description": "General coverage determination for both hooks",
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "Medicare Hospital Bed Coverage Policy",
+          "url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33820"
+        }
+      ],
       "trigger": [
         {
           "type": "named-event",
@@ -70,7 +172,7 @@
           "kind": "applicability",
           "expression": {
             "language": "text/cql-identifier",
-            "expression": "Rule Applies"
+            "expression": "Requires Coverage Determination"
           }
         }
       ],

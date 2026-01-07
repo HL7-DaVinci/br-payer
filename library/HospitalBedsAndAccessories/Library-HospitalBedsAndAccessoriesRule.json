@@ -20,6 +20,23 @@
       "url": "HospitalBedsAndAccessoriesRule.cql"
     }
   ],
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "CRD Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CRDHelpers|1.0.0"
+    },
+    {
+      "type": "depends-on",
+      "display": "Coverage Extensions",
+      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CoverageExtensions|1.0.0"
+    }
+  ],
   "dataRequirement": [
     {
       "type": "DeviceRequest",

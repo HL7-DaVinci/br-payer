@@ -1,0 +1,38 @@
+{
+  "resourceType": "DeviceRequest",
+  "id": "devreqe0470",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/profile-devicerequest"
+    ]
+  },
+  "status": "draft",
+  "intent": "original-order",
+  "codeCodeableConcept": {
+    "coding": [
+      {
+        "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+        "code": "E0470",
+        "display": "Respiratory Assist Device"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/pat015"
+  },
+  "encounter": {
+    "reference": "Encounter/pat015-rad-encounter"
+  },
+  "authoredOn": "2020-03-08",
+  "requester": {
+    "reference": "Practitioner/pra1234"
+  },
+  "performer": {
+    "reference": "Practitioner/pra1234"
+  },
+  "insurance": [
+    {
+      "reference": "Coverage/cov015"
+    }
+  ]
+}

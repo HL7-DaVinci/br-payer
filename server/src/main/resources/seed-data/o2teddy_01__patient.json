@@ -1,0 +1,39 @@
+{
+  "resourceType": "Patient",
+  "id": "pat014",
+  "gender": "male",
+  "birthDate": "1946-07-04",
+  "address": [
+    {
+      "use": "home",
+      "type": "both",
+      "state": "VA",
+      "city": "McLean",
+      "postalCode": "22102",
+      "line": ["7525 Colshire Dr"]
+    }
+  ],
+  "name": [
+    {
+      "use": "official",
+      "family": "Roosevelt",
+      "given": ["Theodor", "Alan", "Roosevelt"]
+    }
+  ],
+  "identifier" : [
+    {
+      "use" : "usual",
+      "type" : {
+        "coding" : [
+          {
+            "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code" : "MR"
+          }
+        ],
+        "text" : "Medical Record Number"
+      },
+      "system" : "http://hl7.org/fhir/sid/us-medicare",
+      "value" : "0M846129001NF"
+    }
+  ]
+}

@@ -42,3 +42,6 @@ Thumbs.db
 .nx/workspace-data
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
+
+# VS Code CQL extension that wants all the CQL to be in /input/cql so this is to ignore symlinks we may have for that
+input

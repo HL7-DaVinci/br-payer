@@ -40,6 +40,7 @@ initial-data:
   - examples-crd
   - examples-dtr
   - examples-pas
+  - seed-data
   - library  # CQL-related resources copied from /library folder in project root
 
 spring:
@@ -244,7 +245,7 @@ hapi:
           # require_from_keyword: false
           # disable_default_model_info_load: false
         runtime:
-          debug_logging_enabled: false
+          debug_logging_enabled: true
           # enable_validation: false
           # enable_expression_caching: true
       terminology:
@@ -457,9 +458,3 @@ hapi:
     # R. LastN (analytics)
     # -------------------------------------------------------------------------------
     # lastn_enabled: true
-
-
-    # -------------------------------------------------------------------------------
-    # Custom properties
-    # -------------------------------------------------------------------------------
-    dtr_launch_url: http://localhost:3005/launch
