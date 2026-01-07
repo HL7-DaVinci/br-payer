@@ -1,0 +1,362 @@
+{
+  "hookInstance": "d1577c69-dfbe-44ad-ba6d-3e05e953b2ea",
+  "fhirServer": "http://localhost:8080/fhir",
+  "hook": "order-sign",
+  "fhirAuthorization": {
+    "access_token": "exampleAccess",
+    "token_type": "Bearer",
+    "expires_in": 300,
+    "scope": "patient/Patient.read patient/Observation.read",
+    "subject": "cds-service4"
+  },
+  "context": {
+    "userId": "prov123",
+    "patientId": "pat015",
+    "encounterId": "enc89284",
+    "draftOrders": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "urn:uuid:f08533e0-f825-462a-a2d5-57b69f509138",
+          "resource": {
+            "resourceType": "DeviceRequest",
+            "id": "devreq-015-e0250",
+            "meta": {
+              "versionId": "1",
+              "lastUpdated": "2022-12-13T18:26:16.792-08:00",
+              "source": "#JgMPUKNHJZA6NSYf",
+              "profile": [
+                "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/profile-devicerequest"
+              ]
+            },
+            "identifier": [
+              {
+                "type": {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                      "code": "PLAC"
+                    }
+                  ]
+                },
+                "value": "822596c2-8308-4b7e-beeb-0d42b4f968b7"
+              }
+            ],
+            "status": "draft",
+            "intent": "original-order",
+            "codeCodeableConcept": {
+              "coding": [
+                {
+                  "system": "https://bluebutton.cms.gov/resources/codesystem/hcpcs",
+                  "code": "E0250",
+                  "display": "Hospital bed fixed height with any type of side rails, mattress"
+                }
+              ]
+            },
+            "authoredOn": "2016-06-10T11:01:10-08:00",
+            "subject": {
+              "reference": "Patient/pat015"
+            },
+            "performer": {
+              "reference": "Practitioner/pra1234"
+            },
+            "requester": {
+              "reference": "Practitioner/example"
+            },
+            "insurance": [
+              {
+                "reference": "Coverage/cov015"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "extension": {
+    "davinci-crd.configuration": {
+      "alt-drug": true
+    }
+  },
+  "prefetch": {
+    "deviceRequestBundle": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/test-ehr/r4/DeviceRequest/devreq-015-e0250",
+          "resource": {
+            "resourceType": "DeviceRequest",
+            "id": "devreq-015-e0250",
+            "meta": {
+              "versionId": "1",
+              "lastUpdated": "2022-12-13T18:26:16.792-08:00",
+              "source": "#JgMPUKNHJZA6NSYf",
+              "profile": [
+                "http://hl7.org/fhir/us/davinci-crd/R4/StructureDefinition/profile-devicerequest-r4"
+              ]
+            },
+            "identifier": [
+              {
+                "type": {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                      "code": "PLAC"
+                    }
+                  ]
+                },
+                "value": "822596c2-8308-4b7e-beeb-0d42b4f968b7"
+              }
+            ],
+            "status": "draft",
+            "codeCodeableConcept": {
+              "coding": [
+                {
+                  "system": "https://bluebutton.cms.gov/resources/codesystem/hcpcs",
+                  "code": "E0250",
+                  "display": "Hospital bed fixed height with any type of side rails, mattress"
+                }
+              ]
+            },
+            "subject": {
+              "reference": "Patient/pat015"
+            },
+            "performer": {
+              "reference": "Practitioner/pra1234"
+            },
+            "insurance": [
+              {
+                "reference": "Coverage/cov015"
+              }
+            ]
+          },
+          "search": {
+            "mode": "match"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/test-ehr/r4/Practitioner/pra1234",
+          "resource": {
+            "resourceType": "Practitioner",
+            "id": "pra1234",
+            "meta": {
+              "versionId": "1",
+              "lastUpdated": "2022-12-13T18:26:16.094-08:00",
+              "source": "#k2utdg6O62ctYy7h",
+              "profile": [
+                "http://hl7.org/fhir/us/core/StructureDefinition/us-core-practitioner"
+              ]
+            },
+            "identifier": [
+              {
+                "system": "http://hl7.org/fhir/sid/us-npi",
+                "value": "1122334455"
+              }
+            ],
+            "name": [
+              {
+                "use": "official",
+                "family": "Doe",
+                "given": [
+                  "Jane",
+                  "Betty"
+                ],
+                "prefix": [
+                  "Dr."
+                ]
+              }
+            ],
+            "telecom": [
+              {
+                "system": "phone",
+                "value": "716-873-1557"
+              },
+              {
+                "system": "email",
+                "value": "jane.betty@myhospital.com"
+              }
+            ],
+            "address": [
+              {
+                "use": "home",
+                "type": "both",
+                "line": [
+                  "840 Seneca St"
+                ],
+                "city": "Buffalo",
+                "state": "NY",
+                "postalCode": "14210"
+              }
+            ],
+            "qualification": [
+              {
+                "identifier": [
+                  {
+                    "system": "http://example.org/UniversityIdentifier",
+                    "value": "12345"
+                  }
+                ],
+                "code": {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0360/2.7",
+                      "code": "MD",
+                      "display": "Doctor of Medicine"
+                    }
+                  ],
+                  "text": "Doctor of Medicine"
+                },
+                "period": {
+                  "start": "1995"
+                },
+                "issuer": {
+                  "display": "Example University"
+                }
+              }
+            ]
+          },
+          "search": {
+            "mode": "include"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/test-ehr/r4/Patient/pat015",
+          "resource": {
+            "resourceType": "Patient",
+            "id": "pat015",
+            "meta": {
+              "versionId": "1",
+              "lastUpdated": "2022-12-13T18:26:16.514-08:00",
+              "source": "#UsS2UTKWttbxD92p"
+            },
+            "text": {
+              "status": "generated",
+              "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><div class=\"hapiHeaderText\">William Hale Oster <b>OSTER </b></div><table class=\"hapiPropertyTable\"><tbody><tr><td>Identifier</td><td>0M34355006FW</td></tr><tr><td>Address</td><td><span>202 Burlington Road </span><br/><span>Bedford </span><span>MA </span></td></tr><tr><td>Date of birth</td><td><span>23 February 2015</span></td></tr></tbody></table></div>"
+            },
+            "identifier": [
+              {
+                "use": "usual",
+                "type": {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                      "code": "MR"
+                    }
+                  ],
+                  "text": "Medical Record Number"
+                },
+                "system": "http://hospital.smarthealthit.org",
+                "value": "1032702"
+              }
+            ],
+            "name": [
+              {
+                "use": "official",
+                "family": "Oster",
+                "given": [
+                  "William",
+                  "Hale",
+                  "Oster"
+                ]
+              }
+            ],
+            "telecom": [
+              {
+                "system": "phone",
+                "value": "(781) 555-5555",
+                "use": "home",
+                "rank": 1
+              },
+              {
+                "system": "phone",
+                "value": "(781) 555 5613",
+                "use": "work",
+                "rank": 2
+              },
+              {
+                "system": "phone",
+                "value": "(781) 555 8834",
+                "use": "old",
+                "period": {
+                  "end": "2014"
+                }
+              }
+            ],
+            "gender": "male",
+            "birthDate": "2015-02-23",
+            "address": [
+              {
+                "use": "home",
+                "type": "both",
+                "line": [
+                  "202 Burlington Road"
+                ],
+                "city": "Bedford",
+                "state": "MA",
+                "postalCode": "01730"
+              }
+            ]
+          },
+          "search": {
+            "mode": "include"
+          }
+        }
+      ]
+    },
+    "coverageBundle": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/test-ehr/r4/Coverage/cov015",
+          "resource": {
+            "resourceType": "Coverage",
+            "id": "cov015",
+            "meta": {
+              "versionId": "1",
+              "lastUpdated": "2022-12-13T18:26:16.553-08:00",
+              "source": "#rGmDbpF3EOunjKKP"
+            },
+            "status": "active",
+            "subscriberId": "10A3D58WH456",
+            "beneficiary": {
+              "reference": "Patient/pat015"
+            },
+            "relationship": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/subscriber-relationship",
+                  "code": "self"
+                }
+              ]
+            },
+            "payor": [
+              {
+                "reference": "Organization/org1234"
+              }
+            ],
+            "class": [
+              {
+                "type": {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+                      "code": "group"
+                    }
+                  ]
+                },
+                "value": "CB135",
+                "name": "Corporate Baker's Inc. Local #35"
+              }
+            ]
+          },
+          "search": {
+            "mode": "match"
+          }
+        }
+      ]
+    }
+  }
+}

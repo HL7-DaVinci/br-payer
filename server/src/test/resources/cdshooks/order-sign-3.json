@@ -1,0 +1,99 @@
+{
+  "hookInstance": "d1577c69-dfbe-44ad-ba6d-3e05e953b2ea",
+  "hook": "order-sign",
+  "fhirServer": "http://localhost:8080/fhir",
+  "context": {
+    "userId": "Practitioner/full",
+    "patientId": "123",
+    "draftOrders": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "resource": {
+            "resourceType": "DeviceRequest",
+            "id": "device-request-1",
+            "status": "draft",
+            "intent": "order",
+            "codeCodeableConcept": {
+              "coding": [
+                {
+                  "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                  "code": "E0250",
+                  "display": "Hospital bed, fixed height, with any type side rails, with mattress"
+                }
+              ]
+            },
+            "subject": {
+              "reference": "Patient/123"
+            },
+            "authoredOn": "2024-01-15",
+            "requester": {
+              "reference": "Practitioner/full"
+            }
+          }
+        },
+        {
+          "resource": {
+            "resourceType": "DeviceRequest",
+            "id": "device-request-1",
+            "status": "draft",
+            "intent": "order",
+            "codeCodeableConcept": {
+              "coding": [
+                {
+                  "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                  "code": "E0251",
+                  "display": "Hospital bed, fixed height, with any type side rails, with mattress"
+                }
+              ]
+            },
+            "subject": {
+              "reference": "Patient/123"
+            },
+            "authoredOn": "2024-01-15",
+            "requester": {
+              "reference": "Practitioner/full"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "prefetch": {
+    "patient": {
+      "resourceType": "Patient",
+      "id": "123",
+      "name": [
+        {
+          "given": [
+            "John"
+          ],
+          "family": "Doe"
+        }
+      ],
+      "birthDate": "1960-05-15"
+    },
+    "coverage": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "resource": {
+            "resourceType": "Coverage",
+            "id": "coverage-1",
+            "status": "active",
+            "beneficiary": {
+              "reference": "Patient/123"
+            },
+            "payor": [
+              {
+                "reference": "Organization/cms"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
