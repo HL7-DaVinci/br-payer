@@ -1,12 +1,12 @@
 {
   "resourceType": "PlanDefinition",
-  "id": "HospitalBedsAndAccessories",
-  "url": "http://example.org/fhir/PlanDefinition/HospitalBedsAndAccessories",
+  "id": "CardiologyConsultation",
+  "url": "http://example.org/fhir/PlanDefinition/CardiologyConsultation",
   "version": "1.0.0",
-  "name": "HospitalBedsAndAccessories",
-  "title": "Hospital Beds and Accessories",
+  "name": "CardiologyConsultation",
+  "title": "Cardiology Consultation Appointment",
   "status": "active",
-  "description": "Hospital Beds and Accessories devices - provides coverage guidance with hook-specific behavior for order-select (alternatives) and order-sign (documentation requirements)",
+  "description": "Coverage requirements for scheduling cardiology consultation appointments. Checks for referral requirements and provides network information.",
   "useContext": [
     {
       "code": {
@@ -23,10 +23,6 @@
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
             "code": "1234567893"
-          },
-          {
-            "system": "http://hl7.org/fhir/sid/us-npi",
-            "code": "8189991234"
           }
         ]
       }
@@ -39,43 +35,42 @@
       "valueCodeableConcept": {
         "coding": [
           {
-            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
-            "code": "E0250"
+            "system": "http://snomed.info/sct",
+            "code": "394579002",
+            "display": "Cardiology"
           },
           {
-            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
-            "code": "E0251"
+            "system": "http://snomed.info/sct",
+            "code": "3950001",
+            "display": "Cardiology consultation"
           },
           {
-            "system": "http://bluebutton.cms.gov/resources/codesystem/hcpcs",
-            "code": "E0250"
-          },
-          {
-            "system": "http://bluebutton.cms.gov/resources/codesystem/hcpcs",
-            "code": "E0251"
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99243",
+            "display": "Office consultation for a new or established patient"
           }
         ]
       }
     }
   ],
   "library": [
-    "Library/HospitalBedsAndAccessoriesRule"
+    "Library/CardiologyConsultationRule"
   ],
   "action": [
     {
-      "id": "alternative-suggestion",
-      "title": "Alternative Therapy Suggestion",
-      "description": "Suggest lower-cost alternatives during order selection",
+      "id": "referral-reminder",
+      "title": "Referral Reminder",
+      "description": "Remind provider about referral requirements for cardiology appointments",
       "documentation": [
         {
           "type": "documentation",
-          "display": "CRD order-select: Early guidance before provider commits to an order"
+          "display": "CRD appointment-book: Referral requirements check at scheduling time"
         }
       ],
       "trigger": [
         {
           "type": "named-event",
-          "name": "order-select"
+          "name": "appointment-book"
         }
       ],
       "condition": [
@@ -83,7 +78,7 @@
           "kind": "applicability",
           "expression": {
             "language": "text/cql-identifier",
-            "expression": "Has Lower Cost Alternative"
+            "expression": "Requires Referral"
           }
         }
       ],
@@ -92,14 +87,14 @@
           "path": "action.title",
           "expression": {
             "language": "text/cql-identifier",
-            "expression": "Alternative Summary"
+            "expression": "Referral Summary"
           }
         },
         {
           "path": "action.description",
           "expression": {
             "language": "text/cql-identifier",
-            "expression": "Alternative Detail"
+            "expression": "Referral Detail"
           }
         }
       ]
@@ -107,22 +102,18 @@
     {
       "id": "coverage-info",
       "title": "Coverage Information",
-      "description": "General coverage determination for both hooks",
+      "description": "Coverage determination for cardiology consultation appointments",
       "documentation": [
         {
           "type": "documentation",
-          "display": "Medicare Hospital Bed Coverage Policy",
-          "url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33820"
+          "display": "Medicare Cardiology Services Coverage",
+          "url": "https://www.cms.gov/medicare-coverage-database"
         }
       ],
       "trigger": [
         {
           "type": "named-event",
-          "name": "order-select"
-        },
-        {
-          "type": "named-event",
-          "name": "order-sign"
+          "name": "appointment-book"
         }
       ],
       "condition": [

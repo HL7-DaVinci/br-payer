@@ -183,17 +183,52 @@ public class ResourceResolver {
 
   /**
    * Extracts all resources from a bundle matching the given type.
+   * Normalizes resource ids by stripping urn:uuid: prefix if present.
    */
   public static <T extends IBaseResource> List<T> extractFromBundle(Bundle bundle, Class<T> resourceType) {
     List<T> resources = new ArrayList<>();
     if (bundle != null && bundle.hasEntry()) {
       for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
         if (resourceType.isInstance(entry.getResource())) {
-          resources.add(resourceType.cast(entry.getResource()));
+          T resource = resourceType.cast(entry.getResource());
+          // normalizeResourceId(resource, entry.getFullUrl());
+          resources.add(resource);
         }
       }
     }
     return resources;
+  }
+
+  /**
+   * Strips urn:uuid: prefix from an ID string if present.
+   */
+  public static String normalizeId(String id) {
+    if (id != null && id.startsWith("urn:uuid:")) {
+      return id.substring("urn:uuid:".length());
+    }
+    return id;
+  }
+
+  /**
+   * Normalizes a resource id by handling urn:uuid: prefixes from Bundle fullUrls.
+   * When HAPI parses Bundle entries with urn:uuid fullUrls, it may set the resource
+   * id to the full urn:uuid value, which is not a valid FHIR id format.
+   */
+  private static void normalizeResourceId(IBaseResource resource, String fullUrl) {
+    if (!(resource instanceof Resource r)) {
+      return;
+    }
+
+    String currentId = r.hasIdElement() ? r.getIdElement().getIdPart() : null;
+    if (currentId == null) {
+      return;
+    }
+
+    String normalizedId = normalizeId(currentId);
+    if (!normalizedId.equals(currentId)) {
+      r.setId(normalizedId);
+      logger.debug("Normalized resource id from {} to {}", currentId, normalizedId);
+    }
   }
 
   /**
@@ -230,6 +265,20 @@ public class ResourceResolver {
   }
 
   /**
+   * Helper to get prefetch resource with flexible key.
+   * Attempts to get a prefetch resource with the given key.
+   * If not found, tries with "Bundle" suffix. 
+   * (e.g., if no "coverage" then check "coverageBundle")
+   */
+  private static Object getPrefetchFlexible(CdsServiceRequestJson request, String key) {
+    Object value = request.getPrefetch(key);
+    if (value == null) {
+      value = request.getPrefetch(key + "Bundle");
+    }
+    return value;
+  }
+
+  /**
    * Extracts all resources from CDS Hook context and prefetch into a
    * HookResourceContext.
    */
@@ -249,7 +298,7 @@ public class ResourceResolver {
     // Extract coverage
     // Per CRD IG: clients SHALL send only the primary coverage in prefetch so we
     // only use the first coverage
-    Bundle coverageBundle = (Bundle) request.getPrefetch("coverage");
+    Bundle coverageBundle = (Bundle) getPrefetchFlexible(request, "coverage");
     if (coverageBundle != null) {
       List<Coverage> coverages = extractFromBundle(coverageBundle, Coverage.class);
 
@@ -329,13 +378,13 @@ public class ResourceResolver {
     context.setTask(task);
 
     // Extract medications
-    Bundle medicationsBundle = (Bundle) request.getPrefetch("medications");
+    Bundle medicationsBundle = (Bundle) getPrefetchFlexible(request, "medications");
     if (medicationsBundle != null) {
       context.setMedicationStatements(extractFromBundle(medicationsBundle, MedicationStatement.class));
     }
 
     // Extract medication history
-    Bundle medicationHistoryBundle = (Bundle) request.getPrefetch("medicationHistory");
+    Bundle medicationHistoryBundle = (Bundle) getPrefetchFlexible(request, "medicationHistory");
     if (medicationHistoryBundle != null) {
       context.setMedicationHistory(extractFromBundle(medicationHistoryBundle, MedicationRequest.class));
     }

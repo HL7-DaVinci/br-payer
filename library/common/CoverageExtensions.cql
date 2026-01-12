@@ -340,3 +340,4 @@ define function "Build Coverage Info Extension With PA"(
       { "Coverage Assertion ID Extension"(assertionId) }
     })
   }
+

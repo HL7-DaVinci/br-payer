@@ -7,76 +7,46 @@ include CoverageExtensions version '1.0.0' called Ext
 context Patient
 
 // ============================================================
-// ORDER EXTRACTION
+// RULE-SPECIFIC CONSTANTS
 // ============================================================
 
-define "Medication Requests":
-  [MedicationRequest]
+define "Assertion Prefix": 'immuno-drugs'
 
-define "Medication Request":
-  First("Medication Requests")
+// ============================================================
+// CONTEXT RESOURCES
+// ============================================================
 
-define "Medication Dispenses":
-  [MedicationDispense]
-
-define "Medication Dispense":
-  First("Medication Dispenses")
-
-define "Medication Statements":
-  [MedicationStatement]
-
-define "Medication Statement":
-  First("Medication Statements")
+define "Coverage": First([Coverage])
+define "Medication Request": First([MedicationRequest])
+define "Medication Dispense": First([MedicationDispense])
+define "Medication Statement": First([MedicationStatement])
 
 define "Requested Medication Coding":
   Coalesce(
     CRD."Get Medication Code"("Medication Request"),
-    if "Medication Dispense".medication is CodeableConcept then
+    if "Medication Dispense" is not null and "Medication Dispense".medication is CodeableConcept then
       ("Medication Dispense".medication as CodeableConcept).coding
     else null
   )
 
 define "Statement Medication Coding":
-  if "Medication Statement".medication is CodeableConcept then
+  if "Medication Statement" is not null and "Medication Statement".medication is CodeableConcept then
     ("Medication Statement".medication as CodeableConcept).coding
   else null
 
-// ============================================================
-// COVERAGE INFORMATION
-// ============================================================
+define "Medication Code":
+  if "Requested Medication Coding" is not null then CRD."Get First Code"("Requested Medication Coding") else null
 
-define "Coverage":
-  First([Coverage])
-
-define "Coverage Reference":
-  FHIR.Reference {
-    reference: FHIR.string { value: 'Coverage/' + "Coverage".id.value }
-  }
-
-define "Assertion Date":
-  Today()
-
-define "Assertion ID":
-  'immuno-drugs-' + ToString("Assertion Date") + '-' + "Coverage".id.value
+define "Medication Statement Code":
+  if "Statement Medication Coding" is not null then CRD."Get First Code"("Statement Medication Coding") else null
 
 // ============================================================
 // COVERAGE DETERMINATION LOGIC
 // ============================================================
 
-define "Rule Applies":
-  true
-
-define "Prior Authorization Required":
-  false
-
-define "Documentation Required":
-  true
-
-define "Medication Code":
-  CRD."Get First Code"("Requested Medication Coding")
-
-define "Medication Statement Code":
-  CRD."Get First Code"("Statement Medication Coding")
+define "Prior Authorization Required": false
+define "Documentation Required": true
+define "Covered": 'covered'
 
 define "Alternative Therapy":
   if "Medication Code" in { '105611', '239983' }
@@ -84,88 +54,70 @@ define "Alternative Therapy":
   else null
 
 define "Drug Interaction":
-  if "Medication Code" in { '105585' }
-    and "Medication Statement Code" in { '105611', '197388', '239983' }
-    then true
-  else if "Medication Code" in { '105611', '197388', '239983' }
-    and "Medication Statement Code" in { '105585' }
-    then true
-  else false
+  ("Medication Code" in { '105585' } and "Medication Statement Code" in { '105611', '197388', '239983' })
+  or ("Medication Code" in { '105611', '197388', '239983' } and "Medication Statement Code" in { '105585' })
 
 // ============================================================
 // CARD CONTENT
 // ============================================================
 
+define "Medication Code Display":
+  if "Requested Medication Coding" is not null then CRD."Codes To String"("Requested Medication Coding") else 'unspecified'
+
 define "Get Summary":
-  if "Documentation Required" then
-    'Documentation required for immunosuppressive drugs'
-  else
-    'No documentation required'
+  if "Documentation Required" then 'Documentation required for immunosuppressive drugs'
+  else 'No documentation required'
 
 define "Get Detail":
-  if "Alternative Therapy" is not null then
-    'Alternative therapy available: ' + "Alternative Therapy".display
-  else if "Drug Interaction" then
-    'Drug interaction detected between requested medication (' +
-    CRD."Codes To String"("Requested Medication Coding") +
-    ') and current medications (' +
-    CRD."Codes To String"("Statement Medication Coding") + ').'
-  else
-    'Immunosuppressive drug coverage evaluation for ' +
-    CRD."Codes To String"("Requested Medication Coding") + '.'
+  case
+    when "Alternative Therapy" is not null then
+      'Alternative therapy available: ' + "Alternative Therapy".display
+    when "Drug Interaction" then
+      'Drug interaction detected between requested medication (' + "Medication Code Display" +
+      ') and current medications (' + Coalesce(CRD."Codes To String"("Statement Medication Coding"), 'unknown') + ').'
+    else
+      'Immunosuppressive drug coverage evaluation for ' + "Medication Code Display" + '.'
+  end
 
 // ============================================================
-// COVERAGE EXTENSION VALUES
+// EXTENSION VALUES (complex rule - uses reasons)
 // ============================================================
 
-define "Covered":
-  'covered'
-
-define "PA Needed":
-  if "Prior Authorization Required" then 'auth-needed' else null
-
-define "Doc Needed":
-  if "Documentation Required" then { 'clinical' } else null
-
-// doc-purpose: withpa | withclaim | withorder | retain-doc | OTH
 define "Doc Purpose":
-  if "Documentation Required" then { 'withorder' } else null
-
-define "Info Needed":
-  null as List<String>
+  if "Documentation Required" then { 'withorder' } else null as List<String>
 
 define "Questionnaire URLs":
-  { 
-    'Questionnaire/ImmunosuppressiveDrugs',
-    'Questionnaire/ImmunosuppressiveDrugsProgressNote' 
-  }
+  { 'Questionnaire/ImmunosuppressiveDrugs', 'Questionnaire/ImmunosuppressiveDrugsProgressNote' }
 
-// reason: CodeableConcept (use text-only for custom reasons)
 define "Coverage Reason":
-  if "Alternative Therapy" is not null then
-    { Ext."Reason From Text"('Alternative therapy recommended: ' + "Alternative Therapy".display) }
-  else if "Drug Interaction" then
-    { Ext."Reason From Text"('Drug interaction detected - review required') }
-  else if "Documentation Required" then
-    { Ext."Reason From Text"('Clinical documentation required for immunosuppressive drug coverage') }
-  else
-    { Ext."Reason From Text"('Standard coverage applies') }
+  case
+    when "Alternative Therapy" is not null then
+      { Ext."Reason From Text"('Alternative therapy recommended: ' + "Alternative Therapy".display) }
+    when "Drug Interaction" then
+      { Ext."Reason From Text"('Drug interaction detected - review required') }
+    when "Documentation Required" then
+      { Ext."Reason From Text"('Clinical documentation required for immunosuppressive drug coverage') }
+    else
+      null as List<FHIR.CodeableConcept>
+  end
 
 // ============================================================
-// FINAL EXTENSION (using shared builder)
+// FINAL COVERAGE EXTENSION
 // ============================================================
 
 define "Coverage Info Extension":
-  Ext."Build Coverage Info Extension"(
-    "Coverage Reference",
-    "Covered",
-    "Assertion Date",
-    "Assertion ID",
-    "PA Needed",
-    "Doc Needed",
-    "Doc Purpose",
-    "Info Needed",
-    "Questionnaire URLs",
-    "Coverage Reason",
-    "Requested Medication Coding"
-  )
+  if "Coverage" is not null and "Coverage".id is not null then
+    Ext."Build Coverage Info Extension"(
+      CRD."Build Coverage Reference"("Coverage"),
+      "Covered",
+      Today(),
+      CRD."Build Assertion ID"("Assertion Prefix", "Coverage"),
+      CRD."PA Needed Value"("Prior Authorization Required"),
+      CRD."Doc Needed Value"("Documentation Required", 'clinical'),
+      "Doc Purpose",
+      null as List<String>,
+      "Questionnaire URLs",
+      "Coverage Reason",
+      "Requested Medication Coding"
+    )
+  else null as FHIR.Extension

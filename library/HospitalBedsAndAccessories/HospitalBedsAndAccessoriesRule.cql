@@ -7,123 +7,53 @@ include CoverageExtensions version '1.0.0' called Ext
 context Patient
 
 // ============================================================
-// ORDER EXTRACTION
+// RULE-SPECIFIC CONSTANTS
 // ============================================================
 
-define "Device Requests":
-  [DeviceRequest]
+define "Assertion Prefix": 'hosp-beds'
 
-define "Device Request":
-  First("Device Requests")
+// ============================================================
+// CONTEXT RESOURCES
+// ============================================================
 
-define "Device Request Code":
-  "Device Request".code as CodeableConcept
+define "Coverage": First([Coverage])
+define "Device Request": First([DeviceRequest])
 
 define "Device Coding":
-  "Device Request Code".coding
+  if "Device Request" is not null and "Device Request".code is CodeableConcept then
+    ("Device Request".code as CodeableConcept).coding
+  else
+    {} as List<FHIR.Coding>
 
 define "Order Code":
-  CRD."Get First Code"("Device Coding")
-
-// ============================================================
-// COVERAGE INFORMATION
-// ============================================================
-
-define "Coverage":
-  First([Coverage])
-
-define "Coverage Reference":
-  FHIR.Reference {
-    reference: FHIR.string { value: 'Coverage/' + "Coverage".id.value }
-  }
-
-define "Assertion Date":
-  Today()
-
-define "Assertion ID":
-  'hosp-beds-' + ToString("Assertion Date") + '-' + "Coverage".id.value
+  if exists("Device Coding") then CRD."Get First Code"("Device Coding") else null
 
 // ============================================================
 // COVERAGE DETERMINATION LOGIC
 // ============================================================
 
-define "Requires Coverage Determination":
-  true
-
-define "Prior Authorization Required":
-  false
-
-define "Documentation Required":
-  AgeInYears() is null or AgeInYears() <= 70
+define "Prior Authorization Required": false
+define "Documentation Required": AgeInYears() is null or AgeInYears() <= 70
 
 // ============================================================
 // ALTERNATIVE THERAPY DETECTION
-// Use a simple example:
-// E0250 (fixed height bed) -> suggest E0251 (bed with side rails) for elderly patients
 // ============================================================
 
-define "Is Basic Bed Without Rails":
-  "Order Code" = 'E0250'
+define "Is Basic Bed Without Rails": "Order Code" = 'E0250'
+define "Patient Is Elderly": AgeInYears() >= 65
+define "Has Lower Cost Alternative": "Is Basic Bed Without Rails" and "Patient Is Elderly"
+define "Alternative Code": if "Is Basic Bed Without Rails" then 'E0251' else null
+define "Alternative Description": if "Is Basic Bed Without Rails" then 'Hospital bed with side rails' else null
 
-define "Patient Is Elderly":
-  AgeInYears() >= 65
-
-define "Has Lower Cost Alternative":
-  "Is Basic Bed Without Rails" and "Patient Is Elderly"
-
-define "Alternative Code":
-  if "Is Basic Bed Without Rails" then 'E0251' else null
-
-define "Alternative Description":
-  if "Is Basic Bed Without Rails" then 'Hospital bed with side rails' else null
+define "Requires Coverage Determination":
+  "Coverage" is not null
 
 // ============================================================
-// MISSING DOCUMENTATION DETECTION
+// CARD CONTENT
 // ============================================================
 
-define "Has Reason Code":
-  "Device Request".reasonCode is not null and exists("Device Request".reasonCode)
-
-define "Has Reason Reference":
-  "Device Request".reasonReference is not null and exists("Device Request".reasonReference)
-
-define "Has Medical Necessity":
-  "Has Reason Code" or "Has Reason Reference"
-
-define "Missing Required Documentation":
-  "Documentation Required" and not "Has Medical Necessity"
-
-// ============================================================
-// ALTERNATIVE SUGGESTION CONTENT
-// ============================================================
-
-define "Alternative Summary":
-  if "Has Lower Cost Alternative" then
-    'Lower-cost alternative available'
-  else
-    null
-
-define "Alternative Detail":
-  if "Has Lower Cost Alternative" then
-    'Consider ' + "Alternative Code" + ' (' + "Alternative Description" + ') - for patients over 65. ' +
-    'Patient is ' + ToString(AgeInYears()) + ' years old.'
-  else
-    null
-
-// ============================================================
-// DOCUMENTATION WARNING CONTENT
-// ============================================================
-
-define "Documentation Warning Summary":
-  'Documentation required before signing'
-
-define "Documentation Warning Detail":
-  'Hospital beds (' + CRD."Codes To String"("Device Coding") + ') for patients ' +
-  ToString(AgeInYears()) + ' years old require medical necessity documentation.'
-
-// ============================================================
-// COVERAGE INFORMATION CONTENT
-// ============================================================
+define "Device Code Display":
+  if exists("Device Coding") then CRD."Codes To String"("Device Coding") else 'unspecified'
 
 define "Get Summary":
   case
@@ -132,7 +62,7 @@ define "Get Summary":
   end
 
 define "Get Detail":
-  'Hospital beds (' + CRD."Codes To String"("Device Coding") + '): ' +
+  'Hospital beds (' + "Device Code Display" + '): ' +
   case
     when "Documentation Required" then
       'Documentation required for patients 70 or younger. Patient is ' +
@@ -141,54 +71,42 @@ define "Get Detail":
       'No additional documentation required for patients over 70.'
   end
 
+define "Alternative Summary":
+  if "Has Lower Cost Alternative" then 'Lower-cost alternative available' else null
+
+define "Alternative Detail":
+  if "Has Lower Cost Alternative" then
+    'Consider ' + "Alternative Code" + ' (' + "Alternative Description" + ') - for patients over 65. ' +
+    'Patient is ' + ToString(AgeInYears()) + ' years old.'
+  else null
+
 // ============================================================
 // COVERAGE EXTENSION VALUES
 // ============================================================
 
-define "Covered":
-  'covered'
-
-define "PA Needed":
-  if "Prior Authorization Required" then 'auth-needed' else null
-
-define "Doc Needed":
-  if "Documentation Required" then { 'admin' } else null
-
-// doc-purpose: withpa | withclaim | withorder | retain-doc | OTH
-define "Doc Purpose":
-  null
-
-define "Info Needed":
-  null as List<String>
+define "Covered": 'covered'
 
 define "Questionnaire URLs":
-  if "Documentation Required" then
-    { 
-      'Questionnaire/HospitalBedsAndAccessories',
-      'Questionnaire/HospitalBedsAndAccessoriesFaceToFace' 
-    }
-  else
-    null
-
-// reason: CodeableConcept (use text-only for custom reasons)
-define "Coverage Reason":
-  null
+  CRD."Questionnaire URLs Value"("Documentation Required",
+    { 'Questionnaire/HospitalBedsAndAccessories', 'Questionnaire/HospitalBedsAndAccessoriesFaceToFace' })
 
 // ============================================================
-// FINAL EXTENSION (using shared builder)
+// FINAL COVERAGE EXTENSION
 // ============================================================
 
 define "Coverage Info Extension":
-  Ext."Build Coverage Info Extension"(
-    "Coverage Reference",
-    "Covered",
-    "Assertion Date",
-    "Assertion ID",
-    "PA Needed",
-    "Doc Needed",
-    "Doc Purpose",
-    "Info Needed",
-    "Questionnaire URLs",
-    "Coverage Reason",
-    "Device Coding"
-  )
+  if "Coverage" is not null and "Coverage".id is not null then
+    Ext."Build Coverage Info Extension"(
+      CRD."Build Coverage Reference"("Coverage"),
+      "Covered",
+      Today(),
+      CRD."Build Assertion ID"("Assertion Prefix", "Coverage"),
+      CRD."PA Needed Value"("Prior Authorization Required"),
+      CRD."Doc Needed Value"("Documentation Required", 'admin'),
+      null as List<String>,
+      null as List<String>,
+      "Questionnaire URLs",
+      null as List<FHIR.CodeableConcept>,
+      "Device Coding"
+    )
+  else null as FHIR.Extension

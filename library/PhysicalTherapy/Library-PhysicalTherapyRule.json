@@ -1,0 +1,78 @@
+{
+  "resourceType": "Library",
+  "id": "PhysicalTherapyRule",
+  "url": "http://example.org/fhir/Library/PhysicalTherapyRule",
+  "name": "PhysicalTherapyRule",
+  "version": "1.0.0",
+  "title": "Physical Therapy CRD Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "PhysicalTherapyRule.cql"
+    }
+  ],
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "CRD Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CRDHelpers|1.0.0"
+    },
+    {
+      "type": "depends-on",
+      "display": "Coverage Extensions",
+      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CoverageExtensions|1.0.0"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "Appointment",
+      "codeFilter": [
+        {
+          "path": "serviceType",
+          "code": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "91251008"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Procedure",
+      "codeFilter": [
+        {
+          "path": "code",
+          "code": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "97110"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "97140"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "97530"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

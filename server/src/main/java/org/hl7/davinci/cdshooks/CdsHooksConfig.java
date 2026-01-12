@@ -1,6 +1,7 @@
 package org.hl7.davinci.cdshooks;
 
 import org.hl7.davinci.cdshooks.shared.CdsPrefetchInterceptor;
+import org.hl7.davinci.cdshooks.shared.CrdPrefetchSvc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,8 +10,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
+import ca.uhn.fhir.interceptor.api.IInterceptorBroadcaster;
 import ca.uhn.fhir.interceptor.api.IInterceptorService;
+import ca.uhn.hapi.fhir.cdshooks.api.ICdsHooksDaoAuthorizationSvc;
 import ca.uhn.hapi.fhir.cdshooks.svc.CdsHooksContextBooter;
+import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchDaoSvc;
+import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchFhirClientSvc;
+import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchSvc;
+import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsResolutionStrategySvc;
 
 /**
  * Configuration for CDS Hooks services with access to parent context.
@@ -28,7 +35,8 @@ public class CdsHooksConfig {
 
   /**
    * Creates a parent-aware CdsHooksContextBooter.
-   * The @Primary annotation ensures this bean overrides the default from StarterCdsHooksConfig.
+   * The @Primary annotation ensures this bean overrides the default from
+   * StarterCdsHooksConfig.
    */
   @Bean
   @Primary
@@ -36,13 +44,38 @@ public class CdsHooksConfig {
 
     logger.info("Creating custom booter for CDS hooks with parent ApplicationContext.");
     interceptorService.registerInterceptor(new CdsPrefetchInterceptor());
-    
+
     CdsHooksContextCustomBooter booter = new CdsHooksContextCustomBooter();
     booter.setParentContext(applicationContext);
     booter.setDefinitionsClass(CdsServiceCtx.class);
     booter.start();
-    
+
     return booter;
+  }
+
+  /**
+   * Custom prefetch service that handles optional context variables gracefully.
+   * Overrides the default to skip prefetch templates with missing context
+   * variables.
+   * 
+   * Marking this as @Primary and giving it our own name to ensure it replaces the
+   * "cdsPrefetchSvc" bean from the HAPI library without requiring a
+   * BeanPostProcessor.
+   */
+  @Bean
+  @Primary
+  public CrdPrefetchSvc crdPrefetchSvc(
+      CdsResolutionStrategySvc cdsResolutionStrategySvc,
+      CdsPrefetchDaoSvc cdsPrefetchDaoSvc,
+      CdsPrefetchFhirClientSvc cdsPrefetchFhirClientSvc,
+      ICdsHooksDaoAuthorizationSvc cdsHooksDaoAuthorizationSvc,
+      IInterceptorBroadcaster interceptorBroadcaster) {
+    return new CrdPrefetchSvc(
+        cdsResolutionStrategySvc,
+        cdsPrefetchDaoSvc,
+        cdsPrefetchFhirClientSvc,
+        cdsHooksDaoAuthorizationSvc,
+        interceptorBroadcaster);
   }
 
 }

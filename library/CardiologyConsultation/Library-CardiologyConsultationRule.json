@@ -1,0 +1,56 @@
+{
+  "resourceType": "Library",
+  "id": "CardiologyConsultationRule",
+  "url": "http://example.org/fhir/Library/CardiologyConsultationRule",
+  "name": "CardiologyConsultationRule",
+  "version": "1.0.0",
+  "title": "Cardiology Consultation CRD Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "CardiologyConsultationRule.cql"
+    }
+  ],
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "CRD Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CRDHelpers|1.0.0"
+    },
+    {
+      "type": "depends-on",
+      "display": "Coverage Extensions",
+      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CoverageExtensions|1.0.0"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "Appointment",
+      "codeFilter": [
+        {
+          "path": "serviceType",
+          "code": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "394579002"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

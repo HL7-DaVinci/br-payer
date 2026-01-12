@@ -124,3 +124,29 @@ define function "Determine Indicator"(covered String, paNeeded String, hasCritic
     when paNeeded = 'auth-needed' then 'warning'
     else 'info'
   end
+
+// ============================================================
+// COVERAGE EXTENSION HELPERS (null-safe)
+// ============================================================
+
+define function "Build Coverage Reference"(coverage Coverage):
+  if coverage is not null and coverage.id is not null then
+    FHIR.Reference {
+      reference: FHIR.string { value: 'Coverage/' + coverage.id.value }
+    }
+  else null as FHIR.Reference
+
+define function "Build Assertion ID"(prefix String, coverage Coverage):
+  if coverage is not null and coverage.id is not null then
+    prefix + '-' + ToString(Today()) + '-' + coverage.id.value
+  else
+    prefix + '-' + ToString(Today()) + '-unknown'
+
+define function "PA Needed Value"(requiresPA Boolean):
+  if requiresPA = true then 'auth-needed' else null
+
+define function "Doc Needed Value"(requiresDoc Boolean, docType String):
+  if requiresDoc = true then { docType } else null as List<String>
+
+define function "Questionnaire URLs Value"(condition Boolean, urls List<String>):
+  if condition = true then urls else null as List<String>
