@@ -59,6 +59,7 @@ define "Exceeded Session Limit": "Sessions Used" >= "Annual Session Limit"
 // COVERAGE DETERMINATION LOGIC
 // ============================================================
 
+define "Requires Coverage Determination": "Coverage" is not null
 define "Prior Authorization Required": "Exceeded Session Limit"
 define "Documentation Required": "Near Session Limit" and not "Exceeded Session Limit"
 
@@ -90,6 +91,13 @@ define "Get Detail":
     else
       'Coverage confirmed with no additional requirements at this time.'
   end
+
+define "Session Limit Summary":
+  'Approaching session limit (' + ToString("Sessions Used") + '/' + ToString("Annual Session Limit") + ')'
+
+define "Session Limit Detail":
+  'Physical therapy session usage is approaching the annual limit. ' +
+  ToString("Sessions Remaining") + ' sessions remaining before prior authorization will be required.'
 
 // ============================================================
 // FINAL COVERAGE EXTENSION

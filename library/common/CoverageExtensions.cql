@@ -1,6 +1,7 @@
 library CoverageExtensions version '1.0.0'
 using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1' called FHIRHelpers
+include CRDHelpers version '1.0.0' called CRD
 
 // ============================================================
 // EXTENSION URL CONSTANTS
@@ -293,12 +294,17 @@ define function "Build Coverage Info Extension"(
     extension: Flatten({
       { "Coverage Extension"(coverageRef) },
       { "Covered Extension"(covered) },
-      if paNeeded is not null then { "PA Needed Extension"(paNeeded) } else {},
+      if CRD."Validate PA Needed"(covered, paNeeded) is not null then
+        { "PA Needed Extension"(CRD."Validate PA Needed"(covered, paNeeded)) }
+      else {},
       "Build Doc Needed Extensions"(docNeeded),
-      "Build Doc Purpose Extensions"(docPurpose),
-      "Build Info Needed Extensions"(infoNeeded),
-      "Build Questionnaire Extensions"(questionnaireUrls),
-      "Build Reason Extensions"(reasons),
+      "Build Doc Purpose Extensions"(CRD."Filter Valid Doc Purpose"(CRD."Validate PA Needed"(covered, paNeeded), docPurpose)),
+      "Build Info Needed Extensions"(CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded)),
+      "Build Questionnaire Extensions"(CRD."Validate Questionnaires"(docNeeded, questionnaireUrls)),
+      "Build Reason Extensions"(CRD."Validate Reasons For Info Needed"(
+        CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded),
+        reasons
+      )),
       "Build Billing Code Extensions"(billingCodes),
       { "Date Extension"(assertionDate) },
       { "Coverage Assertion ID Extension"(assertionId) }
@@ -328,16 +334,46 @@ define function "Build Coverage Info Extension With PA"(
     extension: Flatten({
       { "Coverage Extension"(coverageRef) },
       { "Covered Extension"(covered) },
-      if paNeeded is not null then { "PA Needed Extension"(paNeeded) } else {},
-      if satisfiedPaId is not null then { "Satisfied PA Extension"(satisfiedPaId) } else {},
+      if CRD."Validate PA Needed"(covered, paNeeded) is not null then
+        { "PA Needed Extension"(CRD."Validate PA Needed"(covered, paNeeded)) }
+      else {},
+      if CRD."Validate Satisfied PA ID"(CRD."Validate PA Needed"(covered, paNeeded), satisfiedPaId) is not null then
+        { "Satisfied PA Extension"(CRD."Validate Satisfied PA ID"(CRD."Validate PA Needed"(covered, paNeeded), satisfiedPaId)) }
+      else {},
       "Build Doc Needed Extensions"(docNeeded),
-      "Build Doc Purpose Extensions"(docPurpose),
-      "Build Info Needed Extensions"(infoNeeded),
-      "Build Questionnaire Extensions"(questionnaireUrls),
-      "Build Reason Extensions"(reasons),
+      "Build Doc Purpose Extensions"(CRD."Filter Valid Doc Purpose"(CRD."Validate PA Needed"(covered, paNeeded), docPurpose)),
+      "Build Info Needed Extensions"(CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded)),
+      "Build Questionnaire Extensions"(CRD."Validate Questionnaires"(docNeeded, questionnaireUrls)),
+      "Build Reason Extensions"(CRD."Validate Reasons For Info Needed"(
+        CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded),
+        reasons
+      )),
       "Build Billing Code Extensions"(billingCodes),
       { "Date Extension"(assertionDate) },
       { "Coverage Assertion ID Extension"(assertionId) }
     })
+  }
+
+// ============================================================
+// DEFAULT COVERAGE EXTENSION (for fallback when no rules match)
+// ============================================================
+
+define function "Build Default Coverage Info Extension"(
+  coverageRef FHIR.Reference,
+  assertionDate Date,
+  assertionId String
+):
+  FHIR.Extension {
+    url: FHIR.uri { value: "Coverage Info Extension URL" },
+    extension: {
+      "Coverage Extension"(coverageRef),
+      "Covered Extension"('conditional'),
+      "Info Needed Extension"('OTH'),
+      "Reason Extension"(FHIR.CodeableConcept {
+        text: FHIR.string { value: 'No matching coverage rules - additional information required' }
+      }),
+      "Date Extension"(assertionDate),
+      "Coverage Assertion ID Extension"(assertionId)
+    }
   }
 

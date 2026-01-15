@@ -38,8 +38,8 @@
                 "coding": [
                   {
                     "system": "http://snomed.info/sct",
-                    "code": "426396005",
-                    "display": "Cardiac catheterization"
+                    "code": "789718008",
+                    "display": "Cardiology service"
                   }
                 ],
                 "text": "Follow-up cardiac evaluation"

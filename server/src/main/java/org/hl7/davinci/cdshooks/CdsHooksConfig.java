@@ -1,6 +1,5 @@
 package org.hl7.davinci.cdshooks;
 
-import org.hl7.davinci.cdshooks.shared.CdsPrefetchInterceptor;
 import org.hl7.davinci.cdshooks.shared.CrdPrefetchSvc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,12 +10,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 import ca.uhn.fhir.interceptor.api.IInterceptorBroadcaster;
-import ca.uhn.fhir.interceptor.api.IInterceptorService;
 import ca.uhn.hapi.fhir.cdshooks.api.ICdsHooksDaoAuthorizationSvc;
 import ca.uhn.hapi.fhir.cdshooks.svc.CdsHooksContextBooter;
 import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchDaoSvc;
 import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchFhirClientSvc;
-import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchSvc;
 import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsResolutionStrategySvc;
 
 /**
@@ -30,9 +27,6 @@ public class CdsHooksConfig {
   @Autowired
   private ApplicationContext applicationContext;
 
-  @Autowired
-  private IInterceptorService interceptorService;
-
   /**
    * Creates a parent-aware CdsHooksContextBooter.
    * The @Primary annotation ensures this bean overrides the default from
@@ -43,7 +37,6 @@ public class CdsHooksConfig {
   public CdsHooksContextBooter cdsHooksContextCustomBooter() {
 
     logger.info("Creating custom booter for CDS hooks with parent ApplicationContext.");
-    interceptorService.registerInterceptor(new CdsPrefetchInterceptor());
 
     CdsHooksContextCustomBooter booter = new CdsHooksContextCustomBooter();
     booter.setParentContext(applicationContext);

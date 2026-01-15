@@ -44,6 +44,8 @@ define "Medication Statement Code":
 // COVERAGE DETERMINATION LOGIC
 // ============================================================
 
+define "Rule Applies": "Coverage" is not null and "Medication Code" is not null
+
 define "Prior Authorization Required": false
 define "Documentation Required": true
 define "Covered": 'covered'

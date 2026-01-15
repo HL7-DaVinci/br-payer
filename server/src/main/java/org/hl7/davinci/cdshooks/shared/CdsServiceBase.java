@@ -17,6 +17,7 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CarePlan;
+import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
@@ -180,6 +181,14 @@ public abstract class CdsServiceBase {
       consolidatedCards.forEach(response::addCard);
     }
 
+    // Consolidate duplicate service actions
+    if (response.getServiceActions() != null && !response.getServiceActions().isEmpty()) {
+      List<CdsServiceResponseSystemActionJson> consolidated = consolidateDuplicateServiceActions(
+          response.getServiceActions());
+      response.getServiceActions().clear();
+      consolidated.forEach(response::addServiceAction);
+    }
+
     customizeResponse(response, request);
 
     // Per CRD IG: Primary hooks (order-sign, order-dispatch, appointment-book)
@@ -213,10 +222,21 @@ public abstract class CdsServiceBase {
     }
 
     for (Reference payorRef : coverage.getPayor()) {
+      String payorRefStr = payorRef.getReference();
+      if (payorRefStr == null) {
+        continue;
+      }
       // Organizations should already be resolved in context
       for (Organization org : context.getOrganizations()) {
-        String orgRef = "Organization/" + org.getIdElement().getIdPart();
-        if (payorRef.getReference().equals(orgRef) || payorRef.getReference().endsWith(orgRef)) {
+        if (!org.hasIdElement()) {
+          continue;
+        }
+        String idPart = org.getIdElement().getIdPart();
+        if (idPart == null) {
+          continue;
+        }
+        String orgRef = "Organization/" + idPart;
+        if (payorRefStr.equals(orgRef) || payorRefStr.endsWith(orgRef)) {
           for (Identifier identifier : org.getIdentifier()) {
             if (identifier.hasSystem() && identifier.hasValue()) {
               payorIdentifiers.add(identifier);
@@ -243,19 +263,31 @@ public abstract class CdsServiceBase {
             .map(code -> code.getSystem() + "|" + code.getCode())
             .toList());
 
+    // Collect all matching PlanDefinitions and deduplicate by ID to avoid
+    // executing the same plan multiple times when multiple codes match
+    Map<String, PlanDefinition> uniquePlans = new LinkedHashMap<>();
     for (Coding code : codes) {
       List<PlanDefinition> plans = findPlanDefinitions(code, payorIdentifiers, getHookName());
-
+      logger.info("Found {} PlanDefinitions for code {}|{}", plans.size(), code.getSystem(), code.getCode());
       for (PlanDefinition plan : plans) {
-        CdsServiceResponseJson planResponse = executePlanDefinition(plan, resourceContext, contextResource, request);
-        if (planResponse != null) {
-          logger.info("PlanDefinition executed with {} cards and {} service actions",
-              planResponse.getCards() != null ? planResponse.getCards().size() : 0,
-              planResponse.getServiceActions() != null ? planResponse.getServiceActions().size() : 0);
-          planResponse.getCards().forEach(response::addCard);
-          if (planResponse.getServiceActions() != null) {
-            planResponse.getServiceActions().forEach(response::addServiceAction);
-          }
+        String planId = plan.getIdElement().getIdPart();
+        if (!uniquePlans.containsKey(planId)) {
+          uniquePlans.put(planId, plan);
+        }
+      }
+    }
+
+    logger.info("Found {} unique PlanDefinitions for resource", uniquePlans.size());
+
+    for (PlanDefinition plan : uniquePlans.values()) {
+      CdsServiceResponseJson planResponse = executePlanDefinition(plan, resourceContext, contextResource, request);
+      if (planResponse != null) {
+        logger.info("PlanDefinition executed with {} cards and {} service actions",
+            planResponse.getCards() != null ? planResponse.getCards().size() : 0,
+            planResponse.getServiceActions() != null ? planResponse.getServiceActions().size() : 0);
+        planResponse.getCards().forEach(response::addCard);
+        if (planResponse.getServiceActions() != null) {
+          planResponse.getServiceActions().forEach(response::addServiceAction);
         }
       }
     }
@@ -496,6 +528,9 @@ public abstract class CdsServiceBase {
 
     // R4 $apply returns a CarePlan with contained RequestGroup
     if (resource instanceof CarePlan carePlan) {
+      if (!carePlan.hasActivity() || !carePlan.hasContained()) {
+        return null;
+      }
       return carePlan.getActivity().stream()
           .filter(CarePlan.CarePlanActivityComponent::hasReference)
           .map(activity -> activity.getReference().getReference())
@@ -503,7 +538,7 @@ public abstract class CdsServiceBase {
           .map(ref -> {
             String id = ref.substring(1);
             return carePlan.getContained().stream()
-                .filter(r -> id.equals(r.getIdElement().getIdPart()))
+                .filter(r -> r.hasIdElement() && id.equals(r.getIdElement().getIdPart()))
                 .findFirst()
                 .orElse(null);
           })
@@ -516,7 +551,11 @@ public abstract class CdsServiceBase {
     // R5 $apply returns a Parameters resource with RequestGroup in the "return"
     // parameter
     if (resource instanceof Parameters params) {
-      Resource returnResource = params.getParameter("return").getResource();
+      Parameters.ParametersParameterComponent returnParam = params.getParameter("return");
+      if (returnParam == null) {
+        return null;
+      }
+      Resource returnResource = (Resource) returnParam.getResource();
       if (returnResource instanceof Bundle bundle) {
         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
           if (entry.getResource() instanceof RequestGroup rg) {
@@ -946,6 +985,68 @@ public abstract class CdsServiceBase {
   }
 
   /**
+   * Consolidates duplicate service actions by resource ID and coverage reference.
+   * Two service actions are considered duplicates if they update the same
+   * resource with the same coverage extension.
+   */
+  protected List<CdsServiceResponseSystemActionJson> consolidateDuplicateServiceActions(
+      List<CdsServiceResponseSystemActionJson> actions) {
+    if (actions == null || actions.isEmpty()) {
+      return new ArrayList<>();
+    }
+
+    if (actions.size() == 1) {
+      return new ArrayList<>(actions);
+    }
+
+    Map<String, CdsServiceResponseSystemActionJson> consolidated = new LinkedHashMap<>();
+
+    for (CdsServiceResponseSystemActionJson action : actions) {
+      if (action == null || action.getResource() == null) {
+        continue;
+      }
+
+      String actionKey = generateServiceActionKey(action);
+      if (!consolidated.containsKey(actionKey)) {
+        consolidated.put(actionKey, action);
+      }
+    }
+
+    logger.info("Consolidated {} service actions into {} unique actions", actions.size(), consolidated.size());
+    return new ArrayList<>(consolidated.values());
+  }
+
+  /**
+   * Generates a unique key for a service action based on resource ID and coverage reference.
+   */
+  protected String generateServiceActionKey(CdsServiceResponseSystemActionJson action) {
+    StringBuilder key = new StringBuilder();
+
+    Resource resource = (Resource) action.getResource();
+    if (resource != null) {
+      key.append(resource.fhirType());
+      key.append("/");
+      if (resource.getIdElement() != null) {
+        key.append(resource.getIdElement().getIdPart());
+      }
+    }
+    key.append("|");
+
+    // Extract coverage reference from the coverage-information extension
+    if (resource instanceof DomainResource dr) {
+      Extension coverageInfoExt = dr.getExtensionByUrl(COVERAGE_INFO_EXT_URL);
+      if (coverageInfoExt != null) {
+        Extension coverageRefExt = coverageInfoExt.getExtensionByUrl("coverage");
+        if (coverageRefExt != null && coverageRefExt.getValue() instanceof Reference ref) {
+          key.append(ref.getReference());
+        }
+      }
+    }
+
+    return key.toString();
+  }
+
+  /**
    * Checks if this is a primary hook that requires mandatory
    * coverage-information.
    * Per CRD IG: order-sign, order-dispatch, and appointment-book are primary
@@ -996,9 +1097,15 @@ public abstract class CdsServiceBase {
     Extension coverageInfoExt = new Extension(COVERAGE_INFO_EXT_URL);
     Coverage coverage = context.getCoverage();
 
-    // Coverage reference (always present after validation)
+    if (coverage == null || !coverage.hasIdElement()) {
+      logger.warn("Cannot build default coverage extension: coverage or coverage ID is missing");
+      return null;
+    }
+
+    // Coverage reference
     Extension coverageRefExt = new Extension("coverage");
-    Reference coverageRef = new Reference("Coverage/" + coverage.getIdElement().getIdPart());
+    String idPart = coverage.getIdElement().getIdPart();
+    Reference coverageRef = new Reference("Coverage/" + (idPart != null ? idPart : "unknown"));
     coverageRefExt.setValue(coverageRef);
     coverageInfoExt.addExtension(coverageRefExt);
 

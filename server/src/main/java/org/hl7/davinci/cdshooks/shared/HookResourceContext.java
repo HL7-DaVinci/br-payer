@@ -6,13 +6,16 @@ import java.util.List;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.MedicationDispense;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.MedicationStatement;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Practitioner;
+import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.PractitionerRole;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.Task;
 
 /**
@@ -29,7 +32,10 @@ public class HookResourceContext {
   private List<Resource> orders = new ArrayList<>();
   private List<Appointment> appointments = new ArrayList<>();
   private List<MedicationStatement> medicationStatements = new ArrayList<>();
+  private List<MedicationDispense> medicationDispenses = new ArrayList<>();
   private List<MedicationRequest> medicationHistory = new ArrayList<>();
+  private List<Procedure> procedures = new ArrayList<>();
+  private List<ServiceRequest> serviceRequests = new ArrayList<>();
   private Task task;
 
   public Patient getPatient() {
@@ -136,6 +142,18 @@ public class HookResourceContext {
     this.medicationStatements.add(medicationStatement);
   }
 
+  public List<MedicationDispense> getMedicationDispenses() {
+    return medicationDispenses;
+  }
+
+  public void setMedicationDispenses(List<MedicationDispense> medicationDispenses) {
+    this.medicationDispenses = medicationDispenses;
+  }
+
+  public void addMedicationDispense(MedicationDispense medicationDispense) {
+    this.medicationDispenses.add(medicationDispense);
+  }
+
   public List<MedicationRequest> getMedicationHistory() {
     return medicationHistory;
   }
@@ -146,5 +164,29 @@ public class HookResourceContext {
 
   public void addMedicationHistory(MedicationRequest medicationRequest) {
     this.medicationHistory.add(medicationRequest);
+  }
+
+  public List<Procedure> getProcedures() {
+    return procedures;
+  }
+
+  public void setProcedures(List<Procedure> procedures) {
+    this.procedures = procedures;
+  }
+
+  public void addProcedure(Procedure procedure) {
+    this.procedures.add(procedure);
+  }
+
+  public List<ServiceRequest> getServiceRequests() {
+    return serviceRequests;
+  }
+
+  public void setServiceRequests(List<ServiceRequest> serviceRequests) {
+    this.serviceRequests = serviceRequests;
+  }
+
+  public void addServiceRequest(ServiceRequest serviceRequest) {
+    this.serviceRequests.add(serviceRequest);
   }
 }

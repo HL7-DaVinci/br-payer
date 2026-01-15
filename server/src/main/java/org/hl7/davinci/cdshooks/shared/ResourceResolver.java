@@ -18,10 +18,13 @@ import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Practitioner;
 import org.hl7.fhir.r4.model.PractitionerRole;
+import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.Task;
+import org.hl7.fhir.r4.model.VisionPrescription;
+import org.hl7.fhir.r4.model.MedicationDispense;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -146,6 +149,9 @@ public class ResourceResolver {
    * Checks if a resource matches a reference string.
    */
   public static boolean matchesReference(IBaseResource resource, String reference) {
+    if (resource.getIdElement() == null || resource.getIdElement().getIdPart() == null) {
+      return false;
+    }
     String resourceRef = resource.fhirType() + "/" + resource.getIdElement().getIdPart();
     return reference.equals(resourceRef) || reference.endsWith(resourceRef);
   }
@@ -211,7 +217,8 @@ public class ResourceResolver {
 
   /**
    * Normalizes a resource id by handling urn:uuid: prefixes from Bundle fullUrls.
-   * When HAPI parses Bundle entries with urn:uuid fullUrls, it may set the resource
+   * When HAPI parses Bundle entries with urn:uuid fullUrls, it may set the
+   * resource
    * id to the full urn:uuid value, which is not a valid FHIR id format.
    */
   private static void normalizeResourceId(IBaseResource resource, String fullUrl) {
@@ -246,7 +253,7 @@ public class ResourceResolver {
         resource instanceof MedicationRequest ||
         resource instanceof NutritionOrder ||
         resource instanceof ServiceRequest ||
-        resource instanceof ServiceRequest;
+        resource instanceof VisionPrescription;
   }
 
   /**
@@ -267,7 +274,7 @@ public class ResourceResolver {
   /**
    * Helper to get prefetch resource with flexible key.
    * Attempts to get a prefetch resource with the given key.
-   * If not found, tries with "Bundle" suffix. 
+   * If not found, tries with "Bundle" suffix.
    * (e.g., if no "coverage" then check "coverageBundle")
    */
   private static Object getPrefetchFlexible(CdsServiceRequestJson request, String key) {
@@ -286,10 +293,9 @@ public class ResourceResolver {
     HookResourceContext context = new HookResourceContext();
 
     // Extract patient
-    Patient patient = (Patient) request.getPrefetch("patient");
-    if (patient == null && request.getContext().get("patientId") != null) {
-      String patientId = (String) request.getContext().get("patientId");
-      // patient = resolveFromServer(patientId, Patient.class, request);
+    Object patientPrefetch = request.getPrefetch("patient");
+    Patient patient = patientPrefetch instanceof Patient p ? p : null;
+    if (patient == null && request.getContext().get("patientId") instanceof String patientId) {
       String reference = "Patient/" + patientId;
       patient = resolveReference(new Reference(reference), Patient.class, null, request);
     }
@@ -298,8 +304,8 @@ public class ResourceResolver {
     // Extract coverage
     // Per CRD IG: clients SHALL send only the primary coverage in prefetch so we
     // only use the first coverage
-    Bundle coverageBundle = (Bundle) getPrefetchFlexible(request, "coverage");
-    if (coverageBundle != null) {
+    Object coveragePrefetch = getPrefetchFlexible(request, "coverage");
+    if (coveragePrefetch instanceof Bundle coverageBundle) {
       List<Coverage> coverages = extractFromBundle(coverageBundle, Coverage.class);
 
       if (!coverages.isEmpty()) {
@@ -327,8 +333,7 @@ public class ResourceResolver {
     Object encounterPrefetch = request.getPrefetch("encounter");
     if (encounterPrefetch instanceof Encounter encounter) {
       context.setEncounter(encounter);
-    } else if (request.getContext().get("encounterId") != null) {
-      String encounterId = (String) request.getContext().get("encounterId");
+    } else if (request.getContext().get("encounterId") instanceof String encounterId) {
       Encounter encounter = resolveFromServer(encounterId, Encounter.class, request);
       context.setEncounter(encounter);
     }
@@ -339,16 +344,15 @@ public class ResourceResolver {
       context.addPractitioner(practitioner);
     } else if (userPrefetch instanceof PractitionerRole practitionerRole) {
       context.addPractitionerRole(practitionerRole);
-    } else if (request.getContext().get("userId") != null) {
-      String userId = (String) request.getContext().get("userId");
+    } else if (request.getContext().get("userId") instanceof String userId) {
       // Try Practitioner first, then PractitionerRole
       Practitioner practitioner = resolveFromServer(userId, Practitioner.class, request);
       if (practitioner != null) {
         context.addPractitioner(practitioner);
       } else {
-        PractitionerRole practitionerRole = resolveFromServer(userId, PractitionerRole.class, request);
-        if (practitionerRole != null) {
-          context.addPractitionerRole(practitionerRole);
+        PractitionerRole role = resolveFromServer(userId, PractitionerRole.class, request);
+        if (role != null) {
+          context.addPractitionerRole(role);
         }
       }
     }
@@ -362,8 +366,8 @@ public class ResourceResolver {
     }
 
     // Extract orders from draftOrders context
-    Bundle draftOrders = (Bundle) request.getContext().get("draftOrders");
-    if (draftOrders != null) {
+    Object draftOrdersContext = request.getContext().get("draftOrders");
+    if (draftOrdersContext instanceof Bundle draftOrders) {
       context.setOrders(extractOrders(draftOrders));
     }
 
@@ -374,19 +378,39 @@ public class ResourceResolver {
     }
 
     // Extract task
-    Task task = (Task) request.getContext().get("task");
-    context.setTask(task);
+    Object taskContext = request.getContext().get("task");
+    if (taskContext instanceof Task task) {
+      context.setTask(task);
+    }
 
     // Extract medications
-    Bundle medicationsBundle = (Bundle) getPrefetchFlexible(request, "medications");
-    if (medicationsBundle != null) {
+    Object medicationsPrefetch = getPrefetchFlexible(request, "medications");
+    if (medicationsPrefetch instanceof Bundle medicationsBundle) {
       context.setMedicationStatements(extractFromBundle(medicationsBundle, MedicationStatement.class));
     }
 
     // Extract medication history
-    Bundle medicationHistoryBundle = (Bundle) getPrefetchFlexible(request, "medicationHistory");
-    if (medicationHistoryBundle != null) {
+    Object medicationHistoryPrefetch = getPrefetchFlexible(request, "medicationHistory");
+    if (medicationHistoryPrefetch instanceof Bundle medicationHistoryBundle) {
       context.setMedicationHistory(extractFromBundle(medicationHistoryBundle, MedicationRequest.class));
+    }
+
+    // Extract medication dispenses
+    Object medicationDispensePrefetch = getPrefetchFlexible(request, "medicationDispense");
+    if (medicationDispensePrefetch instanceof Bundle medicationDispenseBundle) {
+      context.setMedicationDispenses(extractFromBundle(medicationDispenseBundle, MedicationDispense.class));
+    }
+
+    // Extract procedures
+    Object proceduresPrefetch = getPrefetchFlexible(request, "procedures");
+    if (proceduresPrefetch instanceof Bundle proceduresBundle) {
+      context.setProcedures(extractFromBundle(proceduresBundle, Procedure.class));
+    }
+
+    // Extract service requests
+    Object serviceRequestsPrefetch = getPrefetchFlexible(request, "serviceRequests");
+    if (serviceRequestsPrefetch instanceof Bundle serviceRequestsBundle) {
+      context.setServiceRequests(extractFromBundle(serviceRequestsBundle, ServiceRequest.class));
     }
 
     return context;

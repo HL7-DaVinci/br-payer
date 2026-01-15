@@ -150,3 +150,64 @@ define function "Doc Needed Value"(requiresDoc Boolean, docType String):
 
 define function "Questionnaire URLs Value"(condition Boolean, urls List<String>):
   if condition = true then urls else null as List<String>
+
+// ============================================================
+// CONSTRAINT HELPERS (crd-ci-q1 through crd-ci-q6)
+// ============================================================
+
+// crd-ci-q3: info-needed SHALL exist iff covered, pa-needed, or doc-needed = 'conditional'
+define function "Info Needed Required"(covered String, paNeeded String, docNeeded List<String>):
+  covered = 'conditional'
+    or paNeeded = 'conditional'
+    or exists(docNeeded D where D = 'conditional')
+
+// crd-ci-q1: questionnaire requires doc-needed to exist
+define function "Questionnaire Allowed"(docNeeded List<String>):
+  docNeeded is not null and exists(docNeeded)
+
+// crd-ci-q2: if covered='not-covered', pa-needed must not exist
+define function "PA Needed Allowed"(covered String):
+  covered != 'not-covered'
+
+// crd-ci-q4: if pa-needed in ('satisfied', 'noauth'), doc-purpose cannot be 'withpa'
+define function "Filter Valid Doc Purpose"(paNeeded String, purposes List<String>):
+  if purposes is null then null as List<String>
+  else if paNeeded in {'satisfied', 'noauth'} then
+    purposes P where P != 'withpa'
+  else purposes
+
+// crd-ci-q6: if info-needed='OTH', reason must exist - provide default reason
+define function "Conditional Status Reason"():
+  FHIR.CodeableConcept {
+    text: FHIR.string { value: 'Additional information required to determine coverage' }
+  }
+
+// ============================================================
+// CONSTRAINT VALIDATION WRAPPERS
+// ============================================================
+
+// crd-ci-q2: returns paNeeded if allowed, else null
+define function "Validate PA Needed"(covered String, paNeeded String):
+  if "PA Needed Allowed"(covered) then paNeeded else null
+
+// crd-ci-q1: returns questionnaire URLs only if doc-needed exists
+define function "Validate Questionnaires"(docNeeded List<String>, urls List<String>):
+  if "Questionnaire Allowed"(docNeeded) then urls else null as List<String>
+
+// crd-ci-q3: returns infoNeeded, or {'OTH'} if conditional status requires it
+define function "Validate Info Needed"(covered String, paNeeded String, docNeeded List<String>, infoNeeded List<String>):
+  if "Info Needed Required"(covered, paNeeded, docNeeded) and (infoNeeded is null or not exists(infoNeeded)) then
+    {'OTH'}
+  else
+    infoNeeded
+
+// crd-ci-q6: returns reasons, or adds default reason if OTH is in info-needed
+define function "Validate Reasons For Info Needed"(infoNeeded List<String>, reasons List<FHIR.CodeableConcept>):
+  if exists(infoNeeded I where I = 'OTH') and (reasons is null or not exists(reasons)) then
+    { "Conditional Status Reason"() }
+  else
+    reasons
+
+// crd-ci-q5: returns satisfiedPaId only if paNeeded='satisfied'
+define function "Validate Satisfied PA ID"(paNeeded String, satisfiedPaId String):
+  if paNeeded = 'satisfied' then satisfiedPaId else null

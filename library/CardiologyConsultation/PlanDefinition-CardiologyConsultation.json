@@ -41,13 +41,8 @@
           },
           {
             "system": "http://snomed.info/sct",
-            "code": "3950001",
-            "display": "Cardiology consultation"
-          },
-          {
-            "system": "http://www.ama-assn.org/go/cpt",
-            "code": "99243",
-            "display": "Office consultation for a new or established patient"
+            "code": "789718008",
+            "display": "Cardiology service"
           }
         ]
       }
@@ -57,48 +52,6 @@
     "Library/CardiologyConsultationRule"
   ],
   "action": [
-    {
-      "id": "referral-reminder",
-      "title": "Referral Reminder",
-      "description": "Remind provider about referral requirements for cardiology appointments",
-      "documentation": [
-        {
-          "type": "documentation",
-          "display": "CRD appointment-book: Referral requirements check at scheduling time"
-        }
-      ],
-      "trigger": [
-        {
-          "type": "named-event",
-          "name": "appointment-book"
-        }
-      ],
-      "condition": [
-        {
-          "kind": "applicability",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Requires Referral"
-          }
-        }
-      ],
-      "dynamicValue": [
-        {
-          "path": "action.title",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Referral Summary"
-          }
-        },
-        {
-          "path": "action.description",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Referral Detail"
-          }
-        }
-      ]
-    },
     {
       "id": "coverage-info",
       "title": "Coverage Information",

@@ -56,19 +56,24 @@ public class CrdPrefetchSvc extends ModuleConfigurationPrefetchSvc {
     CdsServiceJson serviceSpec = serviceMethod.getCdsServiceJson();
     Set<String> missingPrefetch = this.findMissingPrefetch(serviceSpec, request);
 
+    logger.info("Prefetch augment for service '{}': {} missing keys", serviceSpec.getId(), missingPrefetch.size());
+
     if (missingPrefetch.isEmpty()) {
       return;
     }
 
     if (!serviceMethod.isAllowAutoFhirClientPrefetch()) {
-      logger.debug("Auto-fetch disabled for service '{}' (allowAutoFhirClientPrefetch=false)", serviceSpec.getId());
+      logger.info("Auto-fetch disabled for service '{}' (allowAutoFhirClientPrefetch=false)", serviceSpec.getId());
       return;
     }
 
     String fhirServerBase = request.getFhirServer();
     if (fhirServerBase == null || fhirServerBase.isBlank()) {
+      logger.info("No fhirServer provided, skipping auto-fetch for missing prefetch: {}", missingPrefetch);
       return;
     }
+
+    logger.info("Auto-fetching {} prefetch keys from {}", missingPrefetch.size(), fhirServerBase);
 
     IGenericClient client = fhirContext.newRestfulGenericClient(fhirServerBase);
     configureClientAuth(client, request);
@@ -83,18 +88,20 @@ public class CrdPrefetchSvc extends ModuleConfigurationPrefetchSvc {
 
       String resolvedQuery = resolveTemplate(queryTemplate, request);
       if (resolvedQuery == null) {
-        logger.debug("Skipping prefetch '{}': template has unresolvable context variables", prefetchKey);
+        logger.info("Skipping prefetch '{}': template has unresolvable context variables", prefetchKey);
         continue;
       }
+
+      logger.info("Prefetch request for '{}': {}", prefetchKey, resolvedQuery);
 
       try {
         IBaseResource resource = resourceFromUrl(client, resolvedQuery);
         if (resource != null) {
           request.addPrefetch(prefetchKey, resource);
-          logger.debug("Auto-fetched prefetch '{}' from: {}", prefetchKey, resolvedQuery);
+          logger.info("Prefetch response for '{}': {}", prefetchKey, resource.getIdElement());
         }
       } catch (Exception e) {
-        logger.debug("Failed to auto-fetch prefetch '{}': {}", prefetchKey, e.getMessage());
+        logger.info("Prefetch failed for '{}': {}", prefetchKey, e.getMessage());
       }
     }
   }

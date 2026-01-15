@@ -41,6 +41,7 @@ define "Requires Referral": not "Has Existing Referral"
 // COVERAGE DETERMINATION LOGIC
 // ============================================================
 
+define "Requires Coverage Determination": "Coverage" is not null
 define "Prior Authorization Required": false
 define "Documentation Required": "Requires Referral"
 define "Covered": 'covered'

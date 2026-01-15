@@ -37,12 +37,12 @@
                 {
                   "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
                   "code": "1049502",
-                  "display": "Oxycodone 5 MG Oral Tablet"
+                  "display": "12 HR oxyCODONE hydrochloride 10 MG Extended Release Oral Tablet"
                 },
                 {
                   "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
                   "code": "197696",
-                  "display": "Hydrocodone 5 MG / Acetaminophen 325 MG"
+                  "display": "72 HR fentaNYL 0.075 MG/HR Transdermal System"
                 }
               ]
             },
@@ -109,7 +109,7 @@
                 {
                   "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
                   "code": "1049504",
-                  "display": "Oxycodone 10 MG Oral Tablet"
+                  "display": "Abuse-Deterrent 12 HR oxyCODONE hydrochloride 10 MG Extended Release Oral Tablet [Oxycontin]"
                 }
               ]
             },

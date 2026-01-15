@@ -120,6 +120,31 @@ define "Warning Indicator":
   if "Has Active Benzodiazepine" then 'critical' else 'warning'
 
 // ============================================================
+// ALTERNATIVE SUGGESTION CONTENT
+// ============================================================
+
+define "Has Non Opioid Alternative":
+  "Is Opioid Naive" and "Is Schedule II Opioid" and not "Has Active Benzodiazepine"
+
+define "Alternative Summary":
+  'Consider Non-Opioid Alternative'
+
+define "Alternative Detail":
+  'Patient is opioid-naive. Consider non-opioid pain management options such as ' +
+  'NSAIDs, acetaminophen, or physical therapy before initiating opioid therapy. ' +
+  'If opioids are necessary, start with the lowest effective dose of an immediate-release formulation.'
+
+// ============================================================
+// COVERAGE INFO CONTENT
+// ============================================================
+
+define "Requires Coverage Info": "Coverage" is not null and "Is Schedule II Opioid"
+
+define "Coverage Summary": "Get Summary"
+
+define "Coverage Detail": "Get Detail"
+
+// ============================================================
 // CARD CONTENT
 // ============================================================
 
