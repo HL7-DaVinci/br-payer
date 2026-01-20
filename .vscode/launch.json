@@ -15,7 +15,7 @@
       "name": "Application",
       "request": "launch",
       "mainClass": "ca.uhn.fhir.jpa.starter.Application",
-      "projectName": "hapi-fhir-jpaserver-starter"
+      "projectName": "br-payer-server"
     }
   ]
 }

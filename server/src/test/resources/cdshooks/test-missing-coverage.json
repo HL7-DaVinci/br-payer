@@ -1,0 +1,48 @@
+{
+  "hookInstance": "test-missing-coverage",
+  "fhirServer": "http://localhost:8080/fhir",
+  "hook": "order-sign",
+  "context": {
+    "userId": "Practitioner/example",
+    "patientId": "example",
+    "draftOrders": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "resource": {
+            "resourceType": "DeviceRequest",
+            "id": "device-123",
+            "status": "draft",
+            "intent": "order",
+            "codeCodeableConcept": {
+              "coding": [
+                {
+                  "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                  "code": "E0250",
+                  "display": "Hospital bed, fixed height"
+                }
+              ]
+            },
+            "subject": {
+              "reference": "Patient/example"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "prefetch": {
+    "patient": {
+      "resourceType": "Patient",
+      "id": "example",
+      "name": [
+        {
+          "family": "TestPatient",
+          "given": ["Test"]
+        }
+      ],
+      "birthDate": "1960-01-01"
+    }
+  }
+}

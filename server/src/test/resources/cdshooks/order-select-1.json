@@ -707,6 +707,40 @@
           "search": {
             "mode": "match"
           }
+        },
+        {
+          "fullUrl": "http://example.org/someEHR/fhir/Organization/example-payer",
+          "resource": {
+            "resourceType": "Organization",
+            "id": "example-payer",
+            "identifier": [
+              {
+                "system": "urn:oid:2.16.840.1.113883.6.300",
+                "value": "00001"
+              }
+            ],
+            "name": "Test Payer Organization"
+          },
+          "search": {
+            "mode": "include"
+          }
+        },
+        {
+          "fullUrl": "http://example.org/someEHR/fhir/Organization/acme-payer",
+          "resource": {
+            "resourceType": "Organization",
+            "id": "acme-payer",
+            "identifier": [
+              {
+                "system": "urn:oid:2.16.840.1.113883.6.300",
+                "value": "00001"
+              }
+            ],
+            "name": "Acme Health Plan"
+          },
+          "search": {
+            "mode": "include"
+          }
         }
       ]
     },

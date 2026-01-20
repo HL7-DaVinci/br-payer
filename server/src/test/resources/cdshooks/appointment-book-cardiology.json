@@ -12,6 +12,7 @@
   "context": {
     "userId": "Practitioner/prov123",
     "patientId": "example-1",
+    "encounterId": "example",
     "appointments": {
       "resourceType": "Bundle",
       "type": "collection",
@@ -38,8 +39,8 @@
                 "coding": [
                   {
                     "system": "http://snomed.info/sct",
-                    "code": "789718008",
-                    "display": "Cardiology service"
+                    "code": "160254003",
+                    "display": "No history of cardiovascular system disease"
                   }
                 ],
                 "text": "Follow-up cardiac evaluation"
@@ -76,7 +77,9 @@
       "resourceType": "Patient",
       "id": "example-1",
       "meta": {
-        "profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"]
+        "profile": [
+          "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+        ]
       },
       "identifier": [
         {
@@ -97,7 +100,10 @@
         {
           "use": "official",
           "family": "Smith",
-          "given": ["John", "Michael"]
+          "given": [
+            "John",
+            "Michael"
+          ]
         }
       ],
       "gender": "male",
@@ -105,7 +111,9 @@
       "address": [
         {
           "use": "home",
-          "line": ["123 Main Street"],
+          "line": [
+            "123 Main Street"
+          ],
           "city": "Boston",
           "state": "MA",
           "postalCode": "02101"

@@ -23,7 +23,7 @@
         <version>8.6.0</version>
     </parent>
 
-    <artifactId>hapi-fhir-jpaserver-starter</artifactId>
+    <artifactId>br-payer-server</artifactId>
     <version>${project.parent.version}-${hapi.fhir.jpa.server.starter.revision}</version>
     <packaging>war</packaging>
 
