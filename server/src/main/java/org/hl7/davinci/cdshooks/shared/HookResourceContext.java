@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hl7.fhir.r4.model.Appointment;
+import org.hl7.fhir.r4.model.CareTeam;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Location;
 import org.hl7.fhir.r4.model.MedicationDispense;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.MedicationStatement;
@@ -25,10 +27,13 @@ public class HookResourceContext {
 
   private Patient patient;
   private Coverage coverage;
+  private int coverageCount;
   private Encounter encounter;
   private List<Practitioner> practitioners = new ArrayList<>();
   private List<PractitionerRole> practitionerRoles = new ArrayList<>();
   private List<Organization> organizations = new ArrayList<>();
+  private List<CareTeam> careTeams = new ArrayList<>();
+  private List<Location> locations = new ArrayList<>();
   private List<Resource> orders = new ArrayList<>();
   private List<Appointment> appointments = new ArrayList<>();
   private List<MedicationStatement> medicationStatements = new ArrayList<>();
@@ -37,6 +42,7 @@ public class HookResourceContext {
   private List<Procedure> procedures = new ArrayList<>();
   private List<ServiceRequest> serviceRequests = new ArrayList<>();
   private Task task;
+  private List<Task> tasks = new ArrayList<>();
 
   public Patient getPatient() {
     return patient;
@@ -52,6 +58,14 @@ public class HookResourceContext {
 
   public void setCoverage(Coverage coverage) {
     this.coverage = coverage;
+  }
+
+  public int getCoverageCount() {
+    return coverageCount;
+  }
+
+  public void setCoverageCount(int coverageCount) {
+    this.coverageCount = coverageCount;
   }
 
   public Encounter getEncounter() {
@@ -98,6 +112,30 @@ public class HookResourceContext {
     this.organizations.add(organization);
   }
 
+  public List<CareTeam> getCareTeams() {
+    return careTeams;
+  }
+
+  public void setCareTeams(List<CareTeam> careTeams) {
+    this.careTeams = careTeams;
+  }
+
+  public void addCareTeam(CareTeam careTeam) {
+    this.careTeams.add(careTeam);
+  }
+
+  public List<Location> getLocations() {
+    return locations;
+  }
+
+  public void setLocations(List<Location> locations) {
+    this.locations = locations;
+  }
+
+  public void addLocation(Location location) {
+    this.locations.add(location);
+  }
+
   public List<Resource> getOrders() {
     return orders;
   }
@@ -128,6 +166,21 @@ public class HookResourceContext {
 
   public void setTask(Task task) {
     this.task = task;
+    if (task != null) {
+      this.tasks.add(task);
+    }
+  }
+
+  public List<Task> getTasks() {
+    return tasks;
+  }
+
+  public void setTasks(List<Task> tasks) {
+    this.tasks = tasks;
+  }
+
+  public void addTask(Task task) {
+    this.tasks.add(task);
   }
 
   public List<MedicationStatement> getMedicationStatements() {

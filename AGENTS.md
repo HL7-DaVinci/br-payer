@@ -71,9 +71,9 @@ This server implements the Da Vinci Burden Reduction implementation guides. Alwa
 
 | IG | Build URL | Key Sections |
 |----|-----------|--------------|
-| **CRD** (Coverage Requirements Discovery) | https://build.fhir.org/ig/HL7/davinci-crd/ | [Hooks](https://build.fhir.org/ig/HL7/davinci-crd/hooks.html), [Cards](https://build.fhir.org/ig/HL7/davinci-crd/cards.html), [CodeSystem](https://build.fhir.org/ig/HL7/davinci-crd/CodeSystem-temp.html) |
-| **DTR** (Documentation Templates and Rules) | https://build.fhir.org/ig/HL7/davinci-dtr/ | [Specification](https://build.fhir.org/ig/HL7/davinci-dtr/specification.html), [Expected Systems](https://build.fhir.org/ig/HL7/davinci-dtr/index.html#expected-systems) |
-| **PAS** (Prior Authorization Support) | https://build.fhir.org/ig/HL7/davinci-pas/ | [Specification](https://build.fhir.org/ig/HL7/davinci-pas/specification.html) |
+| **CRD** (Coverage Requirements Discovery) | https://build.fhir.org/ig/HL7/davinci-crd/en/ | [Hooks](https://build.fhir.org/ig/HL7/davinci-crd/en/hooks.html), [Cards](https://build.fhir.org/ig/HL7/davinci-crd/en/cards.html), [CodeSystem](https://build.fhir.org/ig/HL7/davinci-crd/en/CodeSystem-temp.html) |
+| **DTR** (Documentation Templates and Rules) | https://build.fhir.org/ig/HL7/davinci-dtr/en/ | [Specification](https://build.fhir.org/ig/HL7/davinci-dtr/en/specification.html), [Expected Systems](https://build.fhir.org/ig/HL7/davinci-dtr/en/index.html#expected-systems) |
+| **PAS** (Prior Authorization Support) | https://build.fhir.org/ig/HL7/davinci-pas/en/ | [Specification](https://build.fhir.org/ig/HL7/davinci-pas/en/specification.html) |
 | **CDS Hooks** | https://cds-hooks.org/specification/current/ | [Discovery](https://cds-hooks.org/specification/current/#discovery), [HTTP Response](https://cds-hooks.org/specification/current/#http-response) |
 
 **Important**: This server is a **payer** implementation. It does NOT implement provider/EHR-side functionality like DTR SMART apps.
@@ -101,7 +101,7 @@ This server implements the Da Vinci Burden Reduction implementation guides. Alwa
 
 Use codes from `http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp` for `source.topic`:
 - `coverage-info`, `insurance`, `network`, `cost`, `therapy-alternatives-req`, etc.
-- See [CRD CardType ValueSet](https://build.fhir.org/ig/HL7/davinci-crd/ValueSet-cardType.html)
+- See [CRD CardType ValueSet](https://build.fhir.org/ig/HL7/davinci-crd/en/ValueSet-cardType.html)
 
 ---
 
@@ -136,9 +136,8 @@ PlanDefinitions are matched based on:
 
 ### CQL Output for Coverage Information
 
-CQL should output a FHIR Extension matching [ext-coverage-information](https://build.fhir.org/ig/HL7/davinci-crd/StructureDefinition-ext-coverage-information.html). The extension is extracted from the RequestGroup returned by PlanDefinition/$apply.
+CQL should output a FHIR Extension matching [ext-coverage-information](https://build.fhir.org/ig/HL7/davinci-crd/en/StructureDefinition-ext-coverage-information.html). The extension is extracted from the RequestGroup returned by PlanDefinition/$apply.
 
----
 
 ## Key Constraints
 

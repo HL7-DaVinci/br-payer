@@ -1,0 +1,72 @@
+{
+  "hookInstance": "b1b94a08-3b5a-4d36-9c35-03a0d74d55b6",
+  "fhirServer": "http://localhost:8080/fhir",
+  "hook": "order-dispatch",
+  "context": {
+    "patientId": "patient-456",
+    "performer": "Organization/dme-supplier-1",
+    "dispatchedOrders": ["DeviceRequest/oxygen-1"],
+    "fulfillmentTasks": [{
+      "resourceType": "Task",
+      "id": "dispatch-task-1",
+      "status": "requested",
+      "intent": "order",
+      "focus": { "reference": "DeviceRequest/oxygen-1" },
+      "for": { "reference": "Patient/patient-456" },
+      "owner": { "reference": "Organization/dme-supplier-1" }
+    }]
+  },
+  "prefetch": {
+    "dispatchedOrders": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [{
+        "resource": {
+          "resourceType": "DeviceRequest",
+          "id": "oxygen-1",
+          "status": "draft",
+          "intent": "order",
+          "codeCodeableConcept": {
+            "coding": [{
+              "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+              "code": "E0424",
+              "display": "Stationary compressed gaseous oxygen system"
+            }]
+          },
+          "subject": { "reference": "Patient/patient-456" },
+          "performer": { "reference": "Organization/dme-supplier-1" }
+        }
+      }]
+    },
+    "patient": {
+      "resourceType": "Patient",
+      "id": "patient-456",
+      "name": [{ "family": "Smith", "given": ["John"] }],
+      "gender": "male",
+      "birthDate": "1950-08-22"
+    },
+    "coverage": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [{
+        "resource": {
+          "resourceType": "Coverage",
+          "id": "coverage-456",
+          "status": "active",
+          "beneficiary": { "reference": "Patient/patient-456" },
+          "payor": [{ "reference": "Organization/cms-payer" }]
+        }
+      }, {
+        "resource": {
+          "resourceType": "Organization",
+          "id": "cms-payer",
+          "identifier": [{
+            "system": "urn:oid:2.16.840.1.113883.6.300",
+            "value": "00001"
+          }],
+          "name": "Centers for Medicare and Medicaid Services"
+        }
+      }]
+    }
+  }
+}

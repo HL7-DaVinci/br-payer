@@ -157,6 +157,59 @@
           }
         }
       ]
+    },
+    {
+      "id": "informative-guidance",
+      "title": "Hospital Bed Documentation Guidance",
+      "description": "Non-coverage instructions for hospital bed orders",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "instructions"
+        }
+      ],
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "Medicare Hospital Bed Coverage Policy",
+          "url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33820"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "order-select"
+        },
+        {
+          "type": "named-event",
+          "name": "order-sign"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Requires Coverage Determination"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Detail"
+          }
+        }
+      ]
     }
   ]
 }

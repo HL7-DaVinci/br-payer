@@ -19,6 +19,14 @@
             "system": "urn:oid:2.16.840.1.113883.6.300",
             "code": "00001",
             "display": "Centers for Medicare and Medicaid Services"
+          },
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "code": "1234567893"
+          },
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "code": "8189991234"
           }
         ],
         "text": "Medicare Part D"
@@ -207,6 +215,55 @@
           "expression": {
             "language": "text/cql-identifier",
             "expression": "Coverage Info Extension"
+          }
+        }
+      ]
+    },
+    {
+      "id": "informative-guidance",
+      "title": "Opioid Documentation Guidance",
+      "description": "Non-coverage instructions for opioid ordering",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "instructions"
+        }
+      ],
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "Medicare Part D Opioid Policies",
+          "url": "https://www.cms.gov/Medicare/Prescription-Drug-Coverage/PrescriptionDrugCovContra/RxUtilization"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "order-sign"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Requires Coverage Info"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Detail"
           }
         }
       ]

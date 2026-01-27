@@ -1,0 +1,30 @@
+{
+  "hookInstance": "test-missing-orders",
+  "fhirServer": "http://localhost:8080/fhir",
+  "hook": "order-dispatch",
+  "context": {
+    "patientId": "example",
+    "performer": "Organization/org-1"
+  },
+  "prefetch": {
+    "patient": { "resourceType": "Patient", "id": "example" },
+    "coverage": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [{
+        "resource": {
+          "resourceType": "Coverage",
+          "id": "cov-1",
+          "status": "active",
+          "payor": [{ "reference": "Organization/cms-payer" }]
+        }
+      }, {
+        "resource": {
+          "resourceType": "Organization",
+          "id": "cms-payer",
+          "identifier": [{ "system": "urn:oid:2.16.840.1.113883.6.300", "value": "00001" }]
+        }
+      }]
+    }
+  }
+}

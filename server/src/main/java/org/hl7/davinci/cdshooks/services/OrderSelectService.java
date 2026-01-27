@@ -5,7 +5,9 @@ import java.util.List;
 
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.cdshooks.shared.CdsServiceBase;
+import org.hl7.davinci.cdshooks.shared.CrdServiceExtension;
 import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResourceResolver;
 import org.hl7.fhir.r4.model.Resource;
 
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
@@ -26,6 +28,8 @@ public class OrderSelectService extends CdsServiceBase {
     hook = "order-select",
     title = "CRD Order Select Hook",
     description = "Indicates coverage requirements associated with draft orders, including expectations for prior authorization, recommended therapy alternatives, etc.",
+    extension = CRD_SERVICE_EXTENSION,
+    extensionClass = CrdServiceExtension.class,
     allowAutoFhirClientPrefetch = true,
     prefetch = {
       @CdsServicePrefetch(value = "patient", query = "Patient/{{context.patientId}}"),
@@ -55,12 +59,12 @@ public class OrderSelectService extends CdsServiceBase {
 
     if (context.getOrders().isEmpty()) {
       throw new CdsHooksException.BadRequestException(
-        "draftOrders context is required but was empty or missing."
+        "draftOrders context is required but was empty, missing, or could not be resolved."
       );
     }
     if (selections == null || selections.isEmpty()) {
       throw new CdsHooksException.BadRequestException(
-        "selections context is required but was empty or missing."
+        "selections context is required but was empty, missing, or could not be resolved."
       );
     }
   }
@@ -71,7 +75,7 @@ public class OrderSelectService extends CdsServiceBase {
 
     for (Resource order : context.getOrders()) {
       String resourceRef = order.fhirType() + "/" + order.getIdElement().getIdPart();
-      if (selections.stream().anyMatch(sel -> sel.equals(resourceRef) || sel.endsWith(resourceRef))) {
+      if (selections.stream().anyMatch(sel -> ResourceResolver.referencesMatch(sel, resourceRef))) {
         selectedOrders.add(order);
       }
     }

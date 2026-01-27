@@ -1,0 +1,23 @@
+{
+  "resourceType": "Library",
+  "id": "ImagingNetworkDispatchRule",
+  "url": "http://example.org/fhir/Library/ImagingNetworkDispatchRule",
+  "version": "1.0.0",
+  "name": "ImagingNetworkDispatchRule",
+  "title": "Imaging Network Dispatch Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "ImagingNetworkDispatchRule.cql"
+    }
+  ]
+}

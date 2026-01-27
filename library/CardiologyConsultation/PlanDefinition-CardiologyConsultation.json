@@ -6,7 +6,7 @@
   "name": "CardiologyConsultation",
   "title": "Cardiology Consultation Appointment",
   "status": "active",
-  "description": "Coverage requirements for scheduling cardiology consultation appointments. Checks for referral requirements and provides network information.",
+  "description": "Coverage requirements for scheduling cardiology consultation appointments. Tests referral capture and network guidance for coverage review.",
   "useContext": [
     {
       "code": {
@@ -59,8 +59,8 @@
       "documentation": [
         {
           "type": "documentation",
-          "display": "Medicare Cardiology Services Coverage",
-          "url": "https://www.cms.gov/medicare-coverage-database"
+          "display": "Plan cardiology consult coverage policy (test)",
+          "url": "https://example.org/payer/cardiology-consult-policy"
         }
       ],
       "trigger": [
@@ -98,6 +98,55 @@
           "expression": {
             "language": "text/cql-identifier",
             "expression": "Coverage Info Extension"
+          }
+        }
+      ]
+    },
+    {
+      "id": "informative-guidance",
+      "title": "Consultation Documentation Guidance",
+      "description": "Non-coverage instructions for cardiology consultation scheduling",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "instructions"
+        }
+      ],
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "Plan cardiology consult coverage policy (test)",
+          "url": "https://example.org/payer/cardiology-consult-policy"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "appointment-book"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Requires Coverage Determination"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Detail"
           }
         }
       ]

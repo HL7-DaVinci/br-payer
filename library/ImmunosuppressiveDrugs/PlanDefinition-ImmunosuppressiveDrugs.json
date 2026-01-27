@@ -105,6 +105,52 @@
           }
         }
       ]
+    },
+    {
+      "id": "informative-guidance",
+      "title": "Immunosuppressive Documentation Guidance",
+      "description": "Non-coverage instructions for immunosuppressive medication ordering",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "instructions"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "order-select"
+        },
+        {
+          "type": "named-event",
+          "name": "order-sign"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Rule Applies"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Detail"
+          }
+        }
+      ]
     }
   ]
 }

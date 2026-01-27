@@ -324,24 +324,6 @@
     "coverage": {
       "resourceType": "Bundle",
       "type": "collection",
-      "entry": [
-        {
-          "fullUrl": "http://localhost:8080/fhir/Coverage/example",
-          "resource": {
-            "resourceType": "Coverage",
-            "id": "example",
-            "payor": [
-              {
-                "reference": "Organization/example-payer",
-                "identifier": {
-                  "system": "urn:oid:2.16.840.1.113883.6.300",
-                  "value": "00001"
-                }
-              }
-            ]
-          }
-        }
-      ],
       "link": [
         {
           "relation": "self",
@@ -402,8 +384,11 @@
             },
             "payor": [
               {
-                "reference": "http://example.org/someEHR/fhir/Organization/acme-payer",
-                "display": "Acme Health Plan"
+                "reference": "Organization/example-payer",
+                "identifier": {
+                  "system": "urn:oid:2.16.840.1.113883.6.300",
+                  "value": "00001"
+                }
               }
             ],
             "class": [

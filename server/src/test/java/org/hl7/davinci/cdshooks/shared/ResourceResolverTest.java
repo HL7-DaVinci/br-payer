@@ -73,7 +73,7 @@ class ResourceResolverTest {
       assertFalse(context.getAppointments().isEmpty(), "Appointments should be extracted");
       // The ID may include the full URN from the Bundle fullUrl
       String idPart = context.getAppointments().get(0).getIdElement().getIdPart();
-      assertTrue(idPart.contains("cardio-appt-001"), "Appointment ID should contain expected value");
+      assertTrue(idPart.contains("b2c3d4e5-f6a7-8901-bcde-f23456789012"), "Appointment ID should contain expected value");
     }
 
     @Test

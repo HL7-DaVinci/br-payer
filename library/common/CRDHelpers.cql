@@ -25,6 +25,9 @@ define "Is Encounter Start":
 define "Is Encounter Discharge":
   Hook = 'encounter-discharge'
 
+define "Is Order Dispatch":
+  Hook = 'order-dispatch'
+
 // ============================================================
 // PATIENT DEMOGRAPHICS
 // ============================================================

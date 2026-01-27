@@ -19,6 +19,7 @@ import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CarePlan;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DateType;
@@ -29,6 +30,7 @@ import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.MedicationRequest;
+import org.hl7.fhir.r4.model.NutritionOrder;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.PlanDefinition;
@@ -39,6 +41,7 @@ import org.hl7.fhir.r4.model.RequestGroup;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.VisionPrescription;
 import org.hl7.fhir.r4.model.TriggerDefinition.TriggerType;
 import org.opencds.cqf.fhir.cr.hapi.common.IPlanDefinitionProcessorFactory;
 import org.opencds.cqf.fhir.cr.plandefinition.PlanDefinitionProcessor;
@@ -71,6 +74,15 @@ import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 public abstract class CdsServiceBase {
 
   protected static final String COVERAGE_INFO_EXT_URL = "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/ext-coverage-information";
+  protected static final String CRD_SERVICE_EXTENSION = """
+      {
+        "davinci-crd.version":["2.2"],
+        "davinci-crd.configuration-options":[
+          {"code":"coverage-info","type":"boolean","name":"Coverage Information","description":"Return coverage-information system actions and related cards.","default":true},
+          {"code":"max-cards","type":"integer","name":"Maximum cards","description":"Maximum number of cards to return.","default":10}
+        ]
+      }
+      """;
 
   protected final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -91,7 +103,8 @@ public abstract class CdsServiceBase {
   /**
    * Validates that required resources are present in the context.
    *
-   * @throws CdsHooksException.BadRequestException if required resources are missing
+   * @throws CdsHooksException.BadRequestException if required resources are
+   *                                               missing
    */
   protected abstract void validateResourceContext(HookResourceContext context);
 
@@ -104,14 +117,287 @@ public abstract class CdsServiceBase {
   protected abstract List<Resource> selectContextResources(HookResourceContext context);
 
   /**
-   * Optional hook for subclasses to customize the response before returning.
-   * Default implementation does nothing.
-   * 
+   * Final method that orchestrates all response processing.
+   * Calls operations in order: hook-specific customization, client requested
+   * configuration, CRD conformance enforcement.
+   *
+   * @param response the CDS response to finalize
+   * @param request  the original CDS request
+   */
+  protected final void finalizeResponse(CdsServiceResponseJson response, CdsServiceRequestJson request) {
+    if (response == null) {
+      return;
+    }
+
+    customizeResponseHook(response, request);
+    applyClientConfiguration(response, request);
+    ensureCrdConformance(response);
+  }
+
+  /**
+   * Operation for subclasses to customize the response before configuration and
+   * conformance processing.
+   * Override this method to add custom response manipulation.
+   *
    * @param response the CDS response to customize
    * @param request  the original CDS request
    */
-  protected void customizeResponse(CdsServiceResponseJson response, CdsServiceRequestJson request) {
-    // Default: no customization
+  protected void customizeResponseHook(CdsServiceResponseJson response, CdsServiceRequestJson request) {
+    // Empty - subclasses override for custom response manipulation
+  }
+
+  /**
+   * Applies client configuration options from the CRD request extension.
+   * Filters cards by topic and limits card count based on configuration.
+   *
+   * @param response the CDS response to filter
+   * @param request  the original CDS request containing configuration
+   */
+  protected void applyClientConfiguration(CdsServiceResponseJson response, CdsServiceRequestJson request) {
+    if (request == null || response == null || request.getExtension() == null) {
+      return;
+    }
+
+    if (!(request.getExtension() instanceof CrdRequestExtension crdExtension)) {
+      return;
+    }
+
+    Map<String, Object> config = crdExtension.getConfiguration();
+    if (config == null || config.isEmpty()) {
+      return;
+    }
+
+    List<String> disabledCardTypes = new ArrayList<>();
+    for (Map.Entry<String, Object> entry : config.entrySet()) {
+      if (entry.getValue() instanceof Boolean enabled && !enabled) {
+        disabledCardTypes.add(entry.getKey());
+      }
+    }
+
+    if (!disabledCardTypes.isEmpty() && response.getCards() != null) {
+      response.getCards().removeIf(card -> {
+        if (card == null || card.getSource() == null || card.getSource().getTopic() == null) {
+          return false;
+        }
+        String code = card.getSource().getTopic().getCode();
+        return code != null && disabledCardTypes.contains(code);
+      });
+    }
+
+    if (disabledCardTypes.contains("coverage-info") && response.getServiceActions() != null) {
+      response.getServiceActions().removeIf(action -> {
+        if (action == null || action.getResource() == null) {
+          return false;
+        }
+        if (action.getResource() instanceof DomainResource domainResource) {
+          return domainResource.hasExtension(COVERAGE_INFO_EXT_URL);
+        }
+        return false;
+      });
+    }
+
+    Object maxCardsObj = config.get("max-cards");
+    if (maxCardsObj instanceof Number maxCards && response.getCards() != null) {
+      int limit = maxCards.intValue();
+      if (limit >= 0 && response.getCards().size() > limit) {
+        response.getCards().subList(limit, response.getCards().size()).clear();
+      }
+    }
+  }
+
+  /**
+   * Ensures all system action resources conform to CRD profile requirements.
+   * Sets default values for required fields where possible and logs warnings for
+   * missing fields.
+   *
+   * @param response the CDS response containing system actions to validate
+   */
+  protected void ensureCrdConformance(CdsServiceResponseJson response) {
+    if (response.getServiceActions() == null) {
+      return;
+    }
+
+    Date now = new Date();
+    for (CdsServiceResponseSystemActionJson action : response.getServiceActions()) {
+      if (action == null || action.getResource() == null) {
+        continue;
+      }
+
+      IBaseResource resource = action.getResource();
+
+      if (resource instanceof ServiceRequest sr) {
+        ensureServiceRequestConformance(sr, now);
+      } else if (resource instanceof DeviceRequest dr) {
+        ensureDeviceRequestConformance(dr, now);
+      } else if (resource instanceof MedicationRequest mr) {
+        ensureMedicationRequestConformance(mr, now);
+      } else if (resource instanceof NutritionOrder no) {
+        ensureNutritionOrderConformance(no, now);
+      } else if (resource instanceof CommunicationRequest cr) {
+        ensureCommunicationRequestConformance(cr, now);
+      } else if (resource instanceof VisionPrescription vp) {
+        ensureVisionPrescriptionConformance(vp, now);
+      }
+    }
+  }
+
+  /**
+   * Ensures a ServiceRequest conforms to CRD profile requirements.
+   * Sets defaults for status, intent, and authoredOn. Logs warnings for other
+   * required fields.
+   */
+  protected void ensureServiceRequestConformance(ServiceRequest sr, Date defaultDate) {
+    if (!sr.hasStatus()) {
+      sr.setStatus(ServiceRequest.ServiceRequestStatus.DRAFT);
+    }
+    if (!sr.hasIntent()) {
+      sr.setIntent(ServiceRequest.ServiceRequestIntent.ORDER);
+    }
+    if (!sr.hasAuthoredOn()) {
+      sr.setAuthoredOn(defaultDate);
+    }
+    logMissingRequiredFields(sr, "ServiceRequest", "code", "subject", "requester");
+  }
+
+  /**
+   * Ensures a DeviceRequest conforms to CRD profile requirements.
+   * Sets defaults for status, intent, and authoredOn. Logs warnings for other
+   * required fields.
+   */
+  protected void ensureDeviceRequestConformance(DeviceRequest dr, Date defaultDate) {
+    if (!dr.hasStatus()) {
+      dr.setStatus(DeviceRequest.DeviceRequestStatus.DRAFT);
+    }
+    if (!dr.hasIntent()) {
+      dr.setIntent(DeviceRequest.RequestIntent.ORDER);
+    }
+    if (!dr.hasAuthoredOn()) {
+      dr.setAuthoredOn(defaultDate);
+    }
+    logMissingRequiredFields(dr, "DeviceRequest", "code", "subject", "requester");
+  }
+
+  /**
+   * Ensures a MedicationRequest conforms to CRD profile requirements.
+   * Sets defaults for status, intent, and authoredOn. Logs warnings for other
+   * required fields.
+   */
+  protected void ensureMedicationRequestConformance(MedicationRequest mr, Date defaultDate) {
+    if (!mr.hasStatus()) {
+      mr.setStatus(MedicationRequest.MedicationRequestStatus.DRAFT);
+    }
+    if (!mr.hasIntent()) {
+      mr.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
+    }
+    if (!mr.hasAuthoredOn()) {
+      mr.setAuthoredOn(defaultDate);
+    }
+    logMissingRequiredFields(mr, "MedicationRequest", "medication", "subject", "requester");
+  }
+
+  /**
+   * Ensures a NutritionOrder conforms to CRD profile requirements.
+   * Sets defaults for status and dateTime. Logs warnings for other required
+   * fields.
+   */
+  protected void ensureNutritionOrderConformance(NutritionOrder no, Date defaultDate) {
+    if (!no.hasStatus()) {
+      no.setStatus(NutritionOrder.NutritionOrderStatus.DRAFT);
+    }
+    if (!no.hasIntent()) {
+      no.setIntent(NutritionOrder.NutritiionOrderIntent.ORDER);
+    }
+    if (!no.hasDateTime()) {
+      no.setDateTime(defaultDate);
+    }
+    logMissingRequiredFields(no, "NutritionOrder", "patient", "orderer");
+  }
+
+  /**
+   * Ensures a CommunicationRequest conforms to CRD profile requirements.
+   * Sets defaults for status. Logs warnings for other required fields.
+   */
+  protected void ensureCommunicationRequestConformance(CommunicationRequest cr, Date defaultDate) {
+    if (!cr.hasStatus()) {
+      cr.setStatus(CommunicationRequest.CommunicationRequestStatus.DRAFT);
+    }
+    if (!cr.hasAuthoredOn()) {
+      cr.setAuthoredOn(defaultDate);
+    }
+    logMissingRequiredFields(cr, "CommunicationRequest", "subject", "requester");
+  }
+
+  /**
+   * Ensures a VisionPrescription conforms to CRD profile requirements.
+   * Sets defaults for status and dateWritten. Logs warnings for other required
+   * fields.
+   */
+  protected void ensureVisionPrescriptionConformance(VisionPrescription vp, Date defaultDate) {
+    if (!vp.hasStatus()) {
+      vp.setStatus(VisionPrescription.VisionStatus.DRAFT);
+    }
+    if (!vp.hasDateWritten()) {
+      vp.setDateWritten(defaultDate);
+    }
+    logMissingRequiredFields(vp, "VisionPrescription", "patient", "prescriber", "lensSpecification");
+  }
+
+  /**
+   * Logs warnings for required fields that are missing and cannot be auto-filled.
+   */
+  private void logMissingRequiredFields(Resource resource, String resourceType, String... fields) {
+    String resourceId = resource.hasIdElement() ? resource.getIdElement().toUnqualifiedVersionless().getValue()
+        : "unknown";
+
+    for (String field : fields) {
+      boolean missing = switch (field) {
+        case "code" -> {
+          if (resource instanceof ServiceRequest sr)
+            yield !sr.hasCode();
+          if (resource instanceof DeviceRequest dr)
+            yield !dr.hasCode();
+          yield false;
+        }
+        case "medication" -> resource instanceof MedicationRequest mr && !mr.hasMedication();
+        case "subject" -> {
+          if (resource instanceof ServiceRequest sr)
+            yield !sr.hasSubject();
+          if (resource instanceof DeviceRequest dr)
+            yield !dr.hasSubject();
+          if (resource instanceof MedicationRequest mr)
+            yield !mr.hasSubject();
+          yield false;
+        }
+        case "patient" -> {
+          if (resource instanceof NutritionOrder no)
+            yield !no.hasPatient();
+          if (resource instanceof CommunicationRequest cr)
+            yield !cr.hasSubject();
+          if (resource instanceof VisionPrescription vp)
+            yield !vp.hasPatient();
+          yield false;
+        }
+        case "requester" -> {
+          if (resource instanceof ServiceRequest sr)
+            yield !sr.hasRequester();
+          if (resource instanceof DeviceRequest dr)
+            yield !dr.hasRequester();
+          if (resource instanceof MedicationRequest mr)
+            yield !mr.hasRequester();
+          if (resource instanceof CommunicationRequest cr)
+            yield !cr.hasRequester();
+          yield false;
+        }
+        case "orderer" -> resource instanceof NutritionOrder no && !no.hasOrderer();
+        case "prescriber" -> resource instanceof VisionPrescription vp && !vp.hasPrescriber();
+        case "lensSpecification" -> resource instanceof VisionPrescription vp && !vp.hasLensSpecification();
+        default -> false;
+      };
+
+      if (missing) {
+        logger.warn("CRD conformance: {} {} is missing required field '{}'", resourceType, resourceId, field);
+      }
+    }
   }
 
   /**
@@ -141,10 +427,16 @@ public abstract class CdsServiceBase {
     // Validate required resources are present
     validateResourceContext(context);
 
-    // Per CRD spec: Coverage is required for all hooks - return 400 if not accessible
+    // Per CRD spec: Coverage is required for all hooks - return 400 if not
+    // accessible
     if (context.getCoverage() == null) {
       throw new CdsHooksException.BadRequestException(
           "No Coverage resource is accessible for this patient. A Coverage resource with a valid payer identifier is required.");
+    }
+
+    if (context.getCoverageCount() > 1) {
+      throw new CdsHooksException.BadRequestException(
+          "Multiple Coverage resources are accessible for this patient. CRD requires a single primary Coverage in the request.");
     }
 
     // Get payor identifiers for PlanDefinition matching
@@ -189,15 +481,15 @@ public abstract class CdsServiceBase {
       consolidated.forEach(response::addServiceAction);
     }
 
-    customizeResponse(response, request);
-
     // Per CRD IG: Primary hooks (order-sign, order-dispatch, appointment-book)
-    // SHALL return
-    // coverage-information system action even if no PlanDefinition matched
+    // SHALL return coverage-information system action even if no PlanDefinition
+    // matched
     if (isPrimaryHook() && !hasCoverageInfoSystemAction(response)) {
       logger.info("No coverage-information generated by rules. Adding default coverage-info for primary hook.");
       addDefaultCoverageInfo(response, context, resourcesToProcess);
     }
+
+    finalizeResponse(response, request);
 
     // System actions are required in the response. Add a null action and then clear
     // to force initialization so it's in the response.
@@ -236,7 +528,7 @@ public abstract class CdsServiceBase {
           continue;
         }
         String orgRef = "Organization/" + idPart;
-        if (payorRefStr.equals(orgRef) || payorRefStr.endsWith(orgRef)) {
+        if (ResourceResolver.referencesMatch(payorRefStr, orgRef)) {
           for (Identifier identifier : org.getIdentifier()) {
             if (identifier.hasSystem() && identifier.hasValue()) {
               payorIdentifiers.add(identifier);
@@ -304,6 +596,20 @@ public abstract class CdsServiceBase {
       if (deviceRequest.hasCodeCodeableConcept()) {
         codes.addAll(deviceRequest.getCodeCodeableConcept().getCoding());
       }
+    } else if (resource instanceof CommunicationRequest communicationRequest) {
+      if (communicationRequest.hasCategory()) {
+        communicationRequest.getCategory().forEach(cc -> codes.addAll(cc.getCoding()));
+      }
+      if (communicationRequest.hasReasonCode()) {
+        communicationRequest.getReasonCode().forEach(cc -> codes.addAll(cc.getCoding()));
+      }
+      if (communicationRequest.hasPayload()) {
+        communicationRequest.getPayload().forEach(payload -> {
+          if (payload.hasContent() && payload.getContent() instanceof CodeableConcept content) {
+            codes.addAll(content.getCoding());
+          }
+        });
+      }
     } else if (resource instanceof MedicationRequest medRequest) {
       if (medRequest.hasMedicationCodeableConcept()) {
         codes.addAll(medRequest.getMedicationCodeableConcept().getCoding());
@@ -314,9 +620,36 @@ public abstract class CdsServiceBase {
           codes.addAll(medication.getCode().getCoding());
         }
       }
+    } else if (resource instanceof NutritionOrder nutritionOrder) {
+      if (nutritionOrder.hasOralDiet() && nutritionOrder.getOralDiet().hasType()) {
+        nutritionOrder.getOralDiet().getType().forEach(cc -> codes.addAll(cc.getCoding()));
+      }
+      if (nutritionOrder.hasSupplement()) {
+        nutritionOrder.getSupplement().forEach(supplement -> {
+          if (supplement.hasType()) {
+            codes.addAll(supplement.getType().getCoding());
+          }
+        });
+      }
+      if (nutritionOrder.hasEnteralFormula()) {
+        if (nutritionOrder.getEnteralFormula().hasBaseFormulaType()) {
+          codes.addAll(nutritionOrder.getEnteralFormula().getBaseFormulaType().getCoding());
+        }
+        if (nutritionOrder.getEnteralFormula().hasAdditiveType()) {
+          codes.addAll(nutritionOrder.getEnteralFormula().getAdditiveType().getCoding());
+        }
+      }
     } else if (resource instanceof ServiceRequest serviceRequest) {
       if (serviceRequest.hasCode()) {
         codes.addAll(serviceRequest.getCode().getCoding());
+      }
+    } else if (resource instanceof VisionPrescription visionPrescription) {
+      if (visionPrescription.hasLensSpecification()) {
+        visionPrescription.getLensSpecification().forEach(spec -> {
+          if (spec.hasProduct()) {
+            codes.addAll(spec.getProduct().getCoding());
+          }
+        });
       }
     } else if (resource instanceof Appointment appointment) {
       if (appointment.hasServiceType()) {
@@ -374,7 +707,8 @@ public abstract class CdsServiceBase {
     payorIdentifiersParam.addAnd(payorOrList);
     searchParams.add("context-type-value", payorIdentifiersParam);
 
-    // logger.info("Search parameter map: {}", searchParams.toNormalizedQueryString(FhirContext.forR4Cached()));
+    // logger.info("Search parameter map: {}",
+    // searchParams.toNormalizedQueryString(FhirContext.forR4Cached()));
 
     IBundleProvider planDefBundle = daoRegistry
         .getResourceDao(PlanDefinition.class)
@@ -468,14 +802,17 @@ public abstract class CdsServiceBase {
     );
 
     RequestGroup requestGroup = extractRequestGroup(result);
-    List<CdsServiceResponseCardJson> cards = convertToCards(requestGroup, plan, contextResource, getHookName());
+    List<CdsServiceResponseCardJson> cards = convertToCards(requestGroup, plan, contextResource, context,
+        getHookName());
     cards.forEach(card -> planResponse.addCard(card));
 
     Extension coverageInfoExt = extractCoverageExtension(requestGroup, context.getCoverage());
 
     if (coverageInfoExt != null) {
       CdsServiceResponseSystemActionJson systemAction = buildCoverageInfoSystemAction(contextResource, coverageInfoExt);
-      planResponse.addServiceAction(systemAction);
+      if (systemAction != null) {
+        planResponse.addServiceAction(systemAction);
+      }
     }
 
     return planResponse;
@@ -492,11 +829,13 @@ public abstract class CdsServiceBase {
     addResourcesToBundle(bundle, seenIds, context.getPractitioners());
     addResourcesToBundle(bundle, seenIds, context.getPractitionerRoles());
     addResourcesToBundle(bundle, seenIds, context.getOrganizations());
+    addResourcesToBundle(bundle, seenIds, context.getCareTeams());
+    addResourcesToBundle(bundle, seenIds, context.getLocations());
     addResourcesToBundle(bundle, seenIds, context.getAppointments());
     addResourcesToBundle(bundle, seenIds, context.getOrders());
     addResourcesToBundle(bundle, seenIds, context.getMedicationStatements());
     addResourcesToBundle(bundle, seenIds, context.getMedicationHistory());
-    addResourceToBundle(bundle, seenIds, context.getTask());
+    addResourcesToBundle(bundle, seenIds, context.getTasks());
     addResourceToBundle(bundle, seenIds, contextResource);
 
     return bundle;
@@ -686,11 +1025,7 @@ public abstract class CdsServiceBase {
       return false;
     }
     String extCoverageRef = ref.getReference();
-    // Match if references are equal or if one ends with the other
-    return coverageRef != null && extCoverageRef != null &&
-        (coverageRef.equals(extCoverageRef) ||
-            coverageRef.endsWith(extCoverageRef) ||
-            extCoverageRef.endsWith(coverageRef));
+    return ResourceResolver.referencesMatch(coverageRef, extCoverageRef);
   }
 
   /**
@@ -705,6 +1040,19 @@ public abstract class CdsServiceBase {
    */
   protected CdsServiceResponseSystemActionJson buildCoverageInfoSystemAction(Resource resource,
       Extension coverageInfoExt) {
+
+    if (resource == null || coverageInfoExt == null) {
+      return null;
+    }
+
+    Extension existingCoverage = findMatchingCoverageExtension(resource, coverageInfoExt);
+    if (existingCoverage != null) {
+      Extension normalizedExisting = normalizeCoverageExtension(existingCoverage);
+      Extension normalizedNew = normalizeCoverageExtension(coverageInfoExt);
+      if (normalizedExisting.equalsDeep(normalizedNew)) {
+        return null;
+      }
+    }
 
     // Clone the resource and clean up stale CRD artifacts before adding new ones
     Resource updatedResource = resource.copy();
@@ -737,6 +1085,36 @@ public abstract class CdsServiceBase {
     return systemAction;
   }
 
+  private Extension findMatchingCoverageExtension(Resource resource, Extension coverageInfoExt) {
+    if (!(resource instanceof DomainResource domainResource)) {
+      return null;
+    }
+
+    String coverageRef = null;
+    Extension coverageExt = coverageInfoExt.getExtensionByUrl("coverage");
+    if (coverageExt != null && coverageExt.getValue() instanceof Reference ref) {
+      coverageRef = ref.getReference();
+    }
+
+    for (Extension ext : domainResource.getExtension()) {
+      if (!COVERAGE_INFO_EXT_URL.equals(ext.getUrl())) {
+        continue;
+      }
+      if (coverageRef == null || isSameCoverageExtension(ext, coverageRef)) {
+        return ext;
+      }
+    }
+
+    return null;
+  }
+
+  private Extension normalizeCoverageExtension(Extension extension) {
+    Extension normalized = extension.copy();
+    normalized.getExtension().removeIf(ext -> "coverage-assertion-id".equals(ext.getUrl())
+        || "date".equals(ext.getUrl()));
+    return normalized;
+  }
+
   /**
    * Converts RequestGroup actions to CDS Hooks response cards.
    * Each card is assigned a UUID and linked to the associated resource.
@@ -745,10 +1123,11 @@ public abstract class CdsServiceBase {
    * @param requestGroup the RequestGroup from PlanDefinition $apply
    * @param planDef      the PlanDefinition that was executed
    * @param resource     the resource this card is associated with
+   * @param context      the hook resource context for payer labeling
    * @param hookName     the current hook name for trigger filtering
    */
   protected List<CdsServiceResponseCardJson> convertToCards(RequestGroup requestGroup, PlanDefinition planDef,
-      Resource resource, String hookName) {
+      Resource resource, HookResourceContext context, String hookName) {
     List<CdsServiceResponseCardJson> cards = new ArrayList<>();
 
     // Return empty cards array when no RequestGroup
@@ -778,7 +1157,13 @@ public abstract class CdsServiceBase {
         continue;
       }
 
-      // Filter by trigger - only include actions whose trigger matches the current hook
+      if (action.getExtensionByUrl(COVERAGE_INFO_EXT_URL) != null) {
+        logger.debug("Skipping action {} - coverage information uses system actions", action.getId());
+        continue;
+      }
+
+      // Filter by trigger - only include actions whose trigger matches the current
+      // hook
       String actionId = action.getId();
       if (actionId != null) {
         PlanDefinition.PlanDefinitionActionComponent planAction = findPlanDefinitionAction(planDef, actionId);
@@ -799,7 +1184,20 @@ public abstract class CdsServiceBase {
       card.setUuid(UUID.randomUUID().toString());
 
       card.setSummary(action.getTitle());
-      card.setDetail(action.getDescription());
+
+      String detail = action.getDescription();
+      if (context != null && resource != null && context.getOrders().size() > 1) {
+        String resourceDisplay = describeOrder(resource);
+        if (resourceDisplay != null && !resourceDisplay.isBlank()) {
+          String qualifier = "Applies to: " + resourceDisplay;
+          if (detail == null || detail.isBlank()) {
+            detail = qualifier;
+          } else {
+            detail = detail + "\n\n" + qualifier;
+          }
+        }
+      }
+      card.setDetail(detail);
 
       // Set indicator based on coverage status
       card.setIndicator(CdsServiceIndicatorEnum.INFO);
@@ -812,7 +1210,7 @@ public abstract class CdsServiceBase {
       }
 
       CdsServiceResponseCardSourceJson source = new CdsServiceResponseCardSourceJson();
-      source.setLabel(planDef.hasPublisher() ? planDef.getPublisher() : "Da Vinci CRD");
+      source.setLabel(resolvePayerLabel(context, planDef));
       source.setUrl(planDef.getUrl());
 
       // Get source.topic from action extension, default to "coverage-info"
@@ -881,6 +1279,121 @@ public abstract class CdsServiceBase {
         .filter(a -> actionId.equals(a.getId()))
         .findFirst()
         .orElse(null);
+  }
+
+  private String resolvePayerLabel(HookResourceContext context, PlanDefinition planDef) {
+    if (context != null && context.getCoverage() != null) {
+      Coverage coverage = context.getCoverage();
+      for (Reference payorRef : coverage.getPayor()) {
+        if (!payorRef.hasReference()) {
+          continue;
+        }
+        for (Organization org : context.getOrganizations()) {
+          if (!org.hasIdElement()) {
+            continue;
+          }
+          String orgRef = "Organization/" + org.getIdElement().getIdPart();
+          if (ResourceResolver.referencesMatch(payorRef.getReference(), orgRef)) {
+            if (org.hasName()) {
+              return org.getName();
+            }
+          }
+        }
+      }
+    }
+
+    if (planDef != null && planDef.hasPublisher()) {
+      return planDef.getPublisher();
+    }
+
+    return "Da Vinci CRD";
+  }
+
+  private String describeOrder(Resource resource) {
+    if (resource == null) {
+      return null;
+    }
+
+    String display = null;
+    if (resource instanceof ServiceRequest serviceRequest) {
+      display = codeableConceptDisplay(serviceRequest.getCode());
+    } else if (resource instanceof DeviceRequest deviceRequest) {
+      display = codeableConceptDisplay(deviceRequest.getCodeCodeableConcept());
+    } else if (resource instanceof MedicationRequest medicationRequest) {
+      display = codeableConceptDisplay(medicationRequest.getMedicationCodeableConcept());
+    } else if (resource instanceof CommunicationRequest communicationRequest) {
+      if (communicationRequest.hasCategory()) {
+        display = codeableConceptDisplay(communicationRequest.getCategoryFirstRep());
+      }
+      if ((display == null || display.isBlank()) && communicationRequest.hasReasonCode()) {
+        display = codeableConceptDisplay(communicationRequest.getReasonCodeFirstRep());
+      }
+    } else if (resource instanceof NutritionOrder nutritionOrder) {
+      if (nutritionOrder.hasOralDiet() && nutritionOrder.getOralDiet().hasType()) {
+        display = codeableConceptDisplay(nutritionOrder.getOralDiet().getTypeFirstRep());
+      }
+      if ((display == null || display.isBlank()) && nutritionOrder.hasSupplement()) {
+        for (NutritionOrder.NutritionOrderSupplementComponent supplement : nutritionOrder.getSupplement()) {
+          if (supplement.hasType()) {
+            display = codeableConceptDisplay(supplement.getType());
+            break;
+          }
+        }
+      }
+      if ((display == null || display.isBlank()) && nutritionOrder.hasEnteralFormula()
+          && nutritionOrder.getEnteralFormula().hasBaseFormulaType()) {
+        display = codeableConceptDisplay(nutritionOrder.getEnteralFormula().getBaseFormulaType());
+      }
+    } else if (resource instanceof VisionPrescription visionPrescription) {
+      if (visionPrescription.hasLensSpecification()) {
+        for (VisionPrescription.VisionPrescriptionLensSpecificationComponent spec : visionPrescription
+            .getLensSpecification()) {
+          if (spec.hasProduct()) {
+            display = codeableConceptDisplay(spec.getProduct());
+            break;
+          }
+        }
+      }
+    } else if (resource instanceof Appointment appointment) {
+      if (appointment.hasServiceType()) {
+        display = codeableConceptDisplay(appointment.getServiceTypeFirstRep());
+      }
+      if ((display == null || display.isBlank()) && appointment.hasReasonCode()) {
+        display = codeableConceptDisplay(appointment.getReasonCodeFirstRep());
+      }
+    }
+
+    if (display != null && !display.isBlank()) {
+      return display;
+    }
+
+    if (resource.hasIdElement()) {
+      String idPart = ResourceResolver.normalizeId(resource.getIdElement().getIdPart());
+      if (idPart != null && !idPart.isBlank()) {
+        return resource.fhirType() + "/" + idPart;
+      }
+    }
+
+    return resource.fhirType();
+  }
+
+  private String codeableConceptDisplay(CodeableConcept codeableConcept) {
+    if (codeableConcept == null) {
+      return null;
+    }
+    if (codeableConcept.hasText()) {
+      return codeableConcept.getText();
+    }
+    if (codeableConcept.hasCoding()) {
+      Coding coding = codeableConcept.getCodingFirstRep();
+      if (coding.hasDisplay()) {
+        return coding.getDisplay();
+      }
+      if (coding.hasCode()) {
+        return coding.getCode();
+      }
+    }
+    return null;
   }
 
   /**
@@ -1017,7 +1530,8 @@ public abstract class CdsServiceBase {
   }
 
   /**
-   * Generates a unique key for a service action based on resource ID and coverage reference.
+   * Generates a unique key for a service action based on resource ID and coverage
+   * reference.
    */
   protected String generateServiceActionKey(CdsServiceResponseSystemActionJson action) {
     StringBuilder key = new StringBuilder();
@@ -1084,9 +1598,18 @@ public abstract class CdsServiceBase {
   protected void addDefaultCoverageInfo(CdsServiceResponseJson response, HookResourceContext context,
       List<Resource> resources) {
     for (Resource resource : resources) {
+      if (resource instanceof DomainResource domainResource
+          && domainResource.hasExtension(COVERAGE_INFO_EXT_URL)) {
+        continue;
+      }
       Extension coverageInfoExt = buildDefaultCoverageExtension(context);
+      if (coverageInfoExt == null) {
+        continue;
+      }
       CdsServiceResponseSystemActionJson systemAction = buildCoverageInfoSystemAction(resource, coverageInfoExt);
-      response.addServiceAction(systemAction);
+      if (systemAction != null) {
+        response.addServiceAction(systemAction);
+      }
     }
   }
 

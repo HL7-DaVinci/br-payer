@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.cdshooks.shared.CdsServiceBase;
+import org.hl7.davinci.cdshooks.shared.CrdServiceExtension;
 import org.hl7.davinci.cdshooks.shared.HookResourceContext;
 import org.hl7.fhir.r4.model.Resource;
 
@@ -27,6 +28,8 @@ public class AppointmentBookService extends CdsServiceBase {
     hook = "appointment-book",
     title = "CRD Appointment Book Hook",
     description = "Indicates coverage requirements when booking appointments for future services",
+    extension = CRD_SERVICE_EXTENSION,
+    extensionClass = CrdServiceExtension.class,
     allowAutoFhirClientPrefetch = true,
     prefetch = {
       @CdsServicePrefetch(value = "patient", query = "Patient/{{context.patientId}}"),
@@ -51,7 +54,7 @@ public class AppointmentBookService extends CdsServiceBase {
   protected void validateResourceContext(HookResourceContext context) {
     if (context.getAppointments().isEmpty()) {
       throw new CdsHooksException.BadRequestException(
-        "appointments context is required but was empty or missing."
+        "appointments context is required but was empty, missing, or could not be resolved."
       );
     }
   }
@@ -61,4 +64,3 @@ public class AppointmentBookService extends CdsServiceBase {
     return new ArrayList<>(context.getAppointments());
   }
 }
-

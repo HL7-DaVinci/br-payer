@@ -11,8 +11,8 @@ context Patient
 // ============================================================
 
 define "Assertion Prefix": 'pt'
-define "Annual Session Limit": 20
-define "Warning Threshold": 15
+define "Plan Session Limit": 24
+define "Plan Warning Threshold": 18
 
 // ============================================================
 // CONTEXT RESOURCES
@@ -51,9 +51,9 @@ define "PT Procedures This Year":
           and c.code.value in {'97110', '97140', '97530', '97112', '97116', '97535'})
 
 define "Sessions Used": Count("PT Procedures This Year")
-define "Sessions Remaining": "Annual Session Limit" - "Sessions Used"
-define "Near Session Limit": "Sessions Used" >= "Warning Threshold"
-define "Exceeded Session Limit": "Sessions Used" >= "Annual Session Limit"
+define "Sessions Remaining": "Plan Session Limit" - "Sessions Used"
+define "Near Session Limit": "Sessions Used" >= "Plan Warning Threshold"
+define "Exceeded Session Limit": "Sessions Used" >= "Plan Session Limit"
 
 // ============================================================
 // COVERAGE DETERMINATION LOGIC
@@ -82,10 +82,10 @@ define "Get Summary":
 
 define "Get Detail":
   'Physical therapy (' + "Service Code Display" + '): ' +
-  ToString("Sessions Used") + '/' + ToString("Annual Session Limit") + ' sessions used this year. ' +
+  ToString("Sessions Used") + '/' + ToString("Plan Session Limit") + ' sessions used this year under the plan limit. ' +
   case
     when "Exceeded Session Limit" then
-      'Annual limit has been reached. Prior authorization required for continued treatment.'
+      'Plan session limit has been reached. Prior authorization required for continued treatment.'
     when "Near Session Limit" then
       ToString("Sessions Remaining") + ' sessions remaining before authorization is required.'
     else
@@ -93,10 +93,10 @@ define "Get Detail":
   end
 
 define "Session Limit Summary":
-  'Approaching session limit (' + ToString("Sessions Used") + '/' + ToString("Annual Session Limit") + ')'
+  'Approaching plan session limit (' + ToString("Sessions Used") + '/' + ToString("Plan Session Limit") + ')'
 
 define "Session Limit Detail":
-  'Physical therapy session usage is approaching the annual limit. ' +
+  'Physical therapy session usage is approaching the plan limit. ' +
   ToString("Sessions Remaining") + ' sessions remaining before prior authorization will be required.'
 
 // ============================================================

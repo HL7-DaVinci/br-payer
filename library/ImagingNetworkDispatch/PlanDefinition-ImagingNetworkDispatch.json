@@ -1,12 +1,12 @@
 {
   "resourceType": "PlanDefinition",
-  "id": "PhysicalTherapy",
-  "url": "http://example.org/fhir/PlanDefinition/PhysicalTherapy",
+  "id": "ImagingNetworkDispatch",
+  "url": "http://example.org/fhir/PlanDefinition/ImagingNetworkDispatch",
   "version": "1.0.0",
-  "name": "PhysicalTherapy",
-  "title": "Physical Therapy Appointment",
+  "name": "ImagingNetworkDispatch",
+  "title": "Imaging Services Network Dispatch",
   "status": "active",
-  "description": "Coverage requirements for scheduling physical therapy appointments. Uses plan-specific session limits for testing.",
+  "description": "Coverage determination for imaging services (CT, MRI) based on performing facility network status. Out-of-network facilities require prior authorization.",
   "useContext": [
     {
       "code": {
@@ -23,6 +23,10 @@
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
             "code": "1234567893"
+          },
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "code": "8189991234"
           }
         ]
       }
@@ -35,90 +39,43 @@
       "valueCodeableConcept": {
         "coding": [
           {
-            "system": "http://snomed.info/sct",
-            "code": "91251008",
-            "display": "Physical therapy"
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "70553",
+            "display": "MRI brain with and without contrast"
           },
           {
             "system": "http://www.ama-assn.org/go/cpt",
-            "code": "97110",
-            "display": "Therapeutic exercises"
+            "code": "72148",
+            "display": "MRI lumbar spine without contrast"
           },
           {
             "system": "http://www.ama-assn.org/go/cpt",
-            "code": "97140",
-            "display": "Manual therapy techniques"
-          },
-          {
-            "system": "http://www.ama-assn.org/go/cpt",
-            "code": "97530",
-            "display": "Therapeutic activities"
+            "code": "70450",
+            "display": "CT head without contrast"
           }
         ]
       }
     }
   ],
   "library": [
-    "Library/PhysicalTherapyRule"
+    "Library/ImagingNetworkDispatchRule"
   ],
   "action": [
     {
-      "id": "session-limit-warning",
-      "title": "Session Limit Warning",
-      "description": "Warn about approaching or exceeded session limits",
+      "id": "network-coverage-info",
+      "title": "Network-Based Coverage Determination",
+      "description": "Coverage varies based on imaging facility network status",
       "documentation": [
         {
           "type": "documentation",
-          "display": "CRD appointment-book: Session limit check at scheduling time"
+          "display": "Advanced Imaging Coverage Policy",
+          "url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33878"
         }
       ],
       "trigger": [
         {
           "type": "named-event",
-          "name": "appointment-book"
-        }
-      ],
-      "condition": [
-        {
-          "kind": "applicability",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Near Session Limit"
-          }
-        }
-      ],
-      "dynamicValue": [
-        {
-          "path": "action.title",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Session Limit Summary"
-          }
-        },
-        {
-          "path": "action.description",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Session Limit Detail"
-          }
-        }
-      ]
-    },
-    {
-      "id": "coverage-info",
-      "title": "Coverage Information",
-      "description": "Coverage determination for physical therapy appointments",
-      "documentation": [
-        {
-          "type": "documentation",
-          "display": "Plan physical therapy coverage policy (test)",
-          "url": "https://example.org/payer/pt-policy"
-        }
-      ],
-      "trigger": [
-        {
-          "type": "named-event",
-          "name": "appointment-book"
+          "name": "order-dispatch"
         }
       ],
       "condition": [
@@ -150,6 +107,55 @@
           "expression": {
             "language": "text/cql-identifier",
             "expression": "Coverage Info Extension"
+          }
+        }
+      ]
+    },
+    {
+      "id": "informative-guidance",
+      "title": "Dispatch Network Guidance",
+      "description": "Non-coverage instructions for imaging dispatch workflow",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "instructions"
+        }
+      ],
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "Advanced Imaging Coverage Policy",
+          "url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33878"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "order-dispatch"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Requires Coverage Determination"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Detail"
           }
         }
       ]

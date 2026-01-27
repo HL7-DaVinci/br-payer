@@ -18,7 +18,7 @@ define "Schedule II Opioid Codes":
 define "Extended Release Opioid Codes":
   { '1049543', '1049557', '892496', '892516', '197447' }
 
-define "High MME Opioid Codes":
+define "High Risk Opioid Codes":
   { '197447', '1049557', '892516', '991149' }
 
 define "Benzodiazepine Codes":
@@ -62,8 +62,8 @@ define "Is Schedule II Opioid":
 define "Is Extended Release":
   CRD."Has Code In List"("Requested Medication Coding", "Extended Release Opioid Codes")
 
-define "Is High MME":
-  CRD."Has Code In List"("Requested Medication Coding", "High MME Opioid Codes")
+define "Is High Risk Opioid":
+  CRD."Has Code In List"("Requested Medication Coding", "High Risk Opioid Codes")
 
 define "Has Active Benzodiazepine":
   exists("Active Medication Codes" C where C in "Benzodiazepine Codes")
@@ -81,7 +81,7 @@ define "Exceeds Initial Supply Limit":
 // ============================================================
 
 define "Prior Authorization Required":
-  "Is Extended Release" or "Is High MME" or ("Is Opioid Naive" and "Is Schedule II Opioid")
+  "Is Extended Release" or "Is High Risk Opioid" or ("Is Opioid Naive" and "Is Schedule II Opioid")
 
 define "Documentation Required": "Is Schedule II Opioid"
 
@@ -99,7 +99,7 @@ define "Covered":
 define "Has Safety Warnings":
   "Is Schedule II Opioid" and (
     "Has Active Benzodiazepine" or ("Is Opioid Naive" and "Is Extended Release")
-    or "Exceeds Initial Supply Limit" or "Is High MME"
+    or "Exceeds Initial Supply Limit" or "Is High Risk Opioid"
   )
 
 define "Safety Warnings List":
@@ -107,7 +107,7 @@ define "Safety Warnings List":
     if "Has Active Benzodiazepine" then { 'CRITICAL: Patient has active benzodiazepine - concurrent use increases overdose risk' } else {},
     if "Is Opioid Naive" and "Is Extended Release" then { 'WARNING: Extended-release opioids not recommended for opioid-naive patients' } else {},
     if "Exceeds Initial Supply Limit" then { 'NOTE: CDC recommends ≤7 day supply for initial opioid prescription' } else {},
-    if "Is High MME" then { 'CAUTION: High MME formulation - ensure appropriate clinical justification' } else {}
+    if "Is High Risk Opioid" then { 'CAUTION: High-risk opioid formulation - ensure appropriate clinical justification' } else {}
   })
 
 define "Warning Summary":
@@ -162,6 +162,29 @@ define "Get Detail":
   'Patient is ' + (if "Is Opioid Naive" then 'opioid-naive' else 'opioid-tolerant') +
   '. Days supply requested: ' + ToString("Requested Days Supply") + '.'
 
+define "Info Summary":
+  case
+    when "Has Active Benzodiazepine" then 'Document opioid-benzodiazepine risk mitigation'
+    when "Is High Risk Opioid" then 'Document high-risk opioid justification'
+    when "Exceeds Initial Supply Limit" then 'Document rationale for extended initial supply'
+    else 'Document opioid indication and treatment plan'
+  end
+
+define "Info Detail":
+  'Opioid order: document pain diagnosis, treatment goals, PDMP check, and risk mitigation steps. ' +
+  case
+    when "Has Active Benzodiazepine" then
+      'Concurrent benzodiazepine use detected; document monitoring plan and justification.'
+    when "Is High Risk Opioid" then
+      'High-risk opioid selected; document justification and monitoring plan.'
+    when "Exceeds Initial Supply Limit" then
+      'Initial supply exceeds 7 days; document rationale and follow-up plan.'
+    when "Is Opioid Naive" then
+      'Patient is opioid-naive; document discussion of risks and alternative therapies.'
+    else
+      'Document expected duration and follow-up plan.'
+  end
+
 // ============================================================
 // EXTENSION VALUES (complex rule - uses full builder)
 // ============================================================
@@ -173,7 +196,9 @@ define "Missing Info":
   })
 
 define "Doc Purpose":
-  if "Documentation Required" then { 'withpa' } else null as List<String>
+  if "Documentation Required" then
+    (if "Prior Authorization Required" then { 'withpa' } else { 'withorder' })
+  else null as List<String>
 
 define "Info Needed":
   if exists("Missing Info") then "Missing Info" else null as List<String>
@@ -192,7 +217,9 @@ define "Coverage Reason":
     if "Is Extended Release" and "Is Opioid Naive" then
       { Ext."Reason From Text"('Step therapy recommended - consider immediate-release formulation first') } else {},
     if "Exceeds Initial Supply Limit" then
-      { Ext."Reason From Text"('Initial prescription exceeds CDC 7-day recommendation') } else {}
+      { Ext."Reason From Text"('Initial prescription exceeds CDC 7-day recommendation') } else {},
+    if "Is High Risk Opioid" then
+      { Ext."Reason From Text"('High-risk opioid selected - clinical justification recommended') } else {}
   })
 
 // ============================================================

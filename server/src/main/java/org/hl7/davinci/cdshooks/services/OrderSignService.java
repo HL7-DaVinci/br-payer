@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.cdshooks.shared.CdsServiceBase;
+import org.hl7.davinci.cdshooks.shared.CrdServiceExtension;
 import org.hl7.davinci.cdshooks.shared.HookResourceContext;
 import org.hl7.fhir.r4.model.Resource;
 
@@ -23,6 +24,8 @@ public class OrderSignService extends CdsServiceBase {
       hook = "order-sign",
       title = "CRD Order Sign Hook",
       description = "Guidance related to orders being signed",
+      extension = CRD_SERVICE_EXTENSION,
+      extensionClass = CrdServiceExtension.class,
       allowAutoFhirClientPrefetch = true,
       prefetch = {
         @CdsServicePrefetch(value = "patient", query = "Patient/{{context.patientId}}"),
@@ -52,7 +55,7 @@ public class OrderSignService extends CdsServiceBase {
 
     if (context.getOrders().isEmpty()) {
       throw new CdsHooksException.BadRequestException(
-        "draftOrders context is required but was empty or missing."
+        "draftOrders context is required but was empty, missing, or could not be resolved."
       );
     }
   }

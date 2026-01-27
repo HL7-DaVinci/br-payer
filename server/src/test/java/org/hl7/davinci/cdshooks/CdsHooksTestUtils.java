@@ -276,6 +276,16 @@ public class CdsHooksTestUtils {
   }
 
   /**
+   * Create a test Practitioner with the given ID.
+   */
+  public static Practitioner createTestPractitioner(String id) {
+    Practitioner practitioner = new Practitioner();
+    practitioner.setId(id);
+    practitioner.addName().setFamily("TestPractitioner").addGiven("Test");
+    return practitioner;
+  }
+
+  /**
    * Create a test Appointment with service type.
    */
   public static Appointment createTestAppointment(String id, String snomedCode, String patientId) {

@@ -2,15 +2,20 @@ package org.hl7.davinci.cdshooks.shared;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CareTeam;
 import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Location;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.MedicationStatement;
 import org.hl7.fhir.r4.model.NutritionOrder;
@@ -19,6 +24,7 @@ import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Practitioner;
 import org.hl7.fhir.r4.model.PractitionerRole;
 import org.hl7.fhir.r4.model.Procedure;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
@@ -153,7 +159,30 @@ public class ResourceResolver {
       return false;
     }
     String resourceRef = resource.fhirType() + "/" + resource.getIdElement().getIdPart();
-    return reference.equals(resourceRef) || reference.endsWith(resourceRef);
+    return referencesMatch(reference, resourceRef);
+  }
+
+  /**
+   * Compares two FHIR references for equality by parsing and comparing resource
+   * type and ID.
+   */
+  public static boolean referencesMatch(String reference1, String reference2) {
+    if (reference1 == null || reference2 == null || reference1.isEmpty() || reference2.isEmpty()) {
+      return false;
+    }
+    if (reference1.equals(reference2)) {
+      return true;
+    }
+    IdType id1 = new IdType(reference1);
+    IdType id2 = new IdType(reference2);
+    String resourceType1 = id1.getResourceType();
+    String resourceType2 = id2.getResourceType();
+    String idPart1 = id1.getIdPart();
+    String idPart2 = id2.getIdPart();
+    if (resourceType1 == null || resourceType2 == null || idPart1 == null || idPart2 == null) {
+      return false;
+    }
+    return resourceType1.equals(resourceType2) && idPart1.equals(idPart2);
   }
 
   /**
@@ -271,6 +300,79 @@ public class ResourceResolver {
     return orders;
   }
 
+  private static List<Resource> resolveOrderReferences(List<?> references, CdsServiceRequestJson request) {
+    List<Resource> orders = new ArrayList<>();
+    for (Object entry : references) {
+      if (entry instanceof Resource resource) {
+        if (isOrderResource(resource)) {
+          orders.add(resource);
+        }
+      } else if (entry instanceof Map<?, ?> mapEntry) {
+        Resource resource = parseResourceFromMap(mapEntry);
+        if (resource != null && isOrderResource(resource)) {
+          orders.add(resource);
+        }
+      } else if (entry instanceof Reference ref) {
+        Resource resolved = resolveOrderReference(ref.getReference(), request);
+        if (resolved != null) {
+          orders.add(resolved);
+        }
+      } else if (entry instanceof String ref) {
+        Resource resolved = resolveOrderReference(ref, request);
+        if (resolved != null) {
+          orders.add(resolved);
+        }
+      }
+    }
+    return orders;
+  }
+
+  private static Resource resolveOrderReference(String reference, CdsServiceRequestJson request) {
+    if (reference == null || reference.isBlank()) {
+      return null;
+    }
+
+    Reference ref = new Reference(reference);
+    String resourceType = ref.getReferenceElement().getResourceType();
+    if (resourceType == null) {
+      IdType idType = new IdType(reference);
+      resourceType = idType.getResourceType();
+    }
+    if (resourceType == null) {
+      return null;
+    }
+
+    return switch (resourceType) {
+      case "CommunicationRequest" -> resolveReference(ref, CommunicationRequest.class, null, request);
+      case "DeviceRequest" -> resolveReference(ref, DeviceRequest.class, null, request);
+      case "MedicationRequest" -> resolveReference(ref, MedicationRequest.class, null, request);
+      case "NutritionOrder" -> resolveReference(ref, NutritionOrder.class, null, request);
+      case "ServiceRequest" -> resolveReference(ref, ServiceRequest.class, null, request);
+      case "VisionPrescription" -> resolveReference(ref, VisionPrescription.class, null, request);
+      case "Appointment" -> resolveReference(ref, Appointment.class, null, request);
+      case "Encounter" -> resolveReference(ref, Encounter.class, null, request);
+      default -> null;
+    };
+  }
+
+  private static Resource parseResourceFromMap(Map<?, ?> mapEntry) {
+    if (mapEntry == null || !mapEntry.containsKey("resourceType")) {
+      return null;
+    }
+
+    try {
+      String json = new ObjectMapper().writeValueAsString(mapEntry);
+      IBaseResource resource = FhirContext.forR4Cached().newJsonParser().parseResource(json);
+      if (resource instanceof Resource castResource) {
+        return castResource;
+      }
+    } catch (Exception e) {
+      logger.warn("Failed to parse resource from context entry", e);
+    }
+
+    return null;
+  }
+
   /**
    * Helper to get prefetch resource with flexible key.
    * Attempts to get a prefetch resource with the given key.
@@ -307,15 +409,9 @@ public class ResourceResolver {
     Object coveragePrefetch = getPrefetchFlexible(request, "coverage");
     if (coveragePrefetch instanceof Bundle coverageBundle) {
       List<Coverage> coverages = extractFromBundle(coverageBundle, Coverage.class);
+      context.setCoverageCount(coverages.size());
 
       if (!coverages.isEmpty()) {
-        // Warn if client sent multiple coverages (should only send primary)
-        if (coverages.size() > 1) {
-          logger.warn(
-              "Received {} Coverage resources in prefetch, but CRD clients should only send the primary coverage. Using first coverage.",
-              coverages.size());
-        }
-
         Coverage coverage = coverages.get(0);
         context.setCoverage(coverage);
 
@@ -325,6 +421,16 @@ public class ResourceResolver {
           if (org != null) {
             context.addOrganization(org);
           }
+        }
+      }
+    } else if (coveragePrefetch instanceof Coverage coverage) {
+      context.setCoverageCount(1);
+      context.setCoverage(coverage);
+
+      for (Reference payorRef : coverage.getPayor()) {
+        Organization org = resolveReference(payorRef, Organization.class, coverage, request);
+        if (org != null) {
+          context.addOrganization(org);
         }
       }
     }
@@ -357,18 +463,52 @@ public class ResourceResolver {
       }
     }
 
-    // Extract performer
-    Object performerPrefetch = request.getPrefetch("performer");
-    if (performerPrefetch instanceof Practitioner practitioner) {
-      context.addPractitioner(practitioner);
-    } else if (performerPrefetch instanceof Organization organization) {
-      context.addOrganization(organization);
-    }
-
     // Extract orders from draftOrders context
     Object draftOrdersContext = request.getContext().get("draftOrders");
     if (draftOrdersContext instanceof Bundle draftOrders) {
       context.setOrders(extractOrders(draftOrders));
+    }
+
+    // Extract orders from dispatchedOrders context (for order-dispatch hook)
+    Object dispatchedOrdersContext = request.getContext().get("dispatchedOrders");
+    if (dispatchedOrdersContext == null) {
+      dispatchedOrdersContext = request.getContext().get("dispatched-orders");
+    }
+    if (dispatchedOrdersContext instanceof List<?> dispatchedOrders) {
+      List<Resource> extracted = resolveOrderReferences(dispatchedOrders, request);
+      context.setOrders(extracted);
+    }
+
+    // Extract performer from context (for order-dispatch hook)
+    Object performerContext = request.getContext().get("performer");
+    if (performerContext instanceof String performer) {
+      Reference ref = new Reference(performer);
+      if (performer.contains("Practitioner/") && !performer.contains("PractitionerRole/")) {
+        Practitioner practitioner = resolveReference(ref, Practitioner.class, null, request);
+        if (practitioner != null) {
+          context.addPractitioner(practitioner);
+        }
+      } else if (performer.contains("PractitionerRole/")) {
+        PractitionerRole role = resolveReference(ref, PractitionerRole.class, null, request);
+        if (role != null) {
+          context.addPractitionerRole(role);
+        }
+      } else if (performer.contains("Organization/")) {
+        Organization org = resolveReference(ref, Organization.class, null, request);
+        if (org != null) {
+          context.addOrganization(org);
+        }
+      } else if (performer.contains("CareTeam/")) {
+        CareTeam careTeam = resolveReference(ref, CareTeam.class, null, request);
+        if (careTeam != null) {
+          context.addCareTeam(careTeam);
+        }
+      } else if (performer.contains("Location/")) {
+        Location location = resolveReference(ref, Location.class, null, request);
+        if (location != null) {
+          context.addLocation(location);
+        }
+      }
     }
 
     // Extract appointments
@@ -381,6 +521,26 @@ public class ResourceResolver {
     Object taskContext = request.getContext().get("task");
     if (taskContext instanceof Task task) {
       context.setTask(task);
+    }
+
+    // Extract fulfillment tasks
+    Object fulfillmentTasksContext = request.getContext().get("fulfillmentTasks");
+    if (fulfillmentTasksContext == null) {
+      fulfillmentTasksContext = request.getContext().get("fulfillment-tasks");
+    }
+    if (fulfillmentTasksContext instanceof List<?> tasks) {
+      for (Object entry : tasks) {
+        if (entry instanceof Task task) {
+          context.addTask(task);
+        } else if (entry instanceof Map<?, ?> mapEntry) {
+          Resource resource = parseResourceFromMap(mapEntry);
+          if (resource instanceof Task task) {
+            context.addTask(task);
+          }
+        }
+      }
+    } else if (fulfillmentTasksContext instanceof Task task) {
+      context.addTask(task);
     }
 
     // Extract medications

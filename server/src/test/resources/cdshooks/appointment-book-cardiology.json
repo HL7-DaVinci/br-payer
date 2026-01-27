@@ -18,10 +18,10 @@
       "type": "collection",
       "entry": [
         {
-          "fullUrl": "urn:uuid:cardio-appt-001",
+          "fullUrl": "urn:uuid:b2c3d4e5-f6a7-8901-bcde-f23456789012",
           "resource": {
             "resourceType": "Appointment",
-            "id": "cardio-appt-001",
+            "id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
             "status": "proposed",
             "serviceType": [
               {

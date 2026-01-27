@@ -1,12 +1,12 @@
 {
   "resourceType": "PlanDefinition",
-  "id": "PhysicalTherapy",
-  "url": "http://example.org/fhir/PlanDefinition/PhysicalTherapy",
+  "id": "HomeOxygenDispatch",
+  "url": "http://example.org/fhir/PlanDefinition/HomeOxygenDispatch",
   "version": "1.0.0",
-  "name": "PhysicalTherapy",
-  "title": "Physical Therapy Appointment",
+  "name": "HomeOxygenDispatch",
+  "title": "Home Oxygen Therapy Dispatch",
   "status": "active",
-  "description": "Coverage requirements for scheduling physical therapy appointments. Uses plan-specific session limits for testing.",
+  "description": "Coverage determination for home oxygen therapy when dispatched to a DME supplier. Requires qualifying diagnosis documentation and supplier network verification.",
   "useContext": [
     {
       "code": {
@@ -23,6 +23,10 @@
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
             "code": "1234567893"
+          },
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "code": "8189991234"
           }
         ]
       }
@@ -35,90 +39,43 @@
       "valueCodeableConcept": {
         "coding": [
           {
-            "system": "http://snomed.info/sct",
-            "code": "91251008",
-            "display": "Physical therapy"
+            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+            "code": "E0424",
+            "display": "Stationary compressed gaseous oxygen system"
           },
           {
-            "system": "http://www.ama-assn.org/go/cpt",
-            "code": "97110",
-            "display": "Therapeutic exercises"
+            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+            "code": "E0431",
+            "display": "Portable gaseous oxygen system"
           },
           {
-            "system": "http://www.ama-assn.org/go/cpt",
-            "code": "97140",
-            "display": "Manual therapy techniques"
-          },
-          {
-            "system": "http://www.ama-assn.org/go/cpt",
-            "code": "97530",
-            "display": "Therapeutic activities"
+            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+            "code": "E1390",
+            "display": "Oxygen concentrator"
           }
         ]
       }
     }
   ],
   "library": [
-    "Library/PhysicalTherapyRule"
+    "Library/HomeOxygenDispatchRule"
   ],
   "action": [
     {
-      "id": "session-limit-warning",
-      "title": "Session Limit Warning",
-      "description": "Warn about approaching or exceeded session limits",
+      "id": "dme-coverage-info",
+      "title": "DME Supplier Coverage Determination",
+      "description": "Coverage based on DME supplier network status and documentation requirements",
       "documentation": [
         {
           "type": "documentation",
-          "display": "CRD appointment-book: Session limit check at scheduling time"
+          "display": "Medicare Home Oxygen Coverage",
+          "url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33797"
         }
       ],
       "trigger": [
         {
           "type": "named-event",
-          "name": "appointment-book"
-        }
-      ],
-      "condition": [
-        {
-          "kind": "applicability",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Near Session Limit"
-          }
-        }
-      ],
-      "dynamicValue": [
-        {
-          "path": "action.title",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Session Limit Summary"
-          }
-        },
-        {
-          "path": "action.description",
-          "expression": {
-            "language": "text/cql-identifier",
-            "expression": "Session Limit Detail"
-          }
-        }
-      ]
-    },
-    {
-      "id": "coverage-info",
-      "title": "Coverage Information",
-      "description": "Coverage determination for physical therapy appointments",
-      "documentation": [
-        {
-          "type": "documentation",
-          "display": "Plan physical therapy coverage policy (test)",
-          "url": "https://example.org/payer/pt-policy"
-        }
-      ],
-      "trigger": [
-        {
-          "type": "named-event",
-          "name": "appointment-book"
+          "name": "order-dispatch"
         }
       ],
       "condition": [
@@ -150,6 +107,55 @@
           "expression": {
             "language": "text/cql-identifier",
             "expression": "Coverage Info Extension"
+          }
+        }
+      ]
+    },
+    {
+      "id": "informative-guidance",
+      "title": "Dispatch Documentation Guidance",
+      "description": "Non-coverage instructions for DME dispatch workflow",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "instructions"
+        }
+      ],
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "Medicare Home Oxygen Coverage",
+          "url": "https://www.cms.gov/medicare-coverage-database/view/lcd.aspx?lcdid=33797"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "order-dispatch"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Requires Coverage Determination"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Info Detail"
           }
         }
       ]

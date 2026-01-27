@@ -40,11 +40,17 @@ define "Medication Code":
 define "Medication Statement Code":
   if "Statement Medication Coding" is not null then CRD."Get First Code"("Statement Medication Coding") else null
 
+define "Has Indication Evidence":
+  exists([Condition]) or exists([Procedure])
+    or ("Medication Request" is not null and (exists("Medication Request".reasonCode)
+      or exists("Medication Request".reasonReference)))
+
 // ============================================================
 // COVERAGE DETERMINATION LOGIC
 // ============================================================
 
-define "Rule Applies": "Coverage" is not null and "Medication Code" is not null
+define "Rule Applies":
+  "Coverage" is not null and "Medication Code" is not null
 
 define "Prior Authorization Required": false
 define "Documentation Required": true
@@ -73,12 +79,34 @@ define "Get Summary":
 define "Get Detail":
   case
     when "Alternative Therapy" is not null then
-      'Alternative therapy available: ' + "Alternative Therapy".display
+      'Alternative therapy may be appropriate: ' + "Alternative Therapy".display
     when "Drug Interaction" then
-      'Drug interaction detected between requested medication (' + "Medication Code Display" +
+      'Potential interaction detected between requested medication (' + "Medication Code Display" +
       ') and current medications (' + Coalesce(CRD."Codes To String"("Statement Medication Coding"), 'unknown') + ').'
+    when not "Has Indication Evidence" then
+      'Indication evidence not found for ' + "Medication Code Display" + '. Add diagnosis or transplant context.'
     else
       'Immunosuppressive drug coverage evaluation for ' + "Medication Code Display" + '.'
+  end
+
+define "Info Summary":
+  case
+    when "Alternative Therapy" is not null then 'Document alternative therapy rationale'
+    when "Drug Interaction" then 'Review interacting medications and monitoring plan'
+    when not "Has Indication Evidence" then 'Add immunosuppressive indication evidence'
+    else 'Prepare immunosuppressive therapy documentation'
+  end
+
+define "Info Detail":
+  case
+    when "Alternative Therapy" is not null then
+      'Document why ' + "Alternative Therapy".display + ' is not appropriate or has been tried.'
+    when "Drug Interaction" then
+      'Review interacting medications and document monitoring or mitigation plan.'
+    when not "Has Indication Evidence" then
+      'Document diagnosis or transplant indication and prior therapy history for ' + "Medication Code Display" + '.'
+    else
+      'Document diagnosis, prior therapy history, and monitoring plan for ' + "Medication Code Display" + '.'
   end
 
 // ============================================================
@@ -97,6 +125,8 @@ define "Coverage Reason":
       { Ext."Reason From Text"('Alternative therapy recommended: ' + "Alternative Therapy".display) }
     when "Drug Interaction" then
       { Ext."Reason From Text"('Drug interaction detected - review required') }
+    when not "Has Indication Evidence" then
+      { Ext."Reason From Text"('Indication evidence not found for immunosuppressive therapy') }
     when "Documentation Required" then
       { Ext."Reason From Text"('Clinical documentation required for immunosuppressive drug coverage') }
     else

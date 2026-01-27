@@ -35,7 +35,7 @@ define "Has Existing Referral":
       and SR.intent.value = 'order'
       and exists(SR.category cat where exists(cat.coding c where c.code.value = 'referral')))
 
-define "Requires Referral": not "Has Existing Referral"
+define "Referral Missing": not "Has Existing Referral"
 
 // ============================================================
 // COVERAGE DETERMINATION LOGIC
@@ -43,7 +43,7 @@ define "Requires Referral": not "Has Existing Referral"
 
 define "Requires Coverage Determination": "Coverage" is not null
 define "Prior Authorization Required": false
-define "Documentation Required": "Requires Referral"
+define "Documentation Required": "Referral Missing"
 define "Covered": 'covered'
 
 // ============================================================
@@ -55,18 +55,33 @@ define "Service Code Display":
 
 define "Get Summary":
   case
-    when "Requires Referral" then 'Referral recommended'
+    when "Referral Missing" then 'Referral recommended for coverage review'
     else 'Covered - no additional requirements'
   end
 
 define "Get Detail":
   'Cardiology consultation (' + "Service Code Display" + '): ' +
   case
-    when "Requires Referral" then
-      'A specialist referral may be needed for full coverage. Patient age: ' +
+    when "Referral Missing" then
+      'A referral may support coverage review. Patient age: ' +
       Coalesce(ToString(AgeInYears()), 'unknown') + ' years.'
     else
       'No additional documentation required.'
+  end
+
+define "Info Summary":
+  case
+    when "Referral Missing" then 'Add or verify cardiology referral details'
+    else 'Confirm consultation reason and supporting history'
+  end
+
+define "Info Detail":
+  'Cardiology consultation (' + "Service Code Display" + '): ' +
+  case
+    when "Referral Missing" then
+      'Ensure the referring provider, reason for referral, and relevant cardiac history are documented.'
+    else
+      'Confirm the appointment reason and attach relevant history or recent results to support the consult.'
   end
 
 // ============================================================

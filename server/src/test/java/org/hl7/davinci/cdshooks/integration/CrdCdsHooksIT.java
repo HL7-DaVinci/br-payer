@@ -136,20 +136,22 @@ class CrdCdsHooksIT implements IServerSupport {
         boolean hasOrderSign = false;
         boolean hasOrderSelect = false;
         boolean hasAppointmentBook = false;
-        
+        boolean hasOrderDispatch = false;
+
         for (JsonElement element : services) {
           JsonObject service = element.getAsJsonObject();
           String hook = service.has("hook") ? service.get("hook").getAsString() : "";
           if ("order-sign".equals(hook)) hasOrderSign = true;
           if ("order-select".equals(hook)) hasOrderSelect = true;
           if ("appointment-book".equals(hook)) hasAppointmentBook = true;
+          if ("order-dispatch".equals(hook)) hasOrderDispatch = true;
         }
-        
-        if (hasOrderSign && hasOrderSelect && hasAppointmentBook) {
+
+        if (hasOrderSign && hasOrderSelect && hasAppointmentBook && hasOrderDispatch) {
           return true;
         }
-        log.debug("Waiting for services - order-sign: {}, order-select: {}, appointment-book: {}", 
-            hasOrderSign, hasOrderSelect, hasAppointmentBook);
+        log.debug("Waiting for services - order-sign: {}, order-select: {}, appointment-book: {}, order-dispatch: {}",
+            hasOrderSign, hasOrderSelect, hasAppointmentBook, hasOrderDispatch);
         return false;
       }
     } catch (Exception e) {
@@ -199,6 +201,7 @@ class CrdCdsHooksIT implements IServerSupport {
           boolean hasOrderSign = false;
           boolean hasOrderSelect = false;
           boolean hasAppointmentBook = false;
+          boolean hasOrderDispatch = false;
 
           for (JsonElement element : services) {
             JsonObject service = element.getAsJsonObject();
@@ -209,11 +212,14 @@ class CrdCdsHooksIT implements IServerSupport {
               hasOrderSelect = true;
             if ("appointment-book".equals(hook))
               hasAppointmentBook = true;
+            if ("order-dispatch".equals(hook))
+              hasOrderDispatch = true;
           }
 
           assertTrue(hasOrderSign, "Should have order-sign service");
           assertTrue(hasOrderSelect, "Should have order-select service");
           assertTrue(hasAppointmentBook, "Should have appointment-book service");
+          assertTrue(hasOrderDispatch, "Should have order-dispatch service");
         }
       }
     }
@@ -456,6 +462,137 @@ class CrdCdsHooksIT implements IServerSupport {
 
         assertTrue(hasCoverageInfo, "Should have coverage-information system action");
       }
+    }
+  }
+
+  // ============================================================
+  // ORDER-DISPATCH INTEGRATION TESTS
+  // ============================================================
+
+  @Nested
+  @DisplayName("Order-Dispatch Hook Integration")
+  class OrderDispatchIntegrationTests {
+
+    @Test
+    @DisplayName("Valid order-dispatch imaging request returns 200")
+    void testOrderDispatch_Imaging_Returns200() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-imaging-innetwork.json");
+
+      JsonObject response = postToCdsService("order-dispatch-crd", requestBody);
+
+      assertNotNull(response, "Response should not be null");
+      assertTrue(response.has("cards"), "Response should have 'cards' array");
+    }
+
+    @Test
+    @DisplayName("Valid order-dispatch DME request returns 200")
+    void testOrderDispatch_Dme_Returns200() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-dme-outnetwork.json");
+
+      JsonObject response = postToCdsService("order-dispatch-crd", requestBody);
+
+      assertNotNull(response, "Response should not be null");
+      assertTrue(response.has("cards"), "Response should have 'cards' array");
+    }
+
+    @Test
+    @DisplayName("Primary hook SHALL return coverage-information")
+    void testOrderDispatch_ReturnsCoverageInfo() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-imaging-innetwork.json");
+
+      JsonObject response = postToCdsService("order-dispatch-crd", requestBody);
+
+      assertTrue(response.has("systemActions") || response.has("extension"),
+          "Primary hook should return system actions");
+
+      if (response.has("systemActions")) {
+        JsonArray systemActions = response.getAsJsonArray("systemActions");
+        boolean hasCoverageInfo = false;
+
+        for (JsonElement element : systemActions) {
+          JsonObject action = element.getAsJsonObject();
+          if (action.has("resource")) {
+            JsonObject resource = action.getAsJsonObject("resource");
+            if (resource.has("extension")) {
+              JsonArray extensions = resource.getAsJsonArray("extension");
+              for (JsonElement ext : extensions) {
+                JsonObject extObj = ext.getAsJsonObject();
+                if (extObj.has("url") && extObj.get("url").getAsString()
+                    .equals(CdsHooksTestUtils.COVERAGE_INFO_EXT_URL)) {
+                  hasCoverageInfo = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        assertTrue(hasCoverageInfo, "Should have coverage-information system action");
+      }
+    }
+
+    @Test
+    @DisplayName("Coverage-info extension has required fields per CRD spec")
+    void testOrderDispatch_CoverageInfoHasRequiredFields() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-imaging-innetwork.json");
+
+      JsonObject response = postToCdsService("order-dispatch-crd", requestBody);
+
+      if (response.has("systemActions")) {
+        JsonArray systemActions = response.getAsJsonArray("systemActions");
+
+        for (JsonElement element : systemActions) {
+          JsonObject action = element.getAsJsonObject();
+          if (action.has("resource")) {
+            JsonObject resource = action.getAsJsonObject("resource");
+            if (resource.has("extension")) {
+              JsonArray extensions = resource.getAsJsonArray("extension");
+              for (JsonElement ext : extensions) {
+                JsonObject extObj = ext.getAsJsonObject();
+                if (extObj.has("url") && extObj.get("url").getAsString()
+                    .equals(CdsHooksTestUtils.COVERAGE_INFO_EXT_URL)) {
+                  JsonArray nestedExts = extObj.getAsJsonArray("extension");
+                  boolean hasCoverage = false, hasCovered = false, hasDate = false, hasAssertionId = false;
+
+                  for (JsonElement nestedExt : nestedExts) {
+                    JsonObject nested = nestedExt.getAsJsonObject();
+                    String url = nested.has("url") ? nested.get("url").getAsString() : "";
+                    if ("coverage".equals(url)) hasCoverage = true;
+                    if ("covered".equals(url)) hasCovered = true;
+                    if ("date".equals(url)) hasDate = true;
+                    if ("coverage-assertion-id".equals(url)) hasAssertionId = true;
+                  }
+
+                  assertTrue(hasCoverage, "Must have 'coverage' extension");
+                  assertTrue(hasCovered, "Must have 'covered' extension");
+                  assertTrue(hasDate, "Must have 'date' extension");
+                  assertTrue(hasAssertionId, "Must have 'coverage-assertion-id' extension");
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    @Test
+    @DisplayName("Missing dispatchedOrders returns 400")
+    void testOrderDispatch_MissingOrders_Returns400() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-missing-orders.json");
+
+      int statusCode = postAndGetStatusCode("order-dispatch-crd", requestBody);
+
+      assertEquals(400, statusCode, "Missing dispatchedOrders should return 400");
+    }
+
+    @Test
+    @DisplayName("Wrong hook name returns 400")
+    void testOrderDispatch_WrongHookName_Returns400() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+
+      int statusCode = postAndGetStatusCode("order-dispatch-crd", requestBody);
+
+      assertEquals(400, statusCode, "Wrong hook should return 400");
     }
   }
 
