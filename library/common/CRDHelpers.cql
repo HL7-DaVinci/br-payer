@@ -155,14 +155,8 @@ define function "Questionnaire URLs Value"(condition Boolean, urls List<String>)
   if condition = true then urls else null as List<String>
 
 // ============================================================
-// CONSTRAINT HELPERS (crd-ci-q1 through crd-ci-q6)
+// CONSTRAINT HELPERS (crd-ci-q*)
 // ============================================================
-
-// crd-ci-q3: info-needed SHALL exist iff covered, pa-needed, or doc-needed = 'conditional'
-define function "Info Needed Required"(covered String, paNeeded String, docNeeded List<String>):
-  covered = 'conditional'
-    or paNeeded = 'conditional'
-    or exists(docNeeded D where D = 'conditional')
 
 // crd-ci-q1: questionnaire requires doc-needed to exist
 define function "Questionnaire Allowed"(docNeeded List<String>):
@@ -172,10 +166,17 @@ define function "Questionnaire Allowed"(docNeeded List<String>):
 define function "PA Needed Allowed"(covered String):
   covered != 'not-covered'
 
-// crd-ci-q4: if pa-needed in ('satisfied', 'noauth'), doc-purpose cannot be 'withpa'
+
+// crd-ci-q3: info-needed SHALL exist iff covered, pa-needed, or doc-needed = 'conditional'
+define function "Info Needed Required"(covered String, paNeeded String, docNeeded List<String>):
+  covered = 'conditional'
+    or paNeeded = 'conditional'
+    or exists(docNeeded D where D = 'conditional')
+
+// crd-ci-q4: if pa-needed in ('satisfied', 'no-auth', 'not-covered'), doc-purpose cannot be 'withpa'
 define function "Filter Valid Doc Purpose"(paNeeded String, purposes List<String>):
   if purposes is null then null as List<String>
-  else if paNeeded in {'satisfied', 'noauth'} then
+  else if paNeeded in {'satisfied', 'no-auth', 'not-covered'} then
     purposes P where P != 'withpa'
   else purposes
 
@@ -185,17 +186,45 @@ define function "Conditional Status Reason"():
     text: FHIR.string { value: 'Additional information required to determine coverage' }
   }
 
-// ============================================================
-// CONSTRAINT VALIDATION WRAPPERS
-// ============================================================
+// crd-ci-q7: if reason.coding is present and not from the value set, reason.text must be present
+// Note: Avoids valueset membership check which fails with bundle-based repositories.
+// The coverageAssertionReasons ValueSet only includes codes from the temp CodeSystem,
+// so we check coding.system directly instead.
+define function "Ensure Reason Text"(reason FHIR.CodeableConcept):
+  if reason is null then null
+  else if reason.text is not null then reason
+  else if exists(reason.coding C where C.system.value != 'http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp') then
+    FHIR.CodeableConcept {
+      coding: reason.coding,
+      text: FHIR.string {
+        value: Coalesce(First(reason.coding).display.value, First(reason.coding).code.value, 'Coverage assertion reason')
+      }
+    }
+  else reason
 
-// crd-ci-q2: returns paNeeded if allowed, else null
-define function "Validate PA Needed"(covered String, paNeeded String):
-  if "PA Needed Allowed"(covered) then paNeeded else null
+// crd-ci-q8: if doc-purpose is present with value other than 'conditional', reason must exist
+define function "Doc Purpose Requires Reason"(docPurpose List<String>):
+  exists(docPurpose P where P != 'conditional')
+
+define function "Documentation Required Reason"():
+  FHIR.CodeableConcept {
+    text: FHIR.string { value: 'Documentation required per payer policy' }
+  }
+
+// ============================================================
+// CONSTRAINT VALIDATION WRAPPERS (crd-ci-q*)
+// ============================================================
 
 // crd-ci-q1: returns questionnaire URLs only if doc-needed exists
 define function "Validate Questionnaires"(docNeeded List<String>, urls List<String>):
   if "Questionnaire Allowed"(docNeeded) then urls else null as List<String>
+
+// crd-ci-q2: returns paNeeded if allowed, else null
+define function "Validate PA Needed"(covered String, paNeeded String):
+  if "PA Needed Allowed"(covered) then
+    if paNeeded = 'noauth' then null
+    else paNeeded
+  else null
 
 // crd-ci-q3: returns infoNeeded, or {'OTH'} if conditional status requires it
 define function "Validate Info Needed"(covered String, paNeeded String, docNeeded List<String>, infoNeeded List<String>):
@@ -204,6 +233,24 @@ define function "Validate Info Needed"(covered String, paNeeded String, docNeede
   else
     infoNeeded
 
+// crd-ci-q4: naming-consistent wrapper
+define function "Validate Doc Purpose"(paNeeded String, purposes List<String>):
+  "Filter Valid Doc Purpose"(paNeeded, purposes)
+
+// crd-ci-q5: returns satisfiedPaId only if paNeeded='satisfied'
+define function "Validate Satisfied PA ID"(paNeeded String, satisfiedPaId String):
+  if paNeeded = 'satisfied' then satisfiedPaId else null
+
+// crd-ci-q5: exclude 'satisfied' when satisfied-pa-id is missing
+define function "Validate PA Needed For Extension"(covered String, paNeeded String, satisfiedPaId String):
+  if "PA Needed Allowed"(covered) then
+    case
+      when paNeeded = 'noauth' then null
+      when paNeeded = 'satisfied' and satisfiedPaId is null then null
+      else paNeeded
+    end
+  else null
+
 // crd-ci-q6: returns reasons, or adds default reason if OTH is in info-needed
 define function "Validate Reasons For Info Needed"(infoNeeded List<String>, reasons List<FHIR.CodeableConcept>):
   if exists(infoNeeded I where I = 'OTH') and (reasons is null or not exists(reasons)) then
@@ -211,6 +258,14 @@ define function "Validate Reasons For Info Needed"(infoNeeded List<String>, reas
   else
     reasons
 
-// crd-ci-q5: returns satisfiedPaId only if paNeeded='satisfied'
-define function "Validate Satisfied PA ID"(paNeeded String, satisfiedPaId String):
-  if paNeeded = 'satisfied' then satisfiedPaId else null
+// crd-ci-q7: ensure reason.text is present where needed
+define function "Validate Reason Texts"(reasons List<FHIR.CodeableConcept>):
+  if reasons is null then null as List<FHIR.CodeableConcept>
+  else reasons R return "Ensure Reason Text"(R)
+
+// crd-ci-q8: returns reasons, or adds default reason if doc-purpose requires it
+define function "Validate Reasons For Doc Purpose"(docPurpose List<String>, reasons List<FHIR.CodeableConcept>):
+  if "Doc Purpose Requires Reason"(docPurpose) and (reasons is null or not exists(reasons)) then
+    { "Documentation Required Reason"() }
+  else
+    reasons

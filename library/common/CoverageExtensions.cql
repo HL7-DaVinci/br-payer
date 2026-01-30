@@ -294,17 +294,24 @@ define function "Build Coverage Info Extension"(
     extension: Flatten({
       { "Coverage Extension"(coverageRef) },
       { "Covered Extension"(covered) },
-      if CRD."Validate PA Needed"(covered, paNeeded) is not null then
-        { "PA Needed Extension"(CRD."Validate PA Needed"(covered, paNeeded)) }
+      if CRD."Validate PA Needed For Extension"(covered, paNeeded, null as String) is not null then
+        { "PA Needed Extension"(CRD."Validate PA Needed For Extension"(covered, paNeeded, null as String)) }
       else {},
       "Build Doc Needed Extensions"(docNeeded),
-      "Build Doc Purpose Extensions"(CRD."Filter Valid Doc Purpose"(CRD."Validate PA Needed"(covered, paNeeded), docPurpose)),
+      "Build Doc Purpose Extensions"(CRD."Validate Doc Purpose"(CRD."Validate PA Needed"(covered, paNeeded), docPurpose)),
       "Build Info Needed Extensions"(CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded)),
       "Build Questionnaire Extensions"(CRD."Validate Questionnaires"(docNeeded, questionnaireUrls)),
-      "Build Reason Extensions"(CRD."Validate Reasons For Info Needed"(
-        CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded),
-        reasons
-      )),
+      "Build Reason Extensions"(
+        CRD."Validate Reason Texts"(
+          CRD."Validate Reasons For Doc Purpose"(
+            CRD."Validate Doc Purpose"(CRD."Validate PA Needed"(covered, paNeeded), docPurpose),
+            CRD."Validate Reasons For Info Needed"(
+              CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded),
+              reasons
+            )
+          )
+        )
+      ),
       "Build Billing Code Extensions"(billingCodes),
       { "Date Extension"(assertionDate) },
       { "Coverage Assertion ID Extension"(assertionId) }
@@ -334,20 +341,27 @@ define function "Build Coverage Info Extension With PA"(
     extension: Flatten({
       { "Coverage Extension"(coverageRef) },
       { "Covered Extension"(covered) },
-      if CRD."Validate PA Needed"(covered, paNeeded) is not null then
-        { "PA Needed Extension"(CRD."Validate PA Needed"(covered, paNeeded)) }
+      if CRD."Validate PA Needed For Extension"(covered, paNeeded, satisfiedPaId) is not null then
+        { "PA Needed Extension"(CRD."Validate PA Needed For Extension"(covered, paNeeded, satisfiedPaId)) }
       else {},
       if CRD."Validate Satisfied PA ID"(CRD."Validate PA Needed"(covered, paNeeded), satisfiedPaId) is not null then
         { "Satisfied PA Extension"(CRD."Validate Satisfied PA ID"(CRD."Validate PA Needed"(covered, paNeeded), satisfiedPaId)) }
       else {},
       "Build Doc Needed Extensions"(docNeeded),
-      "Build Doc Purpose Extensions"(CRD."Filter Valid Doc Purpose"(CRD."Validate PA Needed"(covered, paNeeded), docPurpose)),
+      "Build Doc Purpose Extensions"(CRD."Validate Doc Purpose"(CRD."Validate PA Needed"(covered, paNeeded), docPurpose)),
       "Build Info Needed Extensions"(CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded)),
       "Build Questionnaire Extensions"(CRD."Validate Questionnaires"(docNeeded, questionnaireUrls)),
-      "Build Reason Extensions"(CRD."Validate Reasons For Info Needed"(
-        CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded),
-        reasons
-      )),
+      "Build Reason Extensions"(
+        CRD."Validate Reason Texts"(
+          CRD."Validate Reasons For Doc Purpose"(
+            CRD."Validate Doc Purpose"(CRD."Validate PA Needed"(covered, paNeeded), docPurpose),
+            CRD."Validate Reasons For Info Needed"(
+              CRD."Validate Info Needed"(covered, CRD."Validate PA Needed"(covered, paNeeded), docNeeded, infoNeeded),
+              reasons
+            )
+          )
+        )
+      ),
       "Build Billing Code Extensions"(billingCodes),
       { "Date Extension"(assertionDate) },
       { "Coverage Assertion ID Extension"(assertionId) }
@@ -376,4 +390,3 @@ define function "Build Default Coverage Info Extension"(
       "Coverage Assertion ID Extension"(assertionId)
     }
   }
-
