@@ -211,7 +211,7 @@ public class ResourceResolver {
         return resourceType.cast(resource);
       }
     } catch (Exception e) {
-      logger.debug("Could not resolve {} {} from server: {}", resourceType.getSimpleName(), resourceId,
+      logger.warn("Could not resolve {} {} from server: {}", resourceType.getSimpleName(), resourceId,
           e.getMessage());
     }
     return null;
@@ -470,11 +470,14 @@ public class ResourceResolver {
       context.setOrders(extractOrders(draftOrders));
     }
 
+    // Extract selections (for order-select hook)
+    Object selectionsContext = request.getContext().get("selections");
+    if (selectionsContext instanceof List<?> selections) {
+      context.setSelections(selections.stream().map(Object::toString).toList());
+    }
+
     // Extract orders from dispatchedOrders context (for order-dispatch hook)
     Object dispatchedOrdersContext = request.getContext().get("dispatchedOrders");
-    if (dispatchedOrdersContext == null) {
-      dispatchedOrdersContext = request.getContext().get("dispatched-orders");
-    }
     if (dispatchedOrdersContext instanceof List<?> dispatchedOrders) {
       List<Resource> extracted = resolveOrderReferences(dispatchedOrders, request);
       context.setOrders(extracted);
@@ -521,7 +524,7 @@ public class ResourceResolver {
     // Extract task
     Object taskContext = request.getContext().get("task");
     if (taskContext instanceof Task task) {
-      context.setTask(task);
+      context.addTask(task);
     }
 
     // Extract fulfillment tasks

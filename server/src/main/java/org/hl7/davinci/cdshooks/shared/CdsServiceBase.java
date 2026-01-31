@@ -103,7 +103,7 @@ public abstract class CdsServiceBase {
   protected abstract String getHookName();
 
   /**
-   * Validates that the raw request context has required fields with correct types.
+   * Validates request context has required fields with correct types.
    * Called early in processRequest, before resource extraction.
    *
    * @param request the CDS service request to validate
@@ -232,6 +232,8 @@ public abstract class CdsServiceBase {
     }
 
     Date now = new Date();
+    boolean isSecondaryHook = isSecondaryHook();
+
     for (CdsServiceResponseSystemActionJson action : response.getServiceActions()) {
       if (action == null || action.getResource() == null) {
         continue;
@@ -252,7 +254,56 @@ public abstract class CdsServiceBase {
       } else if (resource instanceof VisionPrescription vp) {
         ensureVisionPrescriptionConformance(vp, now);
       }
+
+      // Per CRD spec: Secondary hooks (encounter-start, encounter-discharge,
+      // order-select) MAY return coverage-information but SHALL NOT request clinical
+      // or administrative documentation. This method strips doc-needed extensions
+      // from secondary hook responses.
+      if (isSecondaryHook && resource instanceof DomainResource dr) {
+        stripDocNeededFromSecondaryHook(dr);
+      }
     }
+  }
+
+  /**
+   * Strips doc-needed extensions from coverage-information on secondary hook
+   * responses.
+   * Per CRD: Secondary hooks SHALL NOT request clinical or administrative
+   * documentation if coverage information is returned.
+   */
+  private void stripDocNeededFromSecondaryHook(DomainResource resource) {
+    Extension coverageInfoExt = resource.getExtensionByUrl(COVERAGE_INFO_EXT_URL);
+    if (coverageInfoExt == null) {
+      return;
+    }
+
+    List<Extension> docNeededExts = coverageInfoExt.getExtensionsByUrl("doc-needed");
+    if (!docNeededExts.isEmpty()) {
+      logger.warn("Stripping doc-needed from secondary hook response - per CRD spec, "
+          + "secondary hooks SHALL NOT request documentation");
+      coverageInfoExt.getExtension().removeAll(docNeededExts);
+
+      List<Extension> docPurposeExts = coverageInfoExt.getExtensionsByUrl("doc-purpose");
+      if (!docPurposeExts.isEmpty()) {
+        coverageInfoExt.getExtension().removeAll(docPurposeExts);
+      }
+      List<Extension> questionnaireExts = coverageInfoExt.getExtensionsByUrl("questionnaire");
+      if (!questionnaireExts.isEmpty()) {
+        coverageInfoExt.getExtension().removeAll(questionnaireExts);
+      }
+    }
+  }
+
+  /**
+   * Checks if this is a secondary hook that cannot request documentation.
+   * Per CRD IG: encounter-start, encounter-discharge, and order-select are
+   * secondary hooks.
+   */
+  protected boolean isSecondaryHook() {
+    String hookName = getHookName();
+    return "encounter-start".equals(hookName) ||
+        "encounter-discharge".equals(hookName) ||
+        "order-select".equals(hookName);
   }
 
   /**
@@ -445,32 +496,32 @@ public abstract class CdsServiceBase {
     // Validate required FHIR resources are present
     validateExtractedResources(context);
 
-    // Per CRD spec: Coverage is required for all hooks - return 400 if not
-    // accessible
+    // Per CDS Hooks spec: 412 = Required prefetch data could not be retrieved
     if (context.getCoverage() == null) {
-      throw new CdsHooksException.BadRequestException(
+      throw new CdsHooksException.PreconditionFailedException(
           "No Coverage resource is accessible for this patient. A Coverage resource with a valid payer identifier is required.");
     }
 
+    // Per CDS Hooks spec: 422 = Valid format but semantically invalid
     if (context.getCoverageCount() > 1) {
-      throw new CdsHooksException.BadRequestException(
+      throw new CdsHooksException.UnprocessableEntityException(
           "Multiple Coverage resources are accessible for this patient. CRD requires a single primary Coverage in the request.");
     }
 
     // Get payor identifiers for PlanDefinition matching
     List<Identifier> payorIdentifiers = extractPayorIdentifiers(context);
 
-    // Per CRD spec: Coverage must have a valid payer identifier
+    // Per CDS Hooks spec: 422 = Valid format but semantically invalid
     if (payorIdentifiers.isEmpty()) {
-      throw new CdsHooksException.BadRequestException(
+      throw new CdsHooksException.UnprocessableEntityException(
           "Coverage resource (" + context.getCoverage().getId()
               + ") lacks valid payer identifier. Coverage.payor must reference an Organization with a valid identifier. Coverage.payor value: "
               + context.getCoverage().getPayor().stream().map(Reference::getReference).toList());
     }
 
-    // Per CRD spec: Payer must be handled by this server endpoint
+    // Per CDS Hooks spec: 422 = Valid format but semantically invalid
     if (!isPayorHandled(payorIdentifiers)) {
-      throw new CdsHooksException.BadRequestException(
+      throw new CdsHooksException.UnprocessableEntityException(
           "The payer identifier in Coverage is not handled by this CRD server endpoint.");
     }
 

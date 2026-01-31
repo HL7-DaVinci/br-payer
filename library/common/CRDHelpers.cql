@@ -2,32 +2,6 @@ library CRDHelpers version '1.0.0'
 using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1' called FHIRHelpers
 
-// Hook parameter should generally not be used.
-// It is put here for future edge cases where CQL truly needs to know the hook.
-parameter Hook String
-
-// ============================================================
-// HOOK DETECTION HELPERS
-// ============================================================
-
-define "Is Order Select":
-  Hook = 'order-select'
-
-define "Is Order Sign":
-  Hook = 'order-sign'
-
-define "Is Appointment Book":
-  Hook = 'appointment-book'
-
-define "Is Encounter Start":
-  Hook = 'encounter-start'
-
-define "Is Encounter Discharge":
-  Hook = 'encounter-discharge'
-
-define "Is Order Dispatch":
-  Hook = 'order-dispatch'
-
 // ============================================================
 // PATIENT DEMOGRAPHICS
 // ============================================================
@@ -222,7 +196,7 @@ define function "Validate Questionnaires"(docNeeded List<String>, urls List<Stri
 // crd-ci-q2: returns paNeeded if allowed, else null
 define function "Validate PA Needed"(covered String, paNeeded String):
   if "PA Needed Allowed"(covered) then
-    if paNeeded = 'noauth' then null
+    if paNeeded = 'no-auth' then null
     else paNeeded
   else null
 
@@ -245,7 +219,7 @@ define function "Validate Satisfied PA ID"(paNeeded String, satisfiedPaId String
 define function "Validate PA Needed For Extension"(covered String, paNeeded String, satisfiedPaId String):
   if "PA Needed Allowed"(covered) then
     case
-      when paNeeded = 'noauth' then null
+      when paNeeded = 'no-auth' then null
       when paNeeded = 'satisfied' and satisfiedPaId is null then null
       else paNeeded
     end

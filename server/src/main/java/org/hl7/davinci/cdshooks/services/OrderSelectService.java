@@ -21,8 +21,6 @@ import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseJson;
  */
 public class OrderSelectService extends CdsServiceBase {
 
-  private List<String> selections;
-
   @CdsService(
     value = "order-select-crd",
     hook = "order-select",
@@ -43,7 +41,6 @@ public class OrderSelectService extends CdsServiceBase {
       @CdsServicePrefetch(value = "serviceHistory", query = "ServiceRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT)
   })
   public CdsServiceResponseJson handleRequest(CdsServiceRequestJson request) {
-    this.selections = extractSelections(request);
     return processRequest(request);
   }
 
@@ -74,7 +71,7 @@ public class OrderSelectService extends CdsServiceBase {
         "draftOrders context is required but was empty, missing, or could not be resolved."
       );
     }
-    if (selections == null || selections.isEmpty()) {
+    if (context.getSelections().isEmpty()) {
       throw new CdsHooksException.BadRequestException(
         "selections context is required but was empty, missing, or could not be resolved."
       );
@@ -84,6 +81,7 @@ public class OrderSelectService extends CdsServiceBase {
   @Override
   protected List<Resource> selectContextResources(HookResourceContext context) {
     List<Resource> selectedOrders = new ArrayList<>();
+    List<String> selections = context.getSelections();
 
     for (Resource order : context.getOrders()) {
       String resourceRef = order.fhirType() + "/" + order.getIdElement().getIdPart();
@@ -93,13 +91,5 @@ public class OrderSelectService extends CdsServiceBase {
     }
 
     return selectedOrders;
-  }
-
-  private List<String> extractSelections(CdsServiceRequestJson request) {
-    Object selectionsObj = request.getContext().get("selections");
-    if (selectionsObj instanceof List<?> selections) {
-      return selections.stream().map(Object::toString).toList();
-    }
-    return List.of();
   }
 }

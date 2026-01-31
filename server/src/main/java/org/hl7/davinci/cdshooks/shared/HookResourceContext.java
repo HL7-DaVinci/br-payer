@@ -43,8 +43,8 @@ public class HookResourceContext {
   private List<Procedure> procedures = new ArrayList<>();
   private List<ServiceRequest> serviceRequests = new ArrayList<>();
   private List<Condition> conditions = new ArrayList<>();
-  private Task task;
   private List<Task> tasks = new ArrayList<>();
+  private List<String> selections = new ArrayList<>();
 
   public Patient getPatient() {
     return patient;
@@ -162,17 +162,6 @@ public class HookResourceContext {
     this.appointments.add(appointment);
   }
 
-  public Task getTask() {
-    return task;
-  }
-
-  public void setTask(Task task) {
-    this.task = task;
-    if (task != null) {
-      this.tasks.add(task);
-    }
-  }
-
   public List<Task> getTasks() {
     return tasks;
   }
@@ -255,5 +244,13 @@ public class HookResourceContext {
 
   public void addCondition(Condition condition) {
     this.conditions.add(condition);
+  }
+
+  public List<String> getSelections() {
+    return selections;
+  }
+
+  public void setSelections(List<String> selections) {
+    this.selections = selections;
   }
 }
