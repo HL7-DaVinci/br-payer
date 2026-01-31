@@ -286,6 +286,21 @@ public class CdsHooksTestUtils {
   }
 
   /**
+   * Create a test Encounter with class code and type.
+   */
+  public static Encounter createTestEncounter(String id, String classCode, String patientId) {
+    Encounter encounter = new Encounter();
+    encounter.setId(id);
+    encounter.setStatus(Encounter.EncounterStatus.INPROGRESS);
+    encounter.setClass_(new Coding()
+        .setSystem("http://terminology.hl7.org/CodeSystem/v3-ActCode")
+        .setCode(classCode)
+        .setDisplay(classCode.equals("IMP") ? "Inpatient encounter" : "Ambulatory"));
+    encounter.setSubject(new Reference("Patient/" + patientId));
+    return encounter;
+  }
+
+  /**
    * Create a test Appointment with service type.
    */
   public static Appointment createTestAppointment(String id, String snomedCode, String patientId) {

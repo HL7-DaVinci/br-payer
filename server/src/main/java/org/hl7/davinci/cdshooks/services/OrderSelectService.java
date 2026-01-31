@@ -53,7 +53,19 @@ public class OrderSelectService extends CdsServiceBase {
   }
 
   @Override
-  protected void validateResourceContext(HookResourceContext context) {
+  protected void validateRequestInput(CdsServiceRequestJson request) {
+    var context = request.getContext();
+    String hook = getHookName();
+
+    requireString(context, hook, "userId", true);
+    requireString(context, hook, "patientId", true);
+    requireString(context, hook, "encounterId", false);
+    requireStringList(context, hook, "selections", true);
+    requireObject(context, hook, "draftOrders", true);
+  }
+
+  @Override
+  protected void validateExtractedResources(HookResourceContext context) {
     // Patient validation is handled by HAPI prefetch layer (no failureMode.OMIT)
     // Coverage is optional for supporting hooks - if missing, base class returns empty response
 

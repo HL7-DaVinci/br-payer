@@ -25,6 +25,7 @@ import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.DeviceRequest;
+import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
@@ -55,6 +56,7 @@ import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
+import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestContextJson;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import ca.uhn.fhir.rest.param.CompositeAndListParam;
 import ca.uhn.fhir.rest.param.CompositeOrListParam;
@@ -101,12 +103,24 @@ public abstract class CdsServiceBase {
   protected abstract String getHookName();
 
   /**
-   * Validates that required resources are present in the context.
+   * Validates that the raw request context has required fields with correct types.
+   * Called early in processRequest, before resource extraction.
    *
+   * @param request the CDS service request to validate
+   * @throws CdsHooksException.BadRequestException if required context fields are
+   *                                               missing or have invalid types
+   */
+  protected abstract void validateRequestInput(CdsServiceRequestJson request);
+
+  /**
+   * Validates that required FHIR resources are present after extraction.
+   * Called after resource extraction in processRequest.
+   *
+   * @param context the extracted resources to validate
    * @throws CdsHooksException.BadRequestException if required resources are
    *                                               missing
    */
-  protected abstract void validateResourceContext(HookResourceContext context);
+  protected abstract void validateExtractedResources(HookResourceContext context);
 
   /**
    * Selects which resources from the context should be processed by
@@ -404,6 +418,7 @@ public abstract class CdsServiceBase {
    * Main entry point for processing CDS requests.
    *
    * This performs the following:
+   * - Validate request context input fields (implemented by subclasses)
    * - Extract all available resources from context and prefetch
    * - Validate required resources are present (implemented by subclasses)
    * - Select resources to process (implemented by subclasses)
@@ -421,11 +436,14 @@ public abstract class CdsServiceBase {
 
     CdsServiceResponseJson response = new CdsServiceResponseJson();
 
+    // Validate raw request context types before extraction
+    validateRequestInput(request);
+
     // Extract all resources upfront
     HookResourceContext context = ResourceResolver.extractAllResources(request);
 
-    // Validate required resources are present
-    validateResourceContext(context);
+    // Validate required FHIR resources are present
+    validateExtractedResources(context);
 
     // Per CRD spec: Coverage is required for all hooks - return 400 if not
     // accessible
@@ -445,7 +463,9 @@ public abstract class CdsServiceBase {
     // Per CRD spec: Coverage must have a valid payer identifier
     if (payorIdentifiers.isEmpty()) {
       throw new CdsHooksException.BadRequestException(
-          "Coverage resource lacks valid payer identifier. Coverage.payor must reference an Organization with a valid identifier.");
+          "Coverage resource (" + context.getCoverage().getId()
+              + ") lacks valid payer identifier. Coverage.payor must reference an Organization with a valid identifier. Coverage.payor value: "
+              + context.getCoverage().getPayor().stream().map(Reference::getReference).toList());
     }
 
     // Per CRD spec: Payer must be handled by this server endpoint
@@ -658,6 +678,22 @@ public abstract class CdsServiceBase {
       if (appointment.hasReasonCode()) {
         appointment.getReasonCode().forEach(cc -> codes.addAll(cc.getCoding()));
       }
+    } else if (resource instanceof Encounter encounter) {
+      if (encounter.hasClass_()) {
+        codes.add(encounter.getClass_());
+      }
+      if (encounter.hasType()) {
+        encounter.getType().forEach(cc -> codes.addAll(cc.getCoding()));
+      }
+      if (encounter.hasServiceType()) {
+        codes.addAll(encounter.getServiceType().getCoding());
+      }
+      if (encounter.hasReasonCode()) {
+        encounter.getReasonCode().forEach(cc -> codes.addAll(cc.getCoding()));
+      }
+      if (encounter.hasHospitalization() && encounter.getHospitalization().hasDischargeDisposition()) {
+        codes.addAll(encounter.getHospitalization().getDischargeDisposition().getCoding());
+      }
     }
 
     // Normalize code systems (https:// -> http://) for consistent matching
@@ -836,6 +872,8 @@ public abstract class CdsServiceBase {
     addResourcesToBundle(bundle, seenIds, context.getMedicationStatements());
     addResourcesToBundle(bundle, seenIds, context.getMedicationHistory());
     addResourcesToBundle(bundle, seenIds, context.getTasks());
+    addResourcesToBundle(bundle, seenIds, context.getConditions());
+    addResourcesToBundle(bundle, seenIds, context.getProcedures());
     addResourceToBundle(bundle, seenIds, contextResource);
 
     return bundle;
@@ -1009,6 +1047,8 @@ public abstract class CdsServiceBase {
       sr.getExtension().removeIf(ext -> isSameCoverageExtension(ext, coverageRef));
     } else if (resource instanceof Appointment appt) {
       appt.getExtension().removeIf(ext -> isSameCoverageExtension(ext, coverageRef));
+    } else if (resource instanceof Encounter enc) {
+      enc.getExtension().removeIf(ext -> isSameCoverageExtension(ext, coverageRef));
     }
   }
 
@@ -1074,6 +1114,8 @@ public abstract class CdsServiceBase {
       sr.addExtension(coverageInfoExt);
     } else if (updatedResource instanceof Appointment appt) {
       appt.addExtension(coverageInfoExt);
+    } else if (updatedResource instanceof Encounter enc) {
+      enc.addExtension(coverageInfoExt);
     }
 
     // Build the system action
@@ -1649,6 +1691,124 @@ public abstract class CdsServiceBase {
     coverageInfoExt.addExtension(assertionIdExt);
 
     return coverageInfoExt;
+  }
+
+  // ============================================================
+  // REQUEST INPUT VALIDATION HELPERS
+  // ============================================================
+
+  /**
+   * Validates that a context field is a string.
+   *
+   * @param context  the request context
+   * @param hook     the hook name (for error messages)
+   * @param key      the context field key
+   * @param required whether the field is required
+   * @throws CdsHooksException.BadRequestException if validation fails
+   */
+  protected void requireString(CdsServiceRequestContextJson context, String hook, String key, boolean required) {
+    Object value = context.get(key);
+    if (value == null) {
+      if (required) {
+        throwMissingContext(hook, key);
+      }
+      return;
+    }
+    if (!(value instanceof String)) {
+      throwInvalidType(hook, key, "a string");
+    }
+  }
+
+  /**
+   * Validates that a context field is an array of strings.
+   *
+   * @param context  the request context
+   * @param hook     the hook name (for error messages)
+   * @param key      the context field key
+   * @param required whether the field is required
+   * @throws CdsHooksException.BadRequestException if validation fails
+   */
+  protected void requireStringList(CdsServiceRequestContextJson context, String hook, String key, boolean required) {
+    Object value = context.get(key);
+    if (value == null) {
+      if (required) {
+        throwMissingContext(hook, key);
+      }
+      return;
+    }
+    if (!(value instanceof List<?>)) {
+      throwInvalidType(hook, key, "an array of strings");
+    }
+    List<?> list = (List<?>) value;
+    for (Object item : list) {
+      if (!(item instanceof String)) {
+        throwInvalidType(hook, key, "an array of strings");
+      }
+    }
+  }
+
+  /**
+   * Validates that a context field is an object (Map or IBaseResource).
+   *
+   * @param context  the request context
+   * @param hook     the hook name (for error messages)
+   * @param key      the context field key
+   * @param required whether the field is required
+   * @throws CdsHooksException.BadRequestException if validation fails
+   */
+  protected void requireObject(CdsServiceRequestContextJson context, String hook, String key, boolean required) {
+    Object value = context.get(key);
+    if (value == null) {
+      if (required) {
+        throwMissingContext(hook, key);
+      }
+      return;
+    }
+    if (!isObjectValue(value)) {
+      throwInvalidType(hook, key, "an object");
+    }
+  }
+
+  /**
+   * Validates that a context field is an array of objects.
+   *
+   * @param context  the request context
+   * @param hook     the hook name (for error messages)
+   * @param key      the context field key
+   * @param required whether the field is required
+   * @throws CdsHooksException.BadRequestException if validation fails
+   */
+  protected void requireObjectList(CdsServiceRequestContextJson context, String hook, String key, boolean required) {
+    Object value = context.get(key);
+    if (value == null) {
+      if (required) {
+        throwMissingContext(hook, key);
+      }
+      return;
+    }
+    if (!(value instanceof List<?>)) {
+      throwInvalidType(hook, key, "an array of objects");
+    }
+    List<?> list = (List<?>) value;
+    for (Object item : list) {
+      if (!isObjectValue(item)) {
+        throwInvalidType(hook, key, "an array of objects");
+      }
+    }
+  }
+
+  private boolean isObjectValue(Object value) {
+    return value instanceof Map<?, ?> || value instanceof IBaseResource;
+  }
+
+  private void throwMissingContext(String hook, String key) {
+    throw new CdsHooksException.BadRequestException(
+        "Missing required context field '" + key + "' for hook '" + hook + "'.");
+  }
+
+  private void throwInvalidType(String hook, String key, String expected) {
+    throw new CdsHooksException.BadRequestException(
+        "Context field '" + key + "' must be " + expected + " for hook '" + hook + "'.");
   }
 
 }

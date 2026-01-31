@@ -1,0 +1,139 @@
+{
+  "hookInstance": "q1r2s3t4-u5v6-7890-wxyz-ab1234567890",
+  "fhirServer": "http://localhost:8080/fhir",
+  "hook": "encounter-start",
+  "fhirAuthorization": {
+    "access_token": "exampleAccess",
+    "token_type": "Bearer",
+    "expires_in": 300,
+    "scope": "patient/Patient.read patient/Encounter.read",
+    "subject": "cds-service5"
+  },
+  "context": {
+    "userId": "Practitioner/prov456",
+    "patientId": "example-2",
+    "encounterId": "enc-outpatient-001"
+  },
+  "prefetch": {
+    "patient": {
+      "resourceType": "Patient",
+      "id": "example-2",
+      "meta": {
+        "profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"]
+      },
+      "identifier": [
+        {
+          "use": "usual",
+          "type": {
+            "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MR"}]
+          },
+          "system": "http://hospital.smarthealthit.org",
+          "value": "1032703"
+        }
+      ],
+      "name": [{"use": "official", "family": "Johnson", "given": ["Mary"]}],
+      "gender": "female",
+      "birthDate": "1975-08-22"
+    },
+    "encounter": {
+      "resourceType": "Encounter",
+      "id": "enc-outpatient-001",
+      "status": "in-progress",
+      "class": {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+        "code": "AMB",
+        "display": "Ambulatory"
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+              "code": "AMB",
+              "display": "Ambulatory"
+            }
+          ]
+        }
+      ],
+      "serviceType": {
+        "coding": [
+          {
+            "system": "http://snomed.info/sct",
+            "code": "394802001",
+            "display": "General medicine"
+          }
+        ]
+      },
+      "subject": {"reference": "Patient/example-2"},
+      "participant": [
+        {
+          "individual": {"reference": "Practitioner/prov456"}
+        }
+      ],
+      "period": {"start": "2026-01-27T14:00:00Z"},
+      "reasonCode": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "73211009",
+              "display": "Diabetes mellitus"
+            }
+          ],
+          "text": "Diabetes follow-up"
+        }
+      ]
+    },
+    "coverage": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Coverage/cms-example-2",
+          "resource": {
+            "resourceType": "Coverage",
+            "id": "cms-example-2",
+            "status": "active",
+            "subscriberId": "10B4E69XI567",
+            "beneficiary": {"reference": "Patient/example-2"},
+            "payor": [{"reference": "Organization/cms"}]
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Organization/cms",
+          "resource": {
+            "resourceType": "Organization",
+            "id": "cms",
+            "identifier": [
+              {"system": "urn:oid:2.16.840.1.113883.6.300", "value": "00001"}
+            ],
+            "name": "Centers for Medicare and Medicaid Services"
+          }
+        }
+      ]
+    },
+    "conditions": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Condition/dm-001",
+          "resource": {
+            "resourceType": "Condition",
+            "id": "dm-001",
+            "clinicalStatus": {
+              "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+            },
+            "code": {
+              "coding": [
+                {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"}
+              ],
+              "text": "Type 2 Diabetes"
+            },
+            "subject": {"reference": "Patient/example-2"}
+          }
+        }
+      ]
+    }
+  }
+}

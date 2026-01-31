@@ -85,7 +85,7 @@
       "type": "collection",
       "entry": [
         {
-          "fullUrl": "http://localhost:8080/test-ehr/r4/DeviceRequest/devreq-015-e0250",
+          "fullUrl": "http://localhost:8080/fhir/DeviceRequest/devreq-015-e0250",
           "resource": {
             "resourceType": "DeviceRequest",
             "id": "devreq-015-e0250",
@@ -137,7 +137,7 @@
           }
         },
         {
-          "fullUrl": "http://localhost:8080/test-ehr/r4/Practitioner/pra1234",
+          "fullUrl": "http://localhost:8080/fhir/Practitioner/pra1234",
           "resource": {
             "resourceType": "Practitioner",
             "id": "pra1234",
@@ -222,7 +222,7 @@
           }
         },
         {
-          "fullUrl": "http://localhost:8080/test-ehr/r4/Patient/pat015",
+          "fullUrl": "http://localhost:8080/fhir/Patient/pat015",
           "resource": {
             "resourceType": "Patient",
             "id": "pat015",
@@ -310,7 +310,7 @@
       "type": "collection",
       "entry": [
         {
-          "fullUrl": "http://localhost:8080/test-ehr/r4/Coverage/cov015",
+          "fullUrl": "http://localhost:8080/fhir/Coverage/cov015",
           "resource": {
             "resourceType": "Coverage",
             "id": "cov015",

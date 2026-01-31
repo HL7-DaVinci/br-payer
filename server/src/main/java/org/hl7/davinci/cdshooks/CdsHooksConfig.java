@@ -48,8 +48,8 @@ public class CdsHooksConfig {
 
   /**
    * Custom prefetch service that handles optional context variables gracefully.
-   * Overrides the default to skip prefetch templates with missing context
-   * variables.
+   * Overrides the default to skip OMIT prefetch templates with missing context
+   * variables while delegating to the base HAPI prefetch handling.
    * 
    * Marking this as @Primary and giving it our own name to ensure it replaces the
    * "cdsPrefetchSvc" bean from the HAPI library without requiring a

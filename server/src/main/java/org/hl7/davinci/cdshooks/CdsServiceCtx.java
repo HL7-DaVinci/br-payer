@@ -3,6 +3,8 @@ package org.hl7.davinci.cdshooks;
 import java.util.List;
 
 import org.hl7.davinci.cdshooks.services.AppointmentBookService;
+import org.hl7.davinci.cdshooks.services.EncounterDischargeService;
+import org.hl7.davinci.cdshooks.services.EncounterStartService;
 import org.hl7.davinci.cdshooks.services.OrderDispatchService;
 import org.hl7.davinci.cdshooks.services.OrderSelectService;
 import org.hl7.davinci.cdshooks.services.OrderSignService;
@@ -18,6 +20,16 @@ public class CdsServiceCtx {
    @Bean
    public AppointmentBookService appointmentBookService() {
       return new AppointmentBookService();
+   }
+
+   @Bean
+   public EncounterDischargeService encounterDischargeService() {
+      return new EncounterDischargeService();
+   }
+
+   @Bean
+   public EncounterStartService encounterStartService() {
+      return new EncounterStartService();
    }
 
    @Bean
@@ -38,10 +50,13 @@ public class CdsServiceCtx {
    @Bean
    public List<Object> cdsServices(
          AppointmentBookService appointmentBookService,
+         EncounterDischargeService encounterDischargeService,
+         EncounterStartService encounterStartService,
          OrderDispatchService orderDispatchService,
          OrderSelectService orderSelectService,
          OrderSignService orderSignService) {
-      return List.of(appointmentBookService, orderDispatchService, orderSelectService, orderSignService);
+      return List.of(appointmentBookService, encounterDischargeService, encounterStartService,
+            orderDispatchService, orderSelectService, orderSignService);
    }
 
 }

@@ -1,0 +1,133 @@
+{
+  "hookInstance": "e1f2g3h4-i5j6-7890-klmn-op1234567890",
+  "fhirServer": "http://localhost:8080/fhir",
+  "hook": "encounter-start",
+  "fhirAuthorization": {
+    "access_token": "exampleAccess",
+    "token_type": "Bearer",
+    "expires_in": 300,
+    "scope": "patient/Patient.read patient/Encounter.read",
+    "subject": "cds-service5"
+  },
+  "context": {
+    "userId": "Practitioner/prov123",
+    "patientId": "example-1",
+    "encounterId": "enc-inpatient-001"
+  },
+  "prefetch": {
+    "patient": {
+      "resourceType": "Patient",
+      "id": "example-1",
+      "meta": {
+        "profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"]
+      },
+      "identifier": [
+        {
+          "use": "usual",
+          "type": {
+            "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MR"}]
+          },
+          "system": "http://hospital.smarthealthit.org",
+          "value": "1032702"
+        }
+      ],
+      "name": [{"use": "official", "family": "Smith", "given": ["John"]}],
+      "gender": "male",
+      "birthDate": "1960-05-15"
+    },
+    "encounter": {
+      "resourceType": "Encounter",
+      "id": "enc-inpatient-001",
+      "status": "in-progress",
+      "class": {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+        "code": "IMP",
+        "display": "Inpatient encounter"
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+              "code": "IMP",
+              "display": "Inpatient encounter"
+            }
+          ]
+        }
+      ],
+      "subject": {"reference": "Patient/example-1"},
+      "participant": [
+        {
+          "individual": {"reference": "Practitioner/prov123"}
+        }
+      ],
+      "period": {"start": "2026-01-27T08:00:00Z"},
+      "reasonCode": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "22298006",
+              "display": "Myocardial infarction"
+            }
+          ]
+        }
+      ]
+    },
+    "coverage": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Coverage/cms-example-1",
+          "resource": {
+            "resourceType": "Coverage",
+            "id": "cms-example-1",
+            "status": "active",
+            "subscriberId": "10A3D58WH456",
+            "beneficiary": {"reference": "Patient/example-1"},
+            "payor": [{"reference": "Organization/cms"}],
+            "period": {
+              "start": "2025-01-01",
+              "end": "2026-02-15"
+            }
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Organization/cms",
+          "resource": {
+            "resourceType": "Organization",
+            "id": "cms",
+            "identifier": [
+              {"system": "urn:oid:2.16.840.1.113883.6.300", "value": "00001"}
+            ],
+            "name": "Centers for Medicare and Medicaid Services"
+          }
+        }
+      ]
+    },
+    "conditions": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Condition/chf-001",
+          "resource": {
+            "resourceType": "Condition",
+            "id": "chf-001",
+            "clinicalStatus": {
+              "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+            },
+            "code": {
+              "coding": [
+                {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I50.9", "display": "Heart failure, unspecified"}
+              ],
+              "text": "Congestive Heart Failure"
+            },
+            "subject": {"reference": "Patient/example-1"}
+          }
+        }
+      ]
+    }
+  }
+}

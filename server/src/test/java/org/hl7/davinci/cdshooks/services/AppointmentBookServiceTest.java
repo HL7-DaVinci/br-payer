@@ -105,7 +105,7 @@ class AppointmentBookServiceTest {
 
       CdsHooksException.BadRequestException exception = assertThrows(
           CdsHooksException.BadRequestException.class,
-          () -> appointmentBookService.validateResourceContext(context));
+          () -> appointmentBookService.validateExtractedResources(context));
 
       assertTrue(exception.getMessage().contains("appointments"));
     }
@@ -119,7 +119,7 @@ class AppointmentBookServiceTest {
       context.setAppointments(List.of(
           CdsHooksTestUtils.createTestAppointment("appt-1", "394579002", "test-patient"))); // Cardiology
 
-      assertDoesNotThrow(() -> appointmentBookService.validateResourceContext(context));
+      assertDoesNotThrow(() -> appointmentBookService.validateExtractedResources(context));
     }
   }
 

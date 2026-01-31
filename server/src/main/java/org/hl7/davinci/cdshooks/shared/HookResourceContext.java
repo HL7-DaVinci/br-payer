@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.CareTeam;
+import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Location;
@@ -41,6 +42,7 @@ public class HookResourceContext {
   private List<MedicationRequest> medicationHistory = new ArrayList<>();
   private List<Procedure> procedures = new ArrayList<>();
   private List<ServiceRequest> serviceRequests = new ArrayList<>();
+  private List<Condition> conditions = new ArrayList<>();
   private Task task;
   private List<Task> tasks = new ArrayList<>();
 
@@ -241,5 +243,17 @@ public class HookResourceContext {
 
   public void addServiceRequest(ServiceRequest serviceRequest) {
     this.serviceRequests.add(serviceRequest);
+  }
+
+  public List<Condition> getConditions() {
+    return conditions;
+  }
+
+  public void setConditions(List<Condition> conditions) {
+    this.conditions = conditions;
+  }
+
+  public void addCondition(Condition condition) {
+    this.conditions.add(condition);
   }
 }

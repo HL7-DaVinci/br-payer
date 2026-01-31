@@ -11,6 +11,7 @@ import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CareTeam;
 import org.hl7.fhir.r4.model.CommunicationRequest;
+import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -525,9 +526,6 @@ public class ResourceResolver {
 
     // Extract fulfillment tasks
     Object fulfillmentTasksContext = request.getContext().get("fulfillmentTasks");
-    if (fulfillmentTasksContext == null) {
-      fulfillmentTasksContext = request.getContext().get("fulfillment-tasks");
-    }
     if (fulfillmentTasksContext instanceof List<?> tasks) {
       for (Object entry : tasks) {
         if (entry instanceof Task task) {
@@ -571,6 +569,12 @@ public class ResourceResolver {
     Object serviceRequestsPrefetch = getPrefetchFlexible(request, "serviceRequests");
     if (serviceRequestsPrefetch instanceof Bundle serviceRequestsBundle) {
       context.setServiceRequests(extractFromBundle(serviceRequestsBundle, ServiceRequest.class));
+    }
+
+    // Extract conditions
+    Object conditionsPrefetch = getPrefetchFlexible(request, "conditions");
+    if (conditionsPrefetch instanceof Bundle conditionsBundle) {
+      context.setConditions(extractFromBundle(conditionsBundle, Condition.class));
     }
 
     return context;

@@ -1,0 +1,121 @@
+{
+  "resourceType": "PlanDefinition",
+  "id": "CareTransitionFollowup",
+  "url": "http://example.org/fhir/PlanDefinition/CareTransitionFollowup",
+  "version": "1.0.0",
+  "name": "CareTransitionFollowup",
+  "title": "Care Transition Follow-up Guidance",
+  "status": "active",
+  "description": "Provides care transition guidance and payer resources at hospital discharge, with emphasis on high-readmission-risk conditions.",
+  "useContext": [
+    {
+      "code": {
+        "system": "http://terminology.hl7.org/CodeSystem/usage-context-type",
+        "code": "program"
+      },
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "urn:oid:2.16.840.1.113883.6.300",
+            "code": "00001",
+            "display": "Centers for Medicare and Medicaid Services"
+          }
+        ]
+      }
+    },
+    {
+      "code": {
+        "system": "http://terminology.hl7.org/CodeSystem/usage-context-type",
+        "code": "focus"
+      },
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+            "code": "IMP",
+            "display": "Inpatient encounter"
+          },
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+            "code": "EMER",
+            "display": "Emergency"
+          },
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/discharge-disposition",
+            "code": "home",
+            "display": "Home"
+          },
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/discharge-disposition",
+            "code": "snf",
+            "display": "Skilled nursing facility"
+          }
+        ]
+      }
+    }
+  ],
+  "library": ["Library/CareTransitionFollowupRule"],
+  "action": [
+    {
+      "id": "care-transition-info",
+      "title": "Care Transition Resources",
+      "description": "Care transition support and follow-up guidance",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "external-reference"
+        }
+      ],
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "Payer Care Transition Program",
+          "url": "https://example.org/payer/care-transitions"
+        },
+        {
+          "type": "documentation",
+          "display": "Member Resource Portal",
+          "url": "https://example.org/payer/member-portal"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "encounter-discharge"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Requires Care Transition Guidance"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Get Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Get Detail"
+          }
+        },
+        {
+          "path": "extension",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Coverage Info Extension"
+          }
+        }
+      ]
+    }
+  ]
+}

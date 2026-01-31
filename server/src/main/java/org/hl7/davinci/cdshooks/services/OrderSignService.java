@@ -49,7 +49,18 @@ public class OrderSignService extends CdsServiceBase {
   }
 
   @Override
-  protected void validateResourceContext(HookResourceContext context) {
+  protected void validateRequestInput(CdsServiceRequestJson request) {
+    var context = request.getContext();
+    String hook = getHookName();
+
+    requireString(context, hook, "userId", true);
+    requireString(context, hook, "patientId", true);
+    requireString(context, hook, "encounterId", false);
+    requireObject(context, hook, "draftOrders", true);
+  }
+
+  @Override
+  protected void validateExtractedResources(HookResourceContext context) {
     // Patient validation is handled by HAPI prefetch layer (no failureMode.OMIT)
     // Coverage validation is handled in base class for primary hooks
 

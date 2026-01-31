@@ -95,7 +95,7 @@ class OrderDispatchServiceTest {
 
       CdsHooksException.BadRequestException exception = assertThrows(
           CdsHooksException.BadRequestException.class,
-          () -> orderDispatchService.validateResourceContext(context));
+          () -> orderDispatchService.validateExtractedResources(context));
 
       assertTrue(exception.getMessage().contains("dispatchedOrders"));
     }
@@ -111,7 +111,7 @@ class OrderDispatchServiceTest {
       context.setOrders(List.of(
           CdsHooksTestUtils.createTestServiceRequest("sr-1", "70553", "test-patient")));
 
-      assertDoesNotThrow(() -> orderDispatchService.validateResourceContext(context));
+      assertDoesNotThrow(() -> orderDispatchService.validateExtractedResources(context));
     }
   }
 

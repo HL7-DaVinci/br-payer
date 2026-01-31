@@ -1,0 +1,40 @@
+{
+  "resourceType": "Library",
+  "id": "CareManagementEnrollmentRule",
+  "url": "http://example.org/fhir/Library/CareManagementEnrollmentRule",
+  "version": "1.0.0",
+  "name": "CareManagementEnrollmentRule",
+  "title": "Care Management Enrollment Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "CRD Helpers",
+      "resource": "Library/CRDHelpers|1.0.0"
+    },
+    {
+      "type": "depends-on",
+      "display": "Coverage Extensions",
+      "resource": "Library/CoverageExtensions|1.0.0"
+    }
+  ],
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "CareManagementEnrollmentRule.cql"
+    }
+  ]
+}

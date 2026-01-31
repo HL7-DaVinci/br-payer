@@ -1,0 +1,40 @@
+{
+  "resourceType": "Library",
+  "id": "InsuranceEligibilityCheckRule",
+  "url": "http://example.org/fhir/Library/InsuranceEligibilityCheckRule",
+  "version": "1.0.0",
+  "name": "InsuranceEligibilityCheckRule",
+  "title": "Insurance Eligibility Check Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "CRD Helpers",
+      "resource": "Library/CRDHelpers|1.0.0"
+    },
+    {
+      "type": "depends-on",
+      "display": "Coverage Extensions",
+      "resource": "Library/CoverageExtensions|1.0.0"
+    }
+  ],
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "InsuranceEligibilityCheckRule.cql"
+    }
+  ]
+}

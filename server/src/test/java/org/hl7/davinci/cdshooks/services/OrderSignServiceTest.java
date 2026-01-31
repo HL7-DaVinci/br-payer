@@ -104,7 +104,7 @@ class OrderSignServiceTest {
 
       CdsHooksException.BadRequestException exception = assertThrows(
           CdsHooksException.BadRequestException.class,
-          () -> orderSignService.validateResourceContext(context));
+          () -> orderSignService.validateExtractedResources(context));
 
       assertTrue(exception.getMessage().contains("draftOrders"));
     }
@@ -119,7 +119,7 @@ class OrderSignServiceTest {
           CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "test-patient")));
 
       // Should not throw
-      assertDoesNotThrow(() -> orderSignService.validateResourceContext(context));
+      assertDoesNotThrow(() -> orderSignService.validateExtractedResources(context));
     }
   }
 

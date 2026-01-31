@@ -103,13 +103,13 @@ class OrderSelectServiceTest {
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setOrders(List.of(
           CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "test-patient")));
-      // Note: selections would be set by handleRequest before validateResourceContext
+      // Note: selections would be set by handleRequest before validateExtractedResources
 
       // The validation happens after handleRequest extracts selections
       // With empty selections, it should fail
       CdsHooksException.BadRequestException exception = assertThrows(
           CdsHooksException.BadRequestException.class,
-          () -> orderSelectService.validateResourceContext(context));
+          () -> orderSelectService.validateExtractedResources(context));
 
       assertTrue(exception.getMessage().contains("selections") ||
           exception.getMessage().contains("draftOrders"));
@@ -125,7 +125,7 @@ class OrderSelectServiceTest {
 
       CdsHooksException.BadRequestException exception = assertThrows(
           CdsHooksException.BadRequestException.class,
-          () -> orderSelectService.validateResourceContext(context));
+          () -> orderSelectService.validateExtractedResources(context));
 
       assertTrue(exception.getMessage().contains("draftOrders"));
     }

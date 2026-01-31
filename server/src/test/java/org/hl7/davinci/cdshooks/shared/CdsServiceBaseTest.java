@@ -4,6 +4,7 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
+import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.*;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
 import org.hl7.fhir.r4.model.*;
@@ -79,7 +80,12 @@ class CdsServiceBaseTest {
     }
 
     @Override
-    protected void validateResourceContext(HookResourceContext context) {
+    protected void validateRequestInput(CdsServiceRequestJson request) {
+      // No-op for testing
+    }
+
+    @Override
+    protected void validateExtractedResources(HookResourceContext context) {
       // No-op for testing
     }
 

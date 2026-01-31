@@ -1,38 +1,41 @@
 package org.hl7.davinci.cdshooks.shared;
 
+import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.instance.model.api.IBaseOperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.interceptor.api.IInterceptorBroadcaster;
-import ca.uhn.fhir.jpa.starter.cdshooks.ModuleConfigurationPrefetchSvc;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
-import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
+import ca.uhn.fhir.util.OperationOutcomeUtil;
+import ca.uhn.hapi.fhir.cdshooks.api.CdsPrefetchFailureMode;
 import ca.uhn.hapi.fhir.cdshooks.api.ICdsHooksDaoAuthorizationSvc;
 import ca.uhn.hapi.fhir.cdshooks.api.ICdsServiceMethod;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceJson;
 import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchDaoSvc;
 import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchFhirClientSvc;
+import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsPrefetchSvc;
 import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.CdsResolutionStrategySvc;
+import ca.uhn.hapi.fhir.cdshooks.svc.prefetch.PrefetchTemplateUtil;
 
 /**
- * Custom prefetch service for CRD that handles optional context variables gracefully.
+ * Custom prefetch service for CRD that avoids errors on missing optional
+ * context variables.
  *
- * This extends ModuleConfigurationPrefetchSvc to add support for:
- * - Using service's prefetch definitions from the @CdsService annotation
- * - Skipping prefetch templates with missing context variables (e.g., encounterId)
- * - Auto-fetching required prefetch when fhirServer is provided
+ * This delegates to HAPI's CdsPrefetchSvc for all standard behavior and only
+ * suppresses OMIT-prefetch when the context key is absent.
+ *
+ * Context type validation is handled by each service class via validateRequestInput().
  */
-public class CrdPrefetchSvc extends ModuleConfigurationPrefetchSvc {
+public class CrdPrefetchSvc extends CdsPrefetchSvc {
 
   private static final Logger logger = LoggerFactory.getLogger(CrdPrefetchSvc.class);
-  private static final Pattern CONTEXT_VAR_PATTERN = Pattern.compile("\\{\\{context\\.([^}]+)\\}\\}");
+  private static final String MISSING_CONTEXT_PHRASE = "did not provide a value for key <";
+  private static final String CONTEXT_EMPTY_PHRASE = "request context was empty";
 
   private final FhirContext fhirContext;
 
@@ -54,85 +57,69 @@ public class CrdPrefetchSvc extends ModuleConfigurationPrefetchSvc {
   @Override
   public void augmentRequest(CdsServiceRequestJson request, ICdsServiceMethod serviceMethod) {
     CdsServiceJson serviceSpec = serviceMethod.getCdsServiceJson();
-    Set<String> missingPrefetch = this.findMissingPrefetch(serviceSpec, request);
+    if (serviceSpec != null) {
+      suppressOmitPrefetchWithMissingContext(request, serviceSpec);
+    }
+    super.augmentRequest(request, serviceMethod);
+  }
 
-    logger.info("Prefetch augment for service '{}': {} missing keys", serviceSpec.getId(), missingPrefetch.size());
-
-    if (missingPrefetch.isEmpty()) {
+  /**
+   * Suppresses OMIT-prefetch keys when the context variable they reference is missing.
+   * This prevents HAPI from throwing an error for optional context variables.
+   */
+  private void suppressOmitPrefetchWithMissingContext(CdsServiceRequestJson request, CdsServiceJson serviceSpec) {
+    Map<String, String> prefetch = serviceSpec.getPrefetch();
+    if (prefetch == null || prefetch.isEmpty()) {
       return;
     }
 
-    if (!serviceMethod.isAllowAutoFhirClientPrefetch()) {
-      logger.info("Auto-fetch disabled for service '{}' (allowAutoFhirClientPrefetch=false)", serviceSpec.getId());
-      return;
-    }
-
-    String fhirServerBase = request.getFhirServer();
-    if (fhirServerBase == null || fhirServerBase.isBlank()) {
-      logger.info("No fhirServer provided, skipping auto-fetch for missing prefetch: {}", missingPrefetch);
-      return;
-    }
-
-    logger.info("Auto-fetching {} prefetch keys from {}", missingPrefetch.size(), fhirServerBase);
-
-    IGenericClient client = fhirContext.newRestfulGenericClient(fhirServerBase);
-    configureClientAuth(client, request);
-
-    Map<String, String> prefetchDefinitions = serviceSpec.getPrefetch();
-
-    for (String prefetchKey : missingPrefetch) {
-      String queryTemplate = prefetchDefinitions.get(prefetchKey);
-      if (queryTemplate == null) {
+    for (Map.Entry<String, String> entry : prefetch.entrySet()) {
+      String prefetchKey = entry.getKey();
+      if (prefetchKey == null || prefetchKey.isBlank()) {
+        continue;
+      }
+      if (request.getPrefetch(prefetchKey) != null) {
+        continue;
+      }
+      if (serviceSpec.getPrefetchFailureMode(prefetchKey) != CdsPrefetchFailureMode.OMIT) {
         continue;
       }
 
-      String resolvedQuery = resolveTemplate(queryTemplate, request);
-      if (resolvedQuery == null) {
-        logger.info("Skipping prefetch '{}': template has unresolvable context variables", prefetchKey);
+      String template = entry.getValue();
+      if (template == null || template.isBlank()) {
         continue;
       }
-
-      logger.info("Prefetch request for '{}': {}", prefetchKey, resolvedQuery);
 
       try {
-        IBaseResource resource = resourceFromUrl(client, resolvedQuery);
-        if (resource != null) {
-          request.addPrefetch(prefetchKey, resource);
-          logger.info("Prefetch response for '{}': {}", prefetchKey, resource.getIdElement());
+        PrefetchTemplateUtil.substituteTemplate(template, request.getContext(), fhirContext);
+      } catch (ClassCastException e) {
+        // Safety net: invalid context type (e.g., array instead of string)
+        // This should be caught earlier by validateRequestInput in the service class,
+        // but we handle it here as well to prevent 500 errors.
+        throw new InvalidRequestException(
+            "Invalid context type while evaluating prefetch template for key '" + prefetchKey + "'.", e);
+      } catch (InvalidRequestException e) {
+        if (isMissingContextException(e)) {
+          logger.info("Skipping prefetch '{}' due to missing optional context", prefetchKey);
+          addOmittedPrefetchPlaceholder(request, prefetchKey);
+          continue;
         }
-      } catch (Exception e) {
-        logger.info("Prefetch failed for '{}': {}", prefetchKey, e.getMessage());
+        throw e;
       }
     }
   }
 
-  private void configureClientAuth(IGenericClient client, CdsServiceRequestJson request) {
-    var authorization = request.getServiceRequestAuthorizationJson();
-    if (authorization != null && authorization.getAccessToken() != null) {
-      client.registerInterceptor(
-          new ca.uhn.fhir.rest.client.interceptor.BearerTokenAuthInterceptor(authorization.getAccessToken()));
+  private boolean isMissingContextException(InvalidRequestException exception) {
+    String message = exception.getMessage();
+    if (message == null) {
+      return false;
     }
+    return message.contains(MISSING_CONTEXT_PHRASE)
+        || message.toLowerCase(Locale.ROOT).contains(CONTEXT_EMPTY_PHRASE);
   }
 
-  private String resolveTemplate(String template, CdsServiceRequestJson request) {
-    if (template == null) {
-      return null;
-    }
-
-    String resolved = template;
-    Matcher matcher = CONTEXT_VAR_PATTERN.matcher(template);
-
-    while (matcher.find()) {
-      String contextKey = matcher.group(1);
-      Object value = request.getContext().get(contextKey);
-
-      if (value == null) {
-        return null;
-      }
-
-      resolved = resolved.replace(matcher.group(0), value.toString());
-    }
-
-    return resolved;
+  private void addOmittedPrefetchPlaceholder(CdsServiceRequestJson request, String prefetchKey) {
+    IBaseOperationOutcome outcome = OperationOutcomeUtil.newInstance(fhirContext);
+    request.addPrefetch(prefetchKey, outcome);
   }
 }

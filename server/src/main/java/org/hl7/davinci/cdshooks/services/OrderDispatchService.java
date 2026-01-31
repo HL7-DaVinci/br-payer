@@ -49,7 +49,18 @@ public class OrderDispatchService extends CdsServiceBase {
   }
 
   @Override
-  protected void validateResourceContext(HookResourceContext context) {
+  protected void validateRequestInput(CdsServiceRequestJson request) {
+    var context = request.getContext();
+    String hook = getHookName();
+
+    requireString(context, hook, "patientId", true);
+    requireStringList(context, hook, "dispatchedOrders", true);
+    requireString(context, hook, "performer", true);
+    requireObjectList(context, hook, "fulfillmentTasks", false);
+  }
+
+  @Override
+  protected void validateExtractedResources(HookResourceContext context) {
     if (context.getOrders().isEmpty()) {
       throw new CdsHooksException.BadRequestException(
         "dispatchedOrders context is required but was empty, missing, or could not be resolved.");

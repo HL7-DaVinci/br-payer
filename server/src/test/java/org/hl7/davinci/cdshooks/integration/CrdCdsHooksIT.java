@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 
  * CRD Specification Compliance:
  * - Primary hooks (order-sign, appointment-book) SHALL return coverage-info
- * - 400 errors for missing coverage, unhandled payor
+ * - 412 errors for missing required prefetch, 400 for unhandled payor
  * - Card.source.topic SHALL be populated
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -132,11 +132,13 @@ class CrdCdsHooksIT implements IServerSupport {
           return false;
         }
         JsonArray services = json.getAsJsonArray("services");
-        
+
         boolean hasOrderSign = false;
         boolean hasOrderSelect = false;
         boolean hasAppointmentBook = false;
         boolean hasOrderDispatch = false;
+        boolean hasEncounterStart = false;
+        boolean hasEncounterDischarge = false;
 
         for (JsonElement element : services) {
           JsonObject service = element.getAsJsonObject();
@@ -145,13 +147,18 @@ class CrdCdsHooksIT implements IServerSupport {
           if ("order-select".equals(hook)) hasOrderSelect = true;
           if ("appointment-book".equals(hook)) hasAppointmentBook = true;
           if ("order-dispatch".equals(hook)) hasOrderDispatch = true;
+          if ("encounter-start".equals(hook)) hasEncounterStart = true;
+          if ("encounter-discharge".equals(hook)) hasEncounterDischarge = true;
         }
 
-        if (hasOrderSign && hasOrderSelect && hasAppointmentBook && hasOrderDispatch) {
+        if (hasOrderSign && hasOrderSelect && hasAppointmentBook && hasOrderDispatch
+            && hasEncounterStart && hasEncounterDischarge) {
           return true;
         }
-        log.debug("Waiting for services - order-sign: {}, order-select: {}, appointment-book: {}, order-dispatch: {}",
-            hasOrderSign, hasOrderSelect, hasAppointmentBook, hasOrderDispatch);
+        log.debug("Waiting for services - order-sign: {}, order-select: {}, appointment-book: {}, " +
+            "order-dispatch: {}, encounter-start: {}, encounter-discharge: {}",
+            hasOrderSign, hasOrderSelect, hasAppointmentBook, hasOrderDispatch,
+            hasEncounterStart, hasEncounterDischarge);
         return false;
       }
     } catch (Exception e) {
@@ -202,6 +209,8 @@ class CrdCdsHooksIT implements IServerSupport {
           boolean hasOrderSelect = false;
           boolean hasAppointmentBook = false;
           boolean hasOrderDispatch = false;
+          boolean hasEncounterStart = false;
+          boolean hasEncounterDischarge = false;
 
           for (JsonElement element : services) {
             JsonObject service = element.getAsJsonObject();
@@ -214,12 +223,18 @@ class CrdCdsHooksIT implements IServerSupport {
               hasAppointmentBook = true;
             if ("order-dispatch".equals(hook))
               hasOrderDispatch = true;
+            if ("encounter-start".equals(hook))
+              hasEncounterStart = true;
+            if ("encounter-discharge".equals(hook))
+              hasEncounterDischarge = true;
           }
 
           assertTrue(hasOrderSign, "Should have order-sign service");
           assertTrue(hasOrderSelect, "Should have order-select service");
           assertTrue(hasAppointmentBook, "Should have appointment-book service");
           assertTrue(hasOrderDispatch, "Should have order-dispatch service");
+          assertTrue(hasEncounterStart, "Should have encounter-start service");
+          assertTrue(hasEncounterDischarge, "Should have encounter-discharge service");
         }
       }
     }
@@ -605,17 +620,25 @@ class CrdCdsHooksIT implements IServerSupport {
   class ErrorHandlingTests {
 
     @Test
-    @DisplayName("Missing patient returns 4xx error")
-    void testMissingPatient_ReturnsError() throws IOException {
+    @DisplayName("Missing patient returns 412")
+    void testMissingPatient_Returns412() throws IOException {
       // Services confirmed ready in @BeforeAll
 
       String requestBody = CdsHooksTestUtils.loadFixture("test-missing-patient.json");
 
       int statusCode = postAndGetStatusCode("order-sign-crd", requestBody);
 
-      // Per CRD spec: 400 for missing required data
-      assertTrue(statusCode >= 400 && statusCode < 500,
-          "Missing patient should return 4xx error, got: " + statusCode);
+      assertEquals(412, statusCode, "Missing patient should return 412");
+    }
+
+    @Test
+    @DisplayName("Invalid patientId type returns 400")
+    void testInvalidPatientIdType_Returns400() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-invalid-patient-array.json");
+
+      int statusCode = postAndGetStatusCode("order-sign-crd", requestBody);
+
+      assertEquals(400, statusCode, "Invalid patientId type should return 400");
     }
 
     @Test
@@ -731,7 +754,7 @@ class CrdCdsHooksIT implements IServerSupport {
 
   private int postAndGetStatusCode(String serviceId, String requestBody) throws IOException {
     String fixedRequestBody = fixFhirServerUrl(requestBody);
-    
+
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
       HttpPost request = new HttpPost(cdsServicesBase + "/" + serviceId);
       request.setEntity(new StringEntity(fixedRequestBody, ContentType.APPLICATION_JSON));
@@ -739,6 +762,110 @@ class CrdCdsHooksIT implements IServerSupport {
       try (CloseableHttpResponse response = httpClient.execute(request)) {
         return response.getStatusLine().getStatusCode();
       }
+    }
+  }
+
+  // ============================================================
+  // ENCOUNTER-START INTEGRATION TESTS
+  // ============================================================
+
+  @Nested
+  @DisplayName("Encounter-Start Hook Integration")
+  class EncounterStartIntegrationTests {
+
+    @Test
+    @DisplayName("Valid encounter-start inpatient request returns 200")
+    void testEncounterStart_Inpatient_Returns200() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("encounter-start-inpatient.json");
+
+      JsonObject response = postToCdsService("encounter-start-crd", requestBody);
+
+      assertNotNull(response, "Response should not be null");
+      assertTrue(response.has("cards"), "Response should have 'cards' array");
+    }
+
+    @Test
+    @DisplayName("Valid encounter-start outpatient request returns 200")
+    void testEncounterStart_Outpatient_Returns200() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("encounter-start-outpatient.json");
+
+      JsonObject response = postToCdsService("encounter-start-crd", requestBody);
+
+      assertNotNull(response, "Response should not be null");
+      assertTrue(response.has("cards"), "Response should have 'cards' array");
+    }
+
+    @Test
+    @DisplayName("Secondary hook MAY return coverage-info but not required")
+    void testEncounterStart_CoverageInfoOptional() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("encounter-start-inpatient.json");
+
+      JsonObject response = postToCdsService("encounter-start-crd", requestBody);
+
+      assertNotNull(response);
+      assertTrue(response.has("cards"), "Response should have cards array");
+    }
+
+    @Test
+    @DisplayName("Wrong hook name returns 400")
+    void testEncounterStart_WrongHookName_Returns400() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+
+      int statusCode = postAndGetStatusCode("encounter-start-crd", requestBody);
+
+      assertEquals(400, statusCode, "Wrong hook should return 400");
+    }
+  }
+
+  // ============================================================
+  // ENCOUNTER-DISCHARGE INTEGRATION TESTS
+  // ============================================================
+
+  @Nested
+  @DisplayName("Encounter-Discharge Hook Integration")
+  class EncounterDischargeIntegrationTests {
+
+    @Test
+    @DisplayName("Valid encounter-discharge SNF request returns 200")
+    void testEncounterDischarge_Snf_Returns200() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("encounter-discharge-snf.json");
+
+      JsonObject response = postToCdsService("encounter-discharge-crd", requestBody);
+
+      assertNotNull(response, "Response should not be null");
+      assertTrue(response.has("cards"), "Response should have 'cards' array");
+    }
+
+    @Test
+    @DisplayName("Valid encounter-discharge home request returns 200")
+    void testEncounterDischarge_Home_Returns200() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("encounter-discharge-home.json");
+
+      JsonObject response = postToCdsService("encounter-discharge-crd", requestBody);
+
+      assertNotNull(response, "Response should not be null");
+      assertTrue(response.has("cards"), "Response should have 'cards' array");
+    }
+
+    @Test
+    @DisplayName("Secondary hook MAY return coverage-info but not required")
+    void testEncounterDischarge_CoverageInfoOptional() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("encounter-discharge-snf.json");
+
+      JsonObject response = postToCdsService("encounter-discharge-crd", requestBody);
+
+      assertNotNull(response);
+      assertTrue(response.has("cards"), "Response should have cards array");
+    }
+
+    @Test
+    @DisplayName("Wrong hook name returns 400")
+    void testEncounterDischarge_WrongHookName_Returns400() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+
+      int statusCode = postAndGetStatusCode("encounter-discharge-crd", requestBody);
+
+      assertEquals(400, statusCode, "Wrong hook should return 400");
     }
   }
 }

@@ -1,0 +1,145 @@
+{
+  "hookInstance": "p1q2r3s4-t5u6-7890-vwxy-za1234567890",
+  "fhirServer": "http://localhost:8080/fhir",
+  "hook": "encounter-discharge",
+  "fhirAuthorization": {
+    "access_token": "exampleAccess",
+    "token_type": "Bearer",
+    "expires_in": 300,
+    "scope": "patient/Patient.read patient/Encounter.read",
+    "subject": "cds-service6"
+  },
+  "context": {
+    "userId": "Practitioner/prov101",
+    "patientId": "example-4",
+    "encounterId": "enc-discharge-home-001"
+  },
+  "prefetch": {
+    "patient": {
+      "resourceType": "Patient",
+      "id": "example-4",
+      "meta": {
+        "profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"]
+      },
+      "identifier": [
+        {
+          "use": "usual",
+          "type": {
+            "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MR"}]
+          },
+          "system": "http://hospital.smarthealthit.org",
+          "value": "1032705"
+        }
+      ],
+      "name": [{"use": "official", "family": "Davis", "given": ["Patricia"]}],
+      "gender": "female",
+      "birthDate": "1958-11-25"
+    },
+    "encounter": {
+      "resourceType": "Encounter",
+      "id": "enc-discharge-home-001",
+      "status": "finished",
+      "class": {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+        "code": "IMP",
+        "display": "Inpatient encounter"
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+              "code": "IMP",
+              "display": "Inpatient encounter"
+            }
+          ]
+        }
+      ],
+      "subject": {"reference": "Patient/example-4"},
+      "participant": [
+        {
+          "individual": {"reference": "Practitioner/prov101"}
+        }
+      ],
+      "period": {
+        "start": "2026-01-20T10:00:00Z",
+        "end": "2026-01-27T16:00:00Z"
+      },
+      "reasonCode": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "84114007",
+              "display": "Heart failure"
+            }
+          ],
+          "text": "Heart failure exacerbation"
+        }
+      ],
+      "hospitalization": {
+        "dischargeDisposition": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/discharge-disposition",
+              "code": "home",
+              "display": "Home"
+            }
+          ],
+          "text": "Discharge to home"
+        }
+      }
+    },
+    "coverage": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Coverage/cms-example-4",
+          "resource": {
+            "resourceType": "Coverage",
+            "id": "cms-example-4",
+            "status": "active",
+            "subscriberId": "10D6G81ZK789",
+            "beneficiary": {"reference": "Patient/example-4"},
+            "payor": [{"reference": "Organization/cms"}]
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Organization/cms",
+          "resource": {
+            "resourceType": "Organization",
+            "id": "cms",
+            "identifier": [
+              {"system": "urn:oid:2.16.840.1.113883.6.300", "value": "00001"}
+            ],
+            "name": "Centers for Medicare and Medicaid Services"
+          }
+        }
+      ]
+    },
+    "conditions": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Condition/hf-exacerbation-001",
+          "resource": {
+            "resourceType": "Condition",
+            "id": "hf-exacerbation-001",
+            "clinicalStatus": {
+              "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+            },
+            "code": {
+              "coding": [
+                {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I50.9", "display": "Heart failure, unspecified"}
+              ],
+              "text": "Heart failure"
+            },
+            "subject": {"reference": "Patient/example-4"}
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "hookInstance": "8b65c69b-7c4f-4f3c-bf23-7895e14b9f37",
+  "hook": "order-sign",
+  "context": {
+    "userId": "PractitionerRole/example",
+    "patientId": [
+      "Patient/example"
+    ],
+    "draftOrders": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": []
+    }
+  }
+}
