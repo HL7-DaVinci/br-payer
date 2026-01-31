@@ -105,6 +105,15 @@ public class ErrorHandling {
 				OperationOutcome notFoundOutcome = OperationOutcomeBuilder.createPreconditionFailedOutcome(notFoundMessage);
 				response.getWriter().println(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(notFoundOutcome));
 				break;
+			case 400:
+				String badRequestMessage = e.getMessage();
+				if (badRequestMessage == null) {
+					badRequestMessage = "Bad Request. Invalid request data.";
+				}
+				response.setStatus(400);
+				OperationOutcome badRequestOutcome = OperationOutcomeBuilder.createBadRequestOutcome(badRequestMessage);
+				response.getWriter().println(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(badRequestOutcome));
+				break;
 			case 412:
 				// Prefetch failures - extract meaningful message
 				String message = e.getMessage();

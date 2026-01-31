@@ -2,7 +2,10 @@ package org.hl7.davinci.cdshooks.shared;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.fhir.instance.model.api.IBaseOperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,11 +96,11 @@ public class CrdPrefetchSvc extends CdsPrefetchSvc {
       try {
         PrefetchTemplateUtil.substituteTemplate(template, request.getContext(), fhirContext);
       } catch (ClassCastException e) {
-        // Safety net: invalid context type (e.g., array instead of string)
-        // This should be caught earlier by validateRequestInput in the service class,
-        // but we handle it here as well to prevent 500 errors.
-        throw new InvalidRequestException(
-            "Invalid context type while evaluating prefetch template for key '" + prefetchKey + "'.", e);
+        String contextField = extractContextFieldFromTemplate(template);
+        String message = contextField != null
+            ? "Context field '" + contextField + "' has an invalid type for prefetch template '" + prefetchKey + "'. Expected a string value."
+            : "Invalid context type while evaluating prefetch template for key '" + prefetchKey + "'.";
+        throw new CdsHooksException.BadRequestException(message, e);
       } catch (InvalidRequestException e) {
         if (isMissingContextException(e)) {
           logger.info("Skipping prefetch '{}' due to missing optional context", prefetchKey);
@@ -121,5 +124,15 @@ public class CrdPrefetchSvc extends CdsPrefetchSvc {
   private void addOmittedPrefetchPlaceholder(CdsServiceRequestJson request, String prefetchKey) {
     IBaseOperationOutcome outcome = OperationOutcomeUtil.newInstance(fhirContext);
     request.addPrefetch(prefetchKey, outcome);
+  }
+
+  private static final Pattern CONTEXT_FIELD_PATTERN = Pattern.compile("\\{\\{context\\.([^}]+)\\}\\}");
+
+  private String extractContextFieldFromTemplate(String template) {
+    Matcher matcher = CONTEXT_FIELD_PATTERN.matcher(template);
+    if (matcher.find()) {
+      return matcher.group(1);
+    }
+    return null;
   }
 }
