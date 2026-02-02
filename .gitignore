@@ -45,3 +45,33 @@ Thumbs.db
 
 # VS Code CQL extension that wants all the CQL to be in /input/cql so this is to ignore symlinks we may have for that
 input
+
+
+# Keep agent documentation limited to root AGENTS.md file
+
+# AI Agent/CLI directories and files
+.claude/
+.cursor/
+
+.opencode/
+.copilot/
+**/.agent/
+**/agent-files/
+**/ai-scratch/
+**/.ai-temp/
+
+# AI-generated files (except AGENTS.md in root)
+**/AGENTS.md
+!AGENTS.md
+CLAUDE.md
+**/*.agent.md
+**/*.ai.md
+.ai-*
+agent-*.json
+.agent-*.json
+
+# Common AI tool artifacts
+**/.aider*
+**/.cursor*
+**/cursor.log
+**/.windsurf*

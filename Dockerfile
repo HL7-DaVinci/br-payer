@@ -38,6 +38,9 @@ RUN curl -LSsO https://github.com/open-telemetry/opentelemetry-java-instrumentat
 COPY server/pom.xml .
 RUN mvn -ntp dependency:go-offline
 
+# Copy library directory for FHIR resources (referenced by pom.xml as ../library)
+COPY library /tmp/library/
+
 # Copy server source code
 COPY server/src/ /tmp/hapi-fhir-jpaserver-starter/src/
 

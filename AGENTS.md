@@ -15,7 +15,60 @@
 
 # Workspace Overview
 
-This is an Nx workspace designed to host a FHIR application stack.
+This is an Nx workspace designed to host a FHIR application stack.\
+
+
+## Build & Run Commands
+
+This is an Nx workspace. Prefer running tasks through `nx` instead of underlying tooling.
+
+```bash
+# Install dependencies
+bun install
+
+# Start both server and frontend
+bun serve
+
+# Build all projects
+bun run build
+
+# Run all tests
+bun run test
+```
+
+### Server (Java/Maven)
+
+```bash
+# Run server directly with Maven
+cd server && mvn spring-boot:run
+
+# Run a single test class
+cd server && mvn test -Dtest=OrderSelectServiceTest
+
+# Run a single test method
+cd server && mvn test -Dtest=OrderSelectServiceTest#testMethodName
+
+# Build server WAR
+cd server && mvn clean package -DskipTests
+```
+
+### Frontend (Vite/React)
+
+```bash
+# Run frontend dev server (port 3000)
+cd frontend && bun dev
+
+# Run frontend tests
+cd frontend && bun test
+
+# Lint/format
+cd frontend && bun check    # biome check
+cd frontend && bun lint     # biome lint
+cd frontend && bun format   # biome format
+
+# Build and copy to server static resources
+nx run frontend:copy-to-server
+```
 
 ## Projects
 
@@ -24,20 +77,19 @@ This is an Nx workspace designed to host a FHIR application stack.
 - **Type**: Java / Maven / HAPI FHIR
 - **Description**: The backend FHIR server.
 - **Structure**:
-  - `src/main/java`: Java source code.
-  - `src/main/resources`: Configuration files (`application.yaml`, `logback.xml`) and sample FHIR resources.
-  - `src/main/java/ca/uhn/fhir`: HAPI starter code that should not be modified.
-  - `src/main/java/org/hl7/davinci`: Custom implementation code should be placed here.
-    - `providers/`: FHIR resource providers for custom operations
-  - `src/main/java/ca/uhn/fhir/jpa/starter/CustomServerConfig.java`: Custom Spring configuration that scans for the custom code in `org.hl7.davinci` so that code in the starter structure does not need to be modified.
-  - `pom.xml`: Maven build configuration.
-  - `Dockerfile`: Docker build instructions for the server.
+  - `src/main/java/ca/uhn/fhir/` - HAPI starter code (do NOT modify)
+  - `src/main/java/org/hl7/davinci/` - Custom implementation code (all custom code goes here)
+    - `cdshooks/services/` - CDS Hook service implementations
+    - `cdshooks/shared/` - Shared CDS Hooks utilities
+    - `providers/` - Custom FHIR resource providers
+    - `cql/` - CQL-related utilities
+    - `config/` - Spring configuration
+    - `datainitializer/` - Seed data loading
 
-### 2. Frontend (`frontend`) - *Upcoming*
+### 2. Frontend (`frontend`)
 - **Path**: `frontend/`
-- **Type**: Next.js Static Web App
-- **Status**: Planned/Not yet implemented.
-- **Description**: Will contain the user interface for the application.
+- **Type**: TanStack React Router SPA
+- **Description**: Contains a frontend application for viewing and searching FHIR resources from the server.
 
 ### 3. Documentation (`docs`)
 - **Path**: `docs/`

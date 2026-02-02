@@ -10,12 +10,22 @@ public class ConfigController {
   @Value("${app.fhir.servers:}")
   private String fhirServersJson;
 
+  @Value("${app.cds.servers:}")
+  private String cdsServersJson;
+
   @GetMapping(value = "/config.js", produces = "application/javascript")
   public String getConfig() {
-    String servers = fhirServersJson.isEmpty()
-        ? "[]"
-        : fhirServersJson;
+    StringBuilder config = new StringBuilder("window.APP_CONFIG = {");
 
-    return "window.APP_CONFIG = { fhirServers: " + servers + " };";
+    // FHIR servers
+    String fhirServers = fhirServersJson.isEmpty() ? "[]" : fhirServersJson;
+    config.append(" fhirServers: ").append(fhirServers);
+
+    // CDS servers
+    String cdsServers = cdsServersJson.isEmpty() ? "[]" : cdsServersJson;
+    config.append(", cdsServers: ").append(cdsServers);
+
+    config.append(" };");
+    return config.toString();
   }
 }

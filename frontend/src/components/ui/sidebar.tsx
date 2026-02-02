@@ -23,29 +23,23 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state";
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+const SIDEBAR_STORAGE_KEY = "sidebar_state";
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
-// Helper function to set cookie using Cookie Store API when available
-function setCookie(name: string, value: string, maxAge: number) {
-  if ("cookieStore" in window) {
-    window.cookieStore.set({
-      name,
-      value,
-      path: "/",
-      expires: Date.now() + maxAge * 1000,
-    });
-  } else {
-    // Fallback for browsers without Cookie Store API
-    const cookieString = `${name}=${value}; path=/; max-age=${maxAge}`;
-    Object.getOwnPropertyDescriptor(Document.prototype, "cookie")?.set?.call(
-      document,
-      cookieString,
-    );
+function getStoredSidebarState(): boolean | null {
+  if (typeof window === "undefined") return null;
+  const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+  if (stored === "true") return true;
+  if (stored === "false") return false;
+  return null;
+}
+
+function setStoredSidebarState(open: boolean): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(open));
   }
 }
 
@@ -90,7 +84,11 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
+  // Initialize from localStorage if available, otherwise use defaultOpen.
+  const [_open, _setOpen] = React.useState(() => {
+    const stored = getStoredSidebarState();
+    return stored ?? defaultOpen;
+  });
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -101,8 +99,8 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
-      // This sets the cookie to keep the sidebar state.
-      setCookie(SIDEBAR_COOKIE_NAME, String(openState), SIDEBAR_COOKIE_MAX_AGE);
+      // Persist the sidebar state to localStorage
+      setStoredSidebarState(openState);
     },
     [setOpenProp, open],
   );

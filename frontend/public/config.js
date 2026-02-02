@@ -8,5 +8,8 @@
 //     { name: "Local FHIR Server", url: "http://localhost:8080/fhir" },
 //     { name: "Public HAPI R4", url: "https://hapi.fhir.org/baseR4" },
 //   ],
+//   cdsServers: [
+//     { name: "Local CDS Server", url: "http://localhost:8080" },
+//   ],
 //   singleServerMode: true,
 // };
