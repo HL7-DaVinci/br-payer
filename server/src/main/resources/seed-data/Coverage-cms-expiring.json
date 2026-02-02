@@ -1,0 +1,28 @@
+{
+  "resourceType": "Coverage",
+  "id": "cms-expiring",
+  "status": "active",
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "PUBLICPOL"
+        }
+      ]
+    }
+  ],
+  "subscriberId": "123456789-EXP",
+  "beneficiary": {
+    "reference": "Patient/example-1"
+  },
+  "payor": [
+    {
+      "reference": "Organization/cms"
+    }
+  ],
+  "period": {
+    "start": "2025-03-01",
+    "end": "2026-02-15"
+  }
+}

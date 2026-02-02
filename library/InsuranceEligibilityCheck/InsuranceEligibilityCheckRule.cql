@@ -26,6 +26,9 @@ define "Is Inpatient Encounter":
 define "Is Emergency Encounter":
   "Encounter Class Code" = 'EMER'
 
+define "Is Ambulatory Encounter":
+  "Encounter Class Code" = 'AMB'
+
 define "Coverage Expiring Soon":
   if "Coverage" is not null and "Coverage".period is not null
      and "Coverage".period.end is not null then
@@ -33,7 +36,7 @@ define "Coverage Expiring Soon":
   else false
 
 define "Requires Eligibility Notification":
-  "Coverage" is not null and ("Is Inpatient Encounter" or "Coverage Expiring Soon" or "Is Emergency Encounter")
+  "Coverage" is not null and ("Is Inpatient Encounter" or "Coverage Expiring Soon" or "Is Emergency Encounter" or "Is Ambulatory Encounter")
 
 define "Covered": 'covered'
 
@@ -42,6 +45,7 @@ define "Get Summary":
     when "Coverage Expiring Soon" then 'Coverage expires within 30 days'
     when "Is Emergency Encounter" then 'Emergency encounter eligibility verified'
     when "Is Inpatient Encounter" then 'Inpatient encounter eligibility verified'
+    when "Is Ambulatory Encounter" then 'Outpatient encounter eligibility verified'
     else 'Eligibility check complete'
   end
 
@@ -54,6 +58,8 @@ define "Get Detail":
       'Emergency admission verified against active coverage. Follow up with care coordination as appropriate.'
     when "Is Inpatient Encounter" then
       'Inpatient admission verified against active coverage.'
+    when "Is Ambulatory Encounter" then
+      'Outpatient visit verified against active coverage.'
     else 'Standard eligibility verification completed.'
   end
 
@@ -73,3 +79,48 @@ define "Coverage Info Extension":
       "Encounter Type Coding"
     )
   else null as FHIR.Extension
+
+// High-risk encounter definitions
+define "High Risk Diagnosis Codes": { '22298006', '230690007', '263225007', '84114007' }  // MI, stroke, hip fracture, heart failure
+
+define "Encounter Reason Codes":
+  if "Encounter" is not null and "Encounter".reasonCode is not null then
+    Flatten("Encounter".reasonCode RC return RC.coding)
+  else {} as List<FHIR.Coding>
+
+define "Is High Risk Encounter":
+  "Is Inpatient Encounter" and
+  exists("Encounter Reason Codes" C where C.code.value in "High Risk Diagnosis Codes")
+
+define "Has High Risk Alert":
+  "Is High Risk Encounter"
+
+define "High Risk Summary":
+  'High-acuity admission detected'
+
+define "High Risk Detail":
+  'Patient admitted for ' + CRD."Codes To Display String"("Encounter Reason Codes") + '. ' +
+  'Consider case management referral for care coordination and discharge planning.'
+
+// Care coordination card (for all inpatient encounters)
+define "Show Care Coordination":
+  "Is Inpatient Encounter" or "Is Emergency Encounter"
+
+define "Care Coordination Summary":
+  'Payer care coordination resources available'
+
+define "Care Coordination Detail":
+  'CMS provides care coordination support for beneficiaries with complex conditions. ' +
+  'Access resources for discharge planning and post-acute care coordination.'
+
+// Coverage expiring alert
+define "Coverage Expiration Date":
+  if "Coverage" is not null and "Coverage".period is not null and "Coverage".period.end is not null then
+    ToString("Coverage".period.end.value)
+  else null
+
+define "Expiring Coverage Summary":
+  'Coverage expires ' + Coalesce("Coverage Expiration Date", 'soon')
+
+define "Expiring Coverage Detail":
+  'Patient coverage end date is approaching. Verify continued eligibility or assist patient with coverage transition options.'

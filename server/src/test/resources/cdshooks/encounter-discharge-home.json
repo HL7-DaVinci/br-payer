@@ -10,30 +10,17 @@
     "subject": "cds-service6"
   },
   "context": {
-    "userId": "Practitioner/prov101",
-    "patientId": "example-4",
+    "userId": "Practitioner/pra1234",
+    "patientId": "example-1",
     "encounterId": "enc-discharge-home-001"
   },
   "prefetch": {
     "patient": {
       "resourceType": "Patient",
-      "id": "example-4",
-      "meta": {
-        "profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"]
-      },
-      "identifier": [
-        {
-          "use": "usual",
-          "type": {
-            "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MR"}]
-          },
-          "system": "http://hospital.smarthealthit.org",
-          "value": "1032705"
-        }
-      ],
-      "name": [{"use": "official", "family": "Davis", "given": ["Patricia"]}],
-      "gender": "female",
-      "birthDate": "1958-11-25"
+      "id": "example-1",
+      "name": [{"use": "official", "family": "Doe", "given": ["John"]}],
+      "gender": "male",
+      "birthDate": "1980-01-01"
     },
     "encounter": {
       "resourceType": "Encounter",
@@ -55,10 +42,10 @@
           ]
         }
       ],
-      "subject": {"reference": "Patient/example-4"},
+      "subject": {"reference": "Patient/example-1"},
       "participant": [
         {
-          "individual": {"reference": "Practitioner/prov101"}
+          "individual": {"reference": "Practitioner/pra1234"}
         }
       ],
       "period": {
@@ -95,13 +82,21 @@
       "type": "collection",
       "entry": [
         {
-          "fullUrl": "http://localhost:8080/fhir/Coverage/cms-example-4",
+          "fullUrl": "http://localhost:8080/fhir/Coverage/cms",
           "resource": {
             "resourceType": "Coverage",
-            "id": "cms-example-4",
+            "id": "cms",
             "status": "active",
-            "subscriberId": "10D6G81ZK789",
-            "beneficiary": {"reference": "Patient/example-4"},
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                  "code": "PUBLICPOL"
+                }
+              ]
+            },
+            "subscriberId": "123456789",
+            "beneficiary": {"reference": "Patient/example-1"},
             "payor": [{"reference": "Organization/cms"}]
           }
         },
@@ -111,9 +106,13 @@
             "resourceType": "Organization",
             "id": "cms",
             "identifier": [
-              {"system": "urn:oid:2.16.840.1.113883.6.300", "value": "00001"}
+              {
+                "use": "official",
+                "system": "urn:oid:2.16.840.1.113883.6.300",
+                "value": "00001"
+              }
             ],
-            "name": "Centers for Medicare and Medicaid Services"
+            "name": "Centers for Medicare & Medicaid Services"
           }
         }
       ]
@@ -136,7 +135,7 @@
               ],
               "text": "Heart failure"
             },
-            "subject": {"reference": "Patient/example-4"}
+            "subject": {"reference": "Patient/example-1"}
           }
         }
       ]

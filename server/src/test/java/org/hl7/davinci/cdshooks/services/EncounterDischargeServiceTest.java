@@ -210,12 +210,12 @@ class EncounterDischargeServiceTest {
       CodeableConcept reasonCode = new CodeableConcept();
       reasonCode.addCoding()
           .setSystem("http://snomed.info/sct")
-          .setCode("385093006")
+          .setCode("263225007")
           .setDisplay("Hip fracture");
       encounter.addReasonCode(reasonCode);
 
       assertFalse(encounter.getReasonCode().isEmpty());
-      assertEquals("385093006", encounter.getReasonCode().get(0).getCodingFirstRep().getCode());
+      assertEquals("263225007", encounter.getReasonCode().get(0).getCodingFirstRep().getCode());
     }
   }
 }

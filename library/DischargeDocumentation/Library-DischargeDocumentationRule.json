@@ -18,17 +18,17 @@
     {
       "type": "depends-on",
       "display": "FHIR Helpers",
-      "resource": "Library/FHIRHelpers|4.0.1"
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
     },
     {
       "type": "depends-on",
       "display": "CRD Helpers",
-      "resource": "Library/CRDHelpers|1.0.0"
+      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CRDHelpers|1.0.0"
     },
     {
       "type": "depends-on",
       "display": "Coverage Extensions",
-      "resource": "Library/CoverageExtensions|1.0.0"
+      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CoverageExtensions|1.0.0"
     }
   ],
   "content": [

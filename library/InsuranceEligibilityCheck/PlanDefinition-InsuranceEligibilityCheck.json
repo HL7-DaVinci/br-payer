@@ -44,6 +44,11 @@
             "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
             "code": "EMER",
             "display": "Emergency"
+          },
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+            "code": "AMB",
+            "display": "Ambulatory"
           }
         ]
       }
@@ -96,6 +101,144 @@
           "expression": {
             "language": "text/cql-identifier",
             "expression": "Coverage Info Extension"
+          }
+        }
+      ]
+    },
+    {
+      "id": "high-risk-alert",
+      "title": "High-Risk Encounter Alert",
+      "description": "Alert for high-acuity inpatient admissions",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "clinical-reminder"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "encounter-start"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Has High Risk Alert"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "High Risk Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "High Risk Detail"
+          }
+        }
+      ]
+    },
+    {
+      "id": "coverage-expiring-alert",
+      "title": "Coverage Expiration Alert",
+      "description": "Warning when patient coverage is expiring soon",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "insurance"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "encounter-start"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Coverage Expiring Soon"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Expiring Coverage Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Expiring Coverage Detail"
+          }
+        }
+      ]
+    },
+    {
+      "id": "care-coordination-links",
+      "title": "Care Coordination Resources",
+      "description": "Links to payer care coordination resources",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
+          "valueCode": "external-reference"
+        }
+      ],
+      "documentation": [
+        {
+          "type": "documentation",
+          "display": "CMS Care Compare",
+          "url": "https://www.medicare.gov/care-compare/"
+        },
+        {
+          "type": "documentation",
+          "display": "Medicare.gov Member Portal",
+          "url": "https://www.medicare.gov/"
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "encounter-start"
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Show Care Coordination"
+          }
+        }
+      ],
+      "dynamicValue": [
+        {
+          "path": "action.title",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Care Coordination Summary"
+          }
+        },
+        {
+          "path": "action.description",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Care Coordination Detail"
           }
         }
       ]
