@@ -1,0 +1,30 @@
+{
+  "name": "frontend",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "frontend/src",
+  "tags": [
+    "nx-fhir-frontend",
+    "fhir",
+    "frontend",
+    "client"
+  ],
+  "frontendVersion": "0.2.0",
+  "pluginVersion": "0.2.0",
+  "targets": {
+    "copy-to-server": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "build"
+      ],
+      "options": {
+        "commands": [
+          "rimraf ../server/src/main/resources/static/*",
+          "cpy 'dist/**' ../server/src/main/resources/static --cwd=."
+        ],
+        "parallel": false,
+        "cwd": "frontend"
+      }
+    }
+  }
+}

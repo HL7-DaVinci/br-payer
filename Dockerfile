@@ -1,50 +1,70 @@
-FROM docker.io/library/maven:3.9.9-eclipse-temurin-17 AS build-hapi
+# Multi-stage Dockerfile for FHIR Server with TanStack SPA Frontend
+
+##########################################################################
+# Stage 1: Build the TanStack SPA frontend
+##########################################################################
+FROM oven/bun:1-slim AS build-frontend
+
+WORKDIR /app
+
+# Copy package files and lockfile
+COPY frontend/package.json ./frontend/
+COPY frontend/bun.lock ./frontend/
+
+# Install dependencies
+WORKDIR /app/frontend
+RUN bun install --frozen-lockfile
+
+# Copy frontend source code
+WORKDIR /app
+COPY frontend/ ./frontend/
+
+# Build the frontend for production
+WORKDIR /app/frontend
+RUN bun run build
+
+##########################################################################
+# Stage 2: Build the HAPI FHIR Server
+##########################################################################
+FROM docker.io/library/maven:3.9.11-eclipse-temurin-17 AS build-server
+
 WORKDIR /tmp/hapi-fhir-jpaserver-starter
 
-ARG OPENTELEMETRY_JAVA_AGENT_VERSION=2.13.1
+# Download OpenTelemetry agent
+ARG OPENTELEMETRY_JAVA_AGENT_VERSION=2.20.1
 RUN curl -LSsO https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OPENTELEMETRY_JAVA_AGENT_VERSION}/opentelemetry-javaagent.jar
 
+# Copy Maven configuration and download dependencies
 COPY server/pom.xml .
 RUN mvn -ntp dependency:go-offline
 
-# Copy library directory for FHIR resources (referenced by pom.xml as ../library)
-COPY library/ /tmp/library/
-
+# Copy server source code
 COPY server/src/ /tmp/hapi-fhir-jpaserver-starter/src/
+
+# Copy frontend build artifacts to server's static resources directory
+COPY --from=build-frontend /app/frontend/dist/ /tmp/hapi-fhir-jpaserver-starter/src/main/resources/static/
+
+# Build the server
 RUN mvn clean install -DskipTests -Djdk.lang.Process.launchMechanism=vfork
 
-FROM build-hapi AS build-distroless
+##########################################################################
+# Stage 3: Package for Spring Boot
+##########################################################################
+FROM build-server AS build-distroless
 RUN mvn package -DskipTests spring-boot:repackage -Pboot
 RUN mkdir /app && cp /tmp/hapi-fhir-jpaserver-starter/target/ROOT.war /app/main.war
 
-
-########### bitnami tomcat version is suitable for debugging and comes with a shell
-########### it can be built using eg. `docker build --target tomcat .`
-FROM docker.io/bitnamilegacy/tomcat:10.1.43-debian-12-r0 AS tomcat
-
-USER root
-RUN rm -rf /opt/bitnami/tomcat/webapps/ROOT && \
-    mkdir -p /opt/bitnami/hapi/data/hapi/lucenefiles && \
-    chown -R 1001:1001 /opt/bitnami/hapi/data/hapi/lucenefiles && \
-    chmod 775 /opt/bitnami/hapi/data/hapi/lucenefiles
-
-RUN mkdir -p /target && chown -R 1001:1001 target
-USER 1001
-
-COPY --from=build-hapi --chown=1001:1001 /tmp/hapi-fhir-jpaserver-starter/target/ROOT.war /opt/bitnami/tomcat/webapps/ROOT.war
-COPY --from=build-hapi --chown=1001:1001 /tmp/hapi-fhir-jpaserver-starter/opentelemetry-javaagent.jar /app
-
-ENV ALLOW_EMPTY_PASSWORD=yes
-
-########### distroless brings focus on security and runs on plain spring boot - this is the default image
+##########################################################################
+# Stage 4: Final Production Image (Distroless)
+##########################################################################
 FROM gcr.io/distroless/java17-debian12:nonroot AS default
-# 65532 is the nonroot user's uid
-# used here instead of the name to allow Kubernetes to easily detect that the container
-# is running as a non-root (uid != 0) user.
+
 USER 65532:65532
 WORKDIR /app
 
 COPY --chown=nonroot:nonroot --from=build-distroless /app /app
-COPY --chown=nonroot:nonroot --from=build-hapi /tmp/hapi-fhir-jpaserver-starter/opentelemetry-javaagent.jar /app
+COPY --chown=nonroot:nonroot --from=build-server /tmp/hapi-fhir-jpaserver-starter/opentelemetry-javaagent.jar /app
+
+EXPOSE 8080
 
 ENTRYPOINT ["java", "--class-path", "/app/main.war", "-Dloader.path=main.war!/WEB-INF/classes/,main.war!/WEB-INF/,/app/extra-classes", "org.springframework.boot.loader.PropertiesLauncher"]

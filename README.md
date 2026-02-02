@@ -15,8 +15,7 @@ It is designed to support the following implementation guides:
   - Java 17+
   - Maven
 - Optional
-  - Node.js (if using Nx commands)
-  - [Bun](https://bun.sh/) can also be used as a substitute for the `npm` and `npx` commands
+  - Node.js or bun (if using Nx commands)
   - Docker (optional)
 
 ## Quick Start
@@ -27,10 +26,10 @@ The easiest way to run the server in development:
 
 ```bash
 # Install dependencies
-npm ci
+bun install
 
 # Start the FHIR server
-npx nx serve server
+bun serve
 ```
 
 The server will be available at `http://localhost:8080/fhir`
