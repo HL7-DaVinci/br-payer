@@ -50,10 +50,15 @@
       "id": "care-mgmt-info",
       "title": "Care Management Enrollment",
       "description": "Care management program enrollment notification",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "clinical-reminder"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "clinical-reminder",
+              "display": "Clinical Reminder"
+            }
+          ]
         }
       ],
       "documentation": [

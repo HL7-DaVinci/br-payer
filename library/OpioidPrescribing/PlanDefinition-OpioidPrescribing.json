@@ -87,6 +87,17 @@
       "id": "safety-warning",
       "title": "Opioid Safety Warning",
       "description": "Warns about drug interactions, high-risk prescribing patterns during order selection",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "contraindication",
+              "display": "Contraindication"
+            }
+          ]
+        }
+      ],
       "documentation": [
         {
           "type": "documentation",
@@ -137,6 +148,17 @@
       "id": "alternative-suggestion",
       "title": "Non-Opioid Alternative",
       "description": "Suggests non-opioid alternatives for opioid-naive patients",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "therapy-alternatives-req",
+              "display": "Required Therapy Alternatives"
+            }
+          ]
+        }
+      ],
       "trigger": [
         {
           "type": "named-event",
@@ -223,10 +245,15 @@
       "id": "informative-guidance",
       "title": "Opioid Documentation Guidance",
       "description": "Non-coverage instructions for opioid ordering",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "instructions"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "appropriate-use",
+              "display": "Appropriate Use"
+            }
+          ]
         }
       ],
       "documentation": [

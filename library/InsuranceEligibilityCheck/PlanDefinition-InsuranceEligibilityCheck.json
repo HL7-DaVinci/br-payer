@@ -60,10 +60,15 @@
       "id": "eligibility-info",
       "title": "Eligibility Information",
       "description": "Insurance eligibility verification at encounter start",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "insurance"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "insurance",
+              "display": "Insurance"
+            }
+          ]
         }
       ],
       "trigger": [
@@ -109,10 +114,15 @@
       "id": "high-risk-alert",
       "title": "High-Risk Encounter Alert",
       "description": "Alert for high-acuity inpatient admissions",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "clinical-reminder"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "clinical-reminder",
+              "display": "Clinical Reminder"
+            }
+          ]
         }
       ],
       "trigger": [
@@ -151,10 +161,15 @@
       "id": "coverage-expiring-alert",
       "title": "Coverage Expiration Alert",
       "description": "Warning when patient coverage is expiring soon",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "insurance"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "limits",
+              "display": "Limits"
+            }
+          ]
         }
       ],
       "trigger": [
@@ -193,10 +208,15 @@
       "id": "care-coordination-links",
       "title": "Care Coordination Resources",
       "description": "Links to payer care coordination resources",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "external-reference"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "guideline",
+              "display": "Guideline"
+            }
+          ]
         }
       ],
       "documentation": [

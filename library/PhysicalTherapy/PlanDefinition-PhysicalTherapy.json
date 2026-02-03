@@ -66,6 +66,17 @@
       "id": "session-limit-warning",
       "title": "Session Limit Warning",
       "description": "Warn about approaching or exceeded session limits",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "limits",
+              "display": "Limits"
+            }
+          ]
+        }
+      ],
       "documentation": [
         {
           "type": "documentation",

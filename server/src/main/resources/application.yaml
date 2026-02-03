@@ -179,15 +179,18 @@ hapi:
     implementationguides:
       hl7fhirusdavincicrd:
         name: hl7.fhir.us.davinci-crd
-        version: 2.1.0
+        version: 2.2.0-snapshot
+        packageUrl: https://build.fhir.org/ig/HL7/davinci-crd/package.tgz
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincidtr:
         name: hl7.fhir.us.davinci-dtr
-        version: 2.1.0
+        version: 2.2.0-snapshot
+        packageUrl: https://build.fhir.org/ig/HL7/davinci-dtr/package.tgz
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincipas:
         name: hl7.fhir.us.davinci-pas
-        version: 2.1.0
+        version: 2.2.0-snapshot
+        packageUrl: https://build.fhir.org/ig/HL7/davinci-pas/package.tgz
         installMode: STORE_AND_INSTALL
     #   swiss:
     #     name: swiss.mednet.fhir
@@ -249,7 +252,7 @@ hapi:
           # enable_validation: false
           # enable_expression_caching: true
       terminology:
-        valueset_preexpansion_mode: REQUIRE            # USE_IF_PRESENT | REQUIRE | IGNORE
+        valueset_preexpansion_mode: USE_IF_PRESENT      # USE_IF_PRESENT | REQUIRE | IGNORE
         valueset_expansion_mode: PERFORM_NAIVE_EXPANSION   # AUTO | USE_EXPANSION_OPERATION | PERFORM_NAIVE_EXPANSION
         valueset_membership_mode: USE_EXPANSION            # AUTO | USE_VALIDATE_CODE_OPERATION | USE_EXPANSION
         code_lookup_mode: USE_VALIDATE_CODE_OPERATION      # AUTO | USE_VALIDATE_CODE_OPERATION | USE_CODESYSTEM_URL
@@ -327,8 +330,8 @@ hapi:
     # -------------------------------------------------------------------------------
     # I. Terminology / ValueSet Expansion
     # -------------------------------------------------------------------------------
-    # pre_expand_value_sets: true
-    # enable_task_pre_expand_value_sets: true
+    pre_expand_value_sets: false
+    enable_task_pre_expand_value_sets: false
     # pre_expand_value_sets_default_count: 1000
     # pre_expand_value_sets_max_count: 1000
     # maximum_expansion_size: 1000

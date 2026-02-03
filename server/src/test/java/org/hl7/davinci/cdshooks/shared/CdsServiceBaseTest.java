@@ -241,13 +241,13 @@ class CdsServiceBaseTest {
       request.setId("dr-1");
       CodeableConcept code = new CodeableConcept();
       code.addCoding()
-          .setSystem("https://bluebutton.cms.gov/resources/codesystem/hcpcs")
+          .setSystem("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
           .setCode("E0250");
       request.setCode(code);
 
       List<Coding> codes = testService.extractCodes(request, true, null);
 
-      assertEquals("http://bluebutton.cms.gov/resources/codesystem/hcpcs", codes.get(0).getSystem());
+      assertEquals("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", codes.get(0).getSystem());
     }
   }
 

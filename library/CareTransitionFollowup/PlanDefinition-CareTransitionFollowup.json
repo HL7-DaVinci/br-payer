@@ -60,10 +60,15 @@
       "id": "care-transition-info",
       "title": "Care Transition Resources",
       "description": "Care transition support and follow-up guidance",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "external-reference"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "guideline",
+              "display": "Guideline"
+            }
+          ]
         }
       ],
       "documentation": [

@@ -915,7 +915,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         code: {
           coding: [
             {
-              system: "https://bluebutton.cms.gov/resources/codesystem/hcpcs",
+              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "G0180",
               display:
                 "Physician certification for Medicare-covered home health services",
@@ -1154,7 +1154,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "https://bluebutton.cms.gov/resources/codesystem/hcpcs",
+              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0250",
               display:
                 "Hospital bed fixed height with any type of side rails, mattress",
@@ -1179,7 +1179,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "https://bluebutton.cms.gov/resources/codesystem/hcpcs",
+              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0251",
               display:
                 "Hospital bed variable height with any type of side rails, mattress",
@@ -1274,7 +1274,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "https://bluebutton.cms.gov/resources/codesystem/hcpcs",
+              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0601",
               display: "Continuous positive airway pressure (CPAP) device",
             },

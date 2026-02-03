@@ -115,10 +115,15 @@
       "id": "informative-guidance",
       "title": "Dispatch Network Guidance",
       "description": "Non-coverage instructions for imaging dispatch workflow",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "instructions"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "network",
+              "display": "Network"
+            }
+          ]
         }
       ],
       "documentation": [

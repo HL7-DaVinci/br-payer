@@ -76,12 +76,12 @@ import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 public abstract class CdsServiceBase {
 
   protected static final String COVERAGE_INFO_EXT_URL = "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/ext-coverage-information";
-  protected static final String CARD_TYPE_EXT_URL = "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType";
+  protected static final String CARD_TYPE_SYSTEM = "http://terminology.hl7.org/CodeSystem/cdshooks-card-type";
   protected static final String CRD_SERVICE_EXTENSION = """
       {
         "davinci-crd.version":["2.2"],
         "davinci-crd.configuration-options":[
-          {"code":"coverage-info","type":"boolean","name":"Coverage Information","description":"Return coverage-information system actions and related cards.","default":true},
+          {"code":"coverage-info","type":"boolean","name":"Coverage Information","description":"Return coverage-information system actions.","default":true},
           {"code":"max-cards","type":"integer","name":"Maximum cards","description":"Maximum number of cards to return.","default":10}
         ]
       }
@@ -773,13 +773,30 @@ public abstract class CdsServiceBase {
 
     SearchParameterMap searchParams = new SearchParameterMap();
 
-    // Order code search
+    // Order code search - include both http and https variants for protocol-agnostic matching
     CompositeAndListParam<TokenParam, TokenParam> orderCodeParam = new CompositeAndListParam<>(TokenParam.class,
         TokenParam.class);
-    orderCodeParam.addAnd(new CompositeOrListParam<>(TokenParam.class, TokenParam.class)
-        .addOr(new CompositeParam<>(
+    CompositeOrListParam<TokenParam, TokenParam> codeOrList = new CompositeOrListParam<>(TokenParam.class,
+        TokenParam.class);
+    codeOrList.addOr(new CompositeParam<>(
+        new TokenParam("focus"),
+        new TokenParam(code.getSystem(), code.getCode())));
+
+    if (code.hasSystem()) {
+      String altSystem = null;
+      if (code.getSystem().startsWith("https://")) {
+        altSystem = code.getSystem().replaceFirst("https://", "http://");
+      } else if (code.getSystem().startsWith("http://")) {
+        altSystem = code.getSystem().replaceFirst("http://", "https://");
+      }
+      if (altSystem != null) {
+        codeOrList.addOr(new CompositeParam<>(
             new TokenParam("focus"),
-            new TokenParam(code.getSystem(), code.getCode()))));
+            new TokenParam(altSystem, code.getCode())));
+      }
+    }
+
+    orderCodeParam.addAnd(codeOrList);
     searchParams.add("context-type-value", orderCodeParam);
 
     // Payor identifiers search
@@ -1251,32 +1268,34 @@ public abstract class CdsServiceBase {
         continue;
       }
 
-      // Check cardType extension to determine if this action should generate a card
-      // Actions with cardType (external-reference, instructions, etc.) should generate cards
-      // even if they also have a coverage-info extension
-      Extension cardTypeExt = action.getExtensionByUrl(CARD_TYPE_EXT_URL);
-
-      // If no cardType on RequestGroup action, check the PlanDefinition action
-      if ((cardTypeExt == null || !cardTypeExt.hasValue()) && action.getId() != null) {
-        PlanDefinition.PlanDefinitionActionComponent planAction = findPlanDefinitionAction(planDef, action.getId());
-        if (planAction != null) {
-          cardTypeExt = planAction.getExtensionByUrl(CARD_TYPE_EXT_URL);
-        }
+      PlanDefinition.PlanDefinitionActionComponent planAction = null;
+      String actionId = action.getId();
+      if (actionId != null) {
+        planAction = findPlanDefinitionAction(planDef, actionId);
       }
 
-      if (cardTypeExt == null || !cardTypeExt.hasValue()) {
-        // No cardType extension - check if this is a coverage-info-only action
+      Coding topicCoding = findCardTypeCoding(action.getCode());
+      if (topicCoding == null && planAction != null) {
+        topicCoding = findCardTypeCoding(planAction.getCode());
+      }
+
+      if (topicCoding == null) {
         if (action.getExtensionByUrl(COVERAGE_INFO_EXT_URL) != null) {
-          logger.debug("Skipping action {} - no cardType extension and has coverage-info", action.getId());
-          continue;
+          logger.debug("Skipping action {} - no card type code and has coverage-info", actionId);
+        } else {
+          logger.debug("Skipping action {} - no card type code", actionId);
         }
+        continue;
+      }
+
+      if ("coverage-info".equals(topicCoding.getCode())) {
+        logger.debug("Skipping action {} - coverage-info is system-action only", actionId);
+        continue;
       }
 
       // Filter by trigger - only include actions whose trigger matches the current
       // hook
-      String actionId = action.getId();
       if (actionId != null) {
-        PlanDefinition.PlanDefinitionActionComponent planAction = findPlanDefinitionAction(planDef, actionId);
         if (planAction != null && planAction.hasTrigger()) {
           boolean hasMatchingTrigger = planAction.getTrigger().stream()
               .anyMatch(t -> t.hasType() && t.getType() == TriggerType.NAMEDEVENT
@@ -1323,14 +1342,10 @@ public abstract class CdsServiceBase {
       source.setLabel(resolvePayerLabel(context, planDef));
       source.setUrl(planDef.getUrl());
 
-      // Get source.topic from cardType extension, default to "coverage-info"
-      String topicCode = "coverage-info";
-      if (cardTypeExt != null && cardTypeExt.hasValue()) {
-        topicCode = cardTypeExt.getValue().primitiveValue();
-      }
+      String topicSystem = topicCoding.hasSystem() ? topicCoding.getSystem() : CARD_TYPE_SYSTEM;
       source.setTopic(new CdsServiceResponseCodingJson()
-          .setSystem("http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp")
-          .setCode(topicCode));
+          .setSystem(topicSystem)
+          .setCode(topicCoding.getCode()));
       card.setSource(source);
 
       // Map links to CDS Hooks card links
@@ -1387,6 +1402,28 @@ public abstract class CdsServiceBase {
         .filter(a -> actionId.equals(a.getId()))
         .findFirst()
         .orElse(null);
+  }
+
+  private Coding findCardTypeCoding(List<CodeableConcept> codes) {
+    if (codes == null || codes.isEmpty()) {
+      return null;
+    }
+
+    for (CodeableConcept concept : codes) {
+      if (concept == null || !concept.hasCoding()) {
+        continue;
+      }
+      for (Coding coding : concept.getCoding()) {
+        if (coding == null || !coding.hasCode()) {
+          continue;
+        }
+        if (coding.hasSystem() && CARD_TYPE_SYSTEM.equals(coding.getSystem())) {
+          return coding;
+        }
+      }
+    }
+
+    return null;
   }
 
   private String resolvePayerLabel(HookResourceContext context, PlanDefinition planDef) {

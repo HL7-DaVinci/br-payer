@@ -15,7 +15,7 @@
 
 # Workspace Overview
 
-This is an Nx workspace designed to host a FHIR application stack.\
+This is an Nx workspace designed to host a FHIR application stack.
 
 
 ## Build & Run Commands

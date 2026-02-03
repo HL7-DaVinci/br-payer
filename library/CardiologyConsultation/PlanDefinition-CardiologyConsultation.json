@@ -106,10 +106,15 @@
       "id": "informative-guidance",
       "title": "Consultation Documentation Guidance",
       "description": "Non-coverage instructions for cardiology consultation scheduling",
-      "extension": [
+      "code": [
         {
-          "url": "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType",
-          "valueCode": "instructions"
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/cdshooks-card-type",
+              "code": "appropriate-use",
+              "display": "Appropriate Use"
+            }
+          ]
         }
       ],
       "documentation": [
