@@ -23,7 +23,7 @@ define "COPD Prefixes": {'J44', '496'}
 define "CKD Prefixes": {'N18', '585'}
 
 define function "Code Has Prefix"(code String, prefixes List<String>):
-  exists(prefixes P where code starts with P)
+  exists(prefixes P where StartsWith(code, P))
 
 define function "Has Condition With Prefix"(prefixes List<String>):
   exists("Active Conditions" C

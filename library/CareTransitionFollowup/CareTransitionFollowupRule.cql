@@ -60,10 +60,13 @@ define "Heart Failure Codes": {'I50', '428'}
 define "AMI Codes": {'I21', '410'}
 define "Pneumonia Codes": {'J18', 'J13', 'J14', 'J15', 'J16', '486'}
 
+define function "Code Has Prefix"(code String, prefixes List<String>):
+  exists(prefixes P where StartsWith(code, P))
+
 define function "Has Condition With Prefix"(prefixes List<String>):
   exists("Active Conditions" C
     where exists(C.code.coding CC
-      where exists(prefixes P where CC.code.value starts with P)))
+      where "Code Has Prefix"(CC.code.value, prefixes)))
 
 define "Has Heart Failure": "Has Condition With Prefix"("Heart Failure Codes")
 define "Has AMI": "Has Condition With Prefix"("AMI Codes")

@@ -76,6 +76,7 @@ import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 public abstract class CdsServiceBase {
 
   protected static final String COVERAGE_INFO_EXT_URL = "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/ext-coverage-information";
+  protected static final String CARD_TYPE_EXT_URL = "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType";
   protected static final String CRD_SERVICE_EXTENSION = """
       {
         "davinci-crd.version":["2.2"],
@@ -1250,9 +1251,25 @@ public abstract class CdsServiceBase {
         continue;
       }
 
-      if (action.getExtensionByUrl(COVERAGE_INFO_EXT_URL) != null) {
-        logger.debug("Skipping action {} - coverage information uses system actions", action.getId());
-        continue;
+      // Check cardType extension to determine if this action should generate a card
+      // Actions with cardType (external-reference, instructions, etc.) should generate cards
+      // even if they also have a coverage-info extension
+      Extension cardTypeExt = action.getExtensionByUrl(CARD_TYPE_EXT_URL);
+
+      // If no cardType on RequestGroup action, check the PlanDefinition action
+      if ((cardTypeExt == null || !cardTypeExt.hasValue()) && action.getId() != null) {
+        PlanDefinition.PlanDefinitionActionComponent planAction = findPlanDefinitionAction(planDef, action.getId());
+        if (planAction != null) {
+          cardTypeExt = planAction.getExtensionByUrl(CARD_TYPE_EXT_URL);
+        }
+      }
+
+      if (cardTypeExt == null || !cardTypeExt.hasValue()) {
+        // No cardType extension - check if this is a coverage-info-only action
+        if (action.getExtensionByUrl(COVERAGE_INFO_EXT_URL) != null) {
+          logger.debug("Skipping action {} - no cardType extension and has coverage-info", action.getId());
+          continue;
+        }
       }
 
       // Filter by trigger - only include actions whose trigger matches the current
@@ -1306,10 +1323,8 @@ public abstract class CdsServiceBase {
       source.setLabel(resolvePayerLabel(context, planDef));
       source.setUrl(planDef.getUrl());
 
-      // Get source.topic from action extension, default to "coverage-info"
+      // Get source.topic from cardType extension, default to "coverage-info"
       String topicCode = "coverage-info";
-      Extension cardTypeExt = action
-          .getExtensionByUrl("http://hl7.org/fhir/us/davinci-crd/StructureDefinition/cardType");
       if (cardTypeExt != null && cardTypeExt.hasValue()) {
         topicCode = cardTypeExt.getValue().primitiveValue();
       }
