@@ -29,8 +29,11 @@ import type {
   ContextFieldDefinition,
   ResourceTemplate,
 } from "@/lib/cds-types";
-import { extractFhirReferenceId } from "@/lib/cds-types";
-import { getHookDefinition, getResourceTemplates } from "@/lib/cds-types";
+import {
+  extractFhirReferenceId,
+  getHookDefinition,
+  getResourceTemplates,
+} from "@/lib/cds-types";
 
 // Simple resource type for our purposes
 interface SimpleResource {
@@ -101,7 +104,9 @@ function ResourcePicker({
     const id = resource.id ?? "unknown";
     if (resource.name?.[0]) {
       const name = resource.name[0];
-      const displayName = name.text || `${name.given?.join(" ") || ""} ${name.family || ""}`.trim();
+      const displayName =
+        name.text ||
+        `${name.given?.join(" ") || ""} ${name.family || ""}`.trim();
       if (displayName) {
         return `${displayName} (${id})`;
       }
@@ -203,8 +208,10 @@ function BundleBuilder({
 
   // Get templates for ALL allowed resource types, grouped by type
   const allTemplates = useMemo(() => {
-    const result: Array<{ resourceType: string; templates: ResourceTemplate[] }> =
-      [];
+    const result: Array<{
+      resourceType: string;
+      templates: ResourceTemplate[];
+    }> = [];
     for (const type of resourceTypes) {
       const typeTemplates = getResourceTemplates(type);
       if (typeTemplates.length > 0) {
@@ -369,8 +376,10 @@ function BundleBuilder({
 
   const getResourceDisplay = (resource: SelectedResource): string => {
     const id = resource.id ?? "unknown";
-    const codeDisplay = resource.code?.text || resource.code?.coding?.[0]?.display;
-    const medDisplay = resource.medicationCodeableConcept?.text ||
+    const codeDisplay =
+      resource.code?.text || resource.code?.coding?.[0]?.display;
+    const medDisplay =
+      resource.medicationCodeableConcept?.text ||
       resource.medicationCodeableConcept?.coding?.[0]?.display;
 
     // For new resources (urn:uuid), show just the display name without the UUID
@@ -523,13 +532,11 @@ function BundleBuilder({
           )}
 
           {/* Empty state */}
-          {!hasTemplates &&
-            availableResources.length === 0 &&
-            !isLoading && (
-              <div className="p-2 text-xs text-muted-foreground text-center">
-                No resources or templates available
-              </div>
-            )}
+          {!hasTemplates && availableResources.length === 0 && !isLoading && (
+            <div className="p-2 text-xs text-muted-foreground text-center">
+              No resources or templates available
+            </div>
+          )}
         </SelectContent>
       </Select>
 
@@ -575,18 +582,22 @@ function BundleSelectPicker({
   value,
   onChange,
 }: BundleSelectPickerProps) {
-  const entries = useMemo((): SimpleResource[] => {
+  const entries = useMemo(() => {
     if (!bundle?.entry) return [];
     return bundle.entry
       .map((e) => e.resource as SimpleResource | undefined)
-      .filter((r): r is SimpleResource => r != null && r.id != null);
+      .filter(
+        (r): r is SimpleResource & { id: string } => r != null && r.id != null,
+      );
   }, [bundle]);
 
   const getResourceDisplay = (resource: SimpleResource): string => {
     const id = resource.id ?? "unknown";
     const isNew = id.startsWith("urn:uuid:");
-    const codeDisplay = resource.code?.text || resource.code?.coding?.[0]?.display;
-    const medDisplay = resource.medicationCodeableConcept?.text ||
+    const codeDisplay =
+      resource.code?.text || resource.code?.coding?.[0]?.display;
+    const medDisplay =
+      resource.medicationCodeableConcept?.text ||
       resource.medicationCodeableConcept?.coding?.[0]?.display;
 
     // For new resources (urn:uuid), show just the display name without the UUID
@@ -616,7 +627,7 @@ function BundleSelectPicker({
   );
 
   const selectAll = useCallback(() => {
-    const allIds = entries.map((r) => r.id!);
+    const allIds = entries.map((r) => r.id);
     onChange(allIds);
   }, [entries, onChange]);
 
@@ -676,8 +687,8 @@ function BundleSelectPicker({
           >
             <Checkbox
               id={`select-${resource.id}`}
-              checked={value.includes(resource.id!)}
-              onCheckedChange={() => toggleSelection(resource.id!)}
+              checked={value.includes(resource.id)}
+              onCheckedChange={() => toggleSelection(resource.id)}
             />
             <label
               htmlFor={`select-${resource.id}`}

@@ -8,9 +8,17 @@ import {
   Server,
   Settings,
   Sun,
+  Webhook,
 } from "lucide-react";
+import { VisuallyHidden } from "radix-ui";
 import { useCallback, useEffect, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getResourceTypes, useCapabilityStatement } from "@/hooks/use-fhir-api";
 import { useFhirServer } from "@/hooks/use-fhir-server";
 import { useTheme } from "@/hooks/use-theme";
@@ -18,9 +26,14 @@ import { useTheme } from "@/hooks/use-theme";
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenSettings?: () => void;
 }
 
-export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+export function CommandPalette({
+  open,
+  onOpenChange,
+  onOpenSettings,
+}: CommandPaletteProps) {
   const navigate = useNavigate();
   const { serverUrl } = useFhirServer();
   const { data: capability } = useCapabilityStatement(serverUrl);
@@ -45,8 +58,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       } else if (value === "resources") {
         navigate({ to: "/resources", search: {} });
       } else if (value === "settings") {
-        // Navigate to dashboard which has server settings
-        navigate({ to: "/" });
+        onOpenSettings?.();
       } else if (value === "theme-light") {
         setTheme("light");
       } else if (value === "theme-dark") {
@@ -61,13 +73,21 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         });
       }
     },
-    [navigate, onOpenChange, setTheme],
+    [navigate, onOpenChange, onOpenSettings, setTheme],
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden p-0 shadow-lg max-w-lg">
-        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
+        <VisuallyHidden.Root>
+          <DialogHeader>
+            <DialogTitle>Command Palette</DialogTitle>
+            <DialogDescription>
+              Command palette for quick navigation and actions
+            </DialogDescription>
+          </DialogHeader>
+        </VisuallyHidden.Root>
+        <Command className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground">
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <Command.Input
@@ -77,7 +97,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               onValueChange={setSearch}
             />
           </div>
-          <Command.List className="max-h-[400px] overflow-y-auto p-2">
+          <Command.List className="max-h-100 overflow-y-auto p-2">
             <Command.Empty className="py-6 text-center text-sm text-muted-foreground">
               No results found.
             </Command.Empty>
@@ -99,6 +119,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               >
                 <FileJson className="h-4 w-4 text-muted-foreground" />
                 <span>Resources</span>
+              </Command.Item>
+              <Command.Item
+                value="hooks"
+                onSelect={handleSelect}
+                className="flex items-center gap-3 px-2 py-1.5 text-sm rounded-md cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
+              >
+                <Webhook className="h-4 w-4 text-muted-foreground" />
+                <span>CDS Hooks</span>
               </Command.Item>
               <Command.Item
                 value="settings"

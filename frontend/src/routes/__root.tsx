@@ -75,6 +75,7 @@ function RootComponent() {
       <CommandPalette
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />

@@ -8,6 +8,7 @@ import { useTheme } from "@/hooks/use-theme";
 const MonacoEditor = lazy(() =>
   import("@monaco-editor/react").then((mod) => ({ default: mod.Editor })),
 );
+
 import {
   Dialog,
   DialogContent,

@@ -125,9 +125,7 @@ export const JsonViewerDialog = memo(function JsonViewerDialog({
                 <Code className="h-4 w-4" />
                 {displayTitle}
               </DialogTitle>
-              {displayDescription && (
-                <DialogDescription>{displayDescription}</DialogDescription>
-              )}
+              <DialogDescription>{displayDescription}</DialogDescription>
             </div>
             <Button
               variant="outline"

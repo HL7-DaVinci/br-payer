@@ -138,9 +138,7 @@ export const JsonEditorDialog = memo(function JsonEditorDialog({
                 <Code className="h-4 w-4" />
                 {title}
               </DialogTitle>
-              {description && (
-                <DialogDescription>{description}</DialogDescription>
-              )}
+              <DialogDescription>{description}</DialogDescription>
             </div>
             <div className="flex items-center gap-2 mr-8">
               <Button variant="outline" size="sm" onClick={handleCopy}>
