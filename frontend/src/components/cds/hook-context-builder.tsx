@@ -29,6 +29,7 @@ import type {
   ContextFieldDefinition,
   ResourceTemplate,
 } from "@/lib/cds-types";
+import { extractFhirReferenceId } from "@/lib/cds-types";
 import { getHookDefinition, getResourceTemplates } from "@/lib/cds-types";
 
 // Simple resource type for our purposes
@@ -92,7 +93,7 @@ function ResourcePicker({
   const selectedResource = useMemo(() => {
     if (!value || !resources.length) return null;
     // Value could be "Patient/123" or just "123"
-    const resourceId = value.includes("/") ? value.split("/")[1] : value;
+    const resourceId = extractFhirReferenceId(value) ?? value;
     return resources.find((r) => r.id === resourceId) ?? null;
   }, [value, resources]);
 
@@ -250,9 +251,7 @@ function BundleBuilder({
     // First prefer the context patient ID passed from parent
     if (contextPatientId) {
       // Handle "Patient/123" or just "123" format
-      return contextPatientId.includes("/")
-        ? contextPatientId.split("/")[1]
-        : contextPatientId;
+      return extractFhirReferenceId(contextPatientId) ?? contextPatientId;
     }
 
     // Fallback: try to extract patient ID from existing entries
@@ -262,7 +261,7 @@ function BundleBuilder({
       const subject = (resource as unknown as Record<string, unknown>)
         .subject as { reference?: string } | undefined;
       if (subject?.reference?.startsWith("Patient/")) {
-        return subject.reference.split("/")[1];
+        return extractFhirReferenceId(subject.reference) ?? undefined;
       }
     }
     return undefined;

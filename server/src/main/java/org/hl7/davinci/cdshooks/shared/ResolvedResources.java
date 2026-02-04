@@ -7,6 +7,7 @@ import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.CareTeam;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Location;
 import org.hl7.fhir.r4.model.MedicationDispense;
@@ -22,9 +23,9 @@ import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.Task;
 
 /**
- * Container for all potential resources extracted from a CDS Hook request.
+ * Container for all resources resolved from a CDS Hook request's context and prefetch.
  */
-public class HookResourceContext {
+public class ResolvedResources {
 
   private Patient patient;
   private Coverage coverage;
@@ -40,6 +41,7 @@ public class HookResourceContext {
   private List<MedicationStatement> medicationStatements = new ArrayList<>();
   private List<MedicationDispense> medicationDispenses = new ArrayList<>();
   private List<MedicationRequest> medicationHistory = new ArrayList<>();
+  private List<DeviceRequest> deviceHistory = new ArrayList<>();
   private List<Procedure> procedures = new ArrayList<>();
   private List<ServiceRequest> serviceRequests = new ArrayList<>();
   private List<Condition> conditions = new ArrayList<>();
@@ -208,6 +210,18 @@ public class HookResourceContext {
 
   public void addMedicationHistory(MedicationRequest medicationRequest) {
     this.medicationHistory.add(medicationRequest);
+  }
+
+  public List<DeviceRequest> getDeviceHistory() {
+    return deviceHistory;
+  }
+
+  public void setDeviceHistory(List<DeviceRequest> deviceHistory) {
+    this.deviceHistory = deviceHistory;
+  }
+
+  public void addDeviceHistory(DeviceRequest deviceRequest) {
+    this.deviceHistory.add(deviceRequest);
   }
 
   public List<Procedure> getProcedures() {

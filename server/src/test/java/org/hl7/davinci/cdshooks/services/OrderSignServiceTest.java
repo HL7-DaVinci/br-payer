@@ -7,7 +7,7 @@ import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
-import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResolvedResources;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -97,7 +97,7 @@ class OrderSignServiceTest {
     @Test
     @DisplayName("Should throw 400 when draftOrders context is empty")
     void testEmptyDraftOrders_Returns400() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setOrders(Collections.emptyList()); // Empty orders
@@ -112,7 +112,7 @@ class OrderSignServiceTest {
     @Test
     @DisplayName("Should pass validation when draftOrders has orders")
     void testValidDraftOrders_PassesValidation() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setOrders(List.of(
@@ -130,7 +130,7 @@ class OrderSignServiceTest {
     @Test
     @DisplayName("Should process ALL orders (no selections filtering)")
     void testSelectsAllOrders() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       DeviceRequest dr1 = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
       DeviceRequest dr2 = CdsHooksTestUtils.createTestDeviceRequest("dr-2", "E0251", "patient1");
       MedicationRequest mr1 = CdsHooksTestUtils.createTestMedicationRequest("mr-1", "1049502", "patient1");

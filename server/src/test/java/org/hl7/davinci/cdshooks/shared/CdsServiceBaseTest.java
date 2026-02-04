@@ -1,9 +1,5 @@
 package org.hl7.davinci.cdshooks.shared;
 
-import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
-import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
-import ca.uhn.fhir.jpa.starter.AppProperties;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.*;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
@@ -15,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.opencds.cqf.fhir.cr.hapi.common.IPlanDefinitionProcessorFactory;
 
 import java.util.Collections;
 import java.util.List;
@@ -26,12 +21,12 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for CdsServiceBase shared logic.
- * 
+ *
  * Tests the abstract base class functionality including:
  * - Payor identifier extraction
  * - Code extraction from different resource types
  * - Card consolidation
- * - System action consolidation  
+ * - System action consolidation
  * - Coverage extension building
  * - Primary/secondary hook detection
  */
@@ -39,19 +34,13 @@ import static org.mockito.Mockito.*;
 class CdsServiceBaseTest {
 
   @Mock
-  private DaoRegistry daoRegistry;
+  private PlanDefinitionFinder planDefinitionFinder;
 
   @Mock
-  private AppProperties appProperties;
+  private CoverageInfoHandler coverageInfoHandler;
 
   @Mock
-  private IPlanDefinitionProcessorFactory planDefinitionProcessorFactory;
-
-  @Mock
-  private IFhirResourceDao<PlanDefinition> planDefinitionDao;
-
-  @Mock
-  private IBundleProvider bundleProvider;
+  private CardConverter cardConverter;
 
   // Concrete implementation for testing abstract class
   private TestCdsService testService;
@@ -59,12 +48,9 @@ class CdsServiceBaseTest {
   @BeforeEach
   void setUp() {
     testService = new TestCdsService();
-    testService.daoRegistry = daoRegistry;
-    testService.appProperties = appProperties;
-    testService.planDefinitionProcessorFactory = planDefinitionProcessorFactory;
-
-    lenient().when(daoRegistry.getResourceDao(PlanDefinition.class)).thenReturn(planDefinitionDao);
-    lenient().when(planDefinitionDao.search(any(), any())).thenReturn(bundleProvider);
+    testService.planDefinitionFinder = planDefinitionFinder;
+    testService.coverageInfoHandler = coverageInfoHandler;
+    testService.cardConverter = cardConverter;
   }
 
   /**
@@ -72,7 +58,6 @@ class CdsServiceBaseTest {
    */
   static class TestCdsService extends CdsServiceBase {
     private String hookName = "order-sign";
-    private boolean isPrimary = true;
 
     @Override
     protected String getHookName() {
@@ -85,12 +70,12 @@ class CdsServiceBaseTest {
     }
 
     @Override
-    protected void validateExtractedResources(HookResourceContext context) {
+    protected void validateExtractedResources(ResolvedResources context) {
       // No-op for testing
     }
 
     @Override
-    protected List<Resource> selectContextResources(HookResourceContext context) {
+    protected List<Resource> selectContextResources(ResolvedResources context) {
       return context.getOrders();
     }
 
@@ -106,7 +91,7 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should extract identifiers from Organization referenced by Coverage.payor")
     void testExtractPayorIdentifiers_FromOrgReference() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
 
       Coverage coverage = new Coverage();
       coverage.setId("cov-1");
@@ -130,7 +115,7 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should return empty list when no payor reference")
     void testExtractPayorIdentifiers_NoPayor() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
 
       Coverage coverage = new Coverage();
       coverage.setId("cov-1");
@@ -145,7 +130,7 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should return empty list when payor org not in context")
     void testExtractPayorIdentifiers_OrgNotInContext() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
 
       Coverage coverage = new Coverage();
       coverage.setId("cov-1");
@@ -161,7 +146,7 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should handle multiple payor organizations")
     void testExtractPayorIdentifiers_MultiplePayors() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
 
       Coverage coverage = new Coverage();
       coverage.setId("cov-1");
@@ -194,7 +179,7 @@ class CdsServiceBaseTest {
     void testExtractCodes_DeviceRequest() {
       DeviceRequest request = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
 
-      List<Coding> codes = testService.extractCodes(request, false, null);
+      List<Coding> codes = FhirCodeExtractor.extractCodes(request, false, null);
 
       assertEquals(1, codes.size());
       assertEquals("E0250", codes.get(0).getCode());
@@ -206,7 +191,7 @@ class CdsServiceBaseTest {
     void testExtractCodes_MedicationRequest() {
       MedicationRequest request = CdsHooksTestUtils.createTestMedicationRequest("mr-1", "1049502", "patient1");
 
-      List<Coding> codes = testService.extractCodes(request, false, null);
+      List<Coding> codes = FhirCodeExtractor.extractCodes(request, false, null);
 
       assertEquals(1, codes.size());
       assertEquals("1049502", codes.get(0).getCode());
@@ -218,7 +203,7 @@ class CdsServiceBaseTest {
     void testExtractCodes_ServiceRequest() {
       ServiceRequest request = CdsHooksTestUtils.createTestServiceRequest("sr-1", "99213", "patient1");
 
-      List<Coding> codes = testService.extractCodes(request, false, null);
+      List<Coding> codes = FhirCodeExtractor.extractCodes(request, false, null);
 
       assertEquals(1, codes.size());
       assertEquals("99213", codes.get(0).getCode());
@@ -229,7 +214,7 @@ class CdsServiceBaseTest {
     void testExtractCodes_Appointment_ServiceType() {
       Appointment appointment = CdsHooksTestUtils.createTestAppointment("appt-1", "394579002", "patient1");
 
-      List<Coding> codes = testService.extractCodes(appointment, false, null);
+      List<Coding> codes = FhirCodeExtractor.extractCodes(appointment, false, null);
 
       assertTrue(codes.stream().anyMatch(c -> "394579002".equals(c.getCode())));
     }
@@ -245,7 +230,7 @@ class CdsServiceBaseTest {
           .setCode("E0250");
       request.setCode(code);
 
-      List<Coding> codes = testService.extractCodes(request, true, null);
+      List<Coding> codes = FhirCodeExtractor.extractCodes(request, true, null);
 
       assertEquals("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", codes.get(0).getSystem());
     }
@@ -258,42 +243,40 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("order-sign is a primary hook")
     void testIsPrimaryHook_OrderSign() {
-      testService.setHookName("order-sign");
-      assertTrue(testService.isPrimaryHook());
+      assertTrue(CrdConformanceEnforcer.isPrimaryHook("order-sign"));
     }
 
     @Test
     @DisplayName("order-dispatch is a primary hook")
     void testIsPrimaryHook_OrderDispatch() {
-      testService.setHookName("order-dispatch");
-      assertTrue(testService.isPrimaryHook());
+      assertTrue(CrdConformanceEnforcer.isPrimaryHook("order-dispatch"));
     }
 
     @Test
     @DisplayName("appointment-book is a primary hook")
     void testIsPrimaryHook_AppointmentBook() {
-      testService.setHookName("appointment-book");
-      assertTrue(testService.isPrimaryHook());
+      assertTrue(CrdConformanceEnforcer.isPrimaryHook("appointment-book"));
     }
 
     @Test
     @DisplayName("order-select is NOT a primary hook")
     void testIsPrimaryHook_OrderSelect_False() {
-      testService.setHookName("order-select");
-      assertFalse(testService.isPrimaryHook());
+      assertFalse(CrdConformanceEnforcer.isPrimaryHook("order-select"));
     }
 
     @Test
     @DisplayName("encounter-start is NOT a primary hook")
     void testIsPrimaryHook_EncounterStart_False() {
-      testService.setHookName("encounter-start");
-      assertFalse(testService.isPrimaryHook());
+      assertFalse(CrdConformanceEnforcer.isPrimaryHook("encounter-start"));
     }
   }
 
   @Nested
   @DisplayName("Card Consolidation")
   class CardConsolidation {
+
+    // CardConverter is now a separate class — these tests use the real instance
+    private final CardConverter realCardConverter = new CardConverter();
 
     @Test
     @DisplayName("Should merge duplicate cards with same summary/detail/indicator")
@@ -302,7 +285,7 @@ class CdsServiceBaseTest {
       CdsServiceResponseCardJson card2 = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.INFO);
 
       List<CdsServiceResponseCardJson> cards = List.of(card1, card2);
-      List<CdsServiceResponseCardJson> consolidated = testService.consolidateDuplicateCards(cards);
+      List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(cards);
 
       assertEquals(1, consolidated.size(), "Duplicate cards should be merged");
     }
@@ -314,7 +297,7 @@ class CdsServiceBaseTest {
       CdsServiceResponseCardJson card2 = createTestCard("Summary 2", "Detail", CdsServiceIndicatorEnum.INFO);
 
       List<CdsServiceResponseCardJson> cards = List.of(card1, card2);
-      List<CdsServiceResponseCardJson> consolidated = testService.consolidateDuplicateCards(cards);
+      List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(cards);
 
       assertEquals(2, consolidated.size(), "Cards with different summaries should not be merged");
     }
@@ -326,7 +309,7 @@ class CdsServiceBaseTest {
       CdsServiceResponseCardJson card2 = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.WARNING);
 
       List<CdsServiceResponseCardJson> cards = List.of(card1, card2);
-      List<CdsServiceResponseCardJson> consolidated = testService.consolidateDuplicateCards(cards);
+      List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(cards);
 
       assertEquals(2, consolidated.size(), "Cards with different indicators should not be merged");
     }
@@ -345,7 +328,7 @@ class CdsServiceBaseTest {
       card2.setExtension(ext2);
 
       List<CdsServiceResponseCardJson> cards = List.of(card1, card2);
-      List<CdsServiceResponseCardJson> consolidated = testService.consolidateDuplicateCards(cards);
+      List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(cards);
 
       assertEquals(1, consolidated.size());
       CrdCardExtension mergedExt = (CrdCardExtension) consolidated.get(0).getExtension();
@@ -358,7 +341,7 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should handle empty cards list")
     void testConsolidateDuplicateCards_EmptyList() {
-      List<CdsServiceResponseCardJson> consolidated = testService.consolidateDuplicateCards(Collections.emptyList());
+      List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(Collections.emptyList());
       assertTrue(consolidated.isEmpty());
     }
 
@@ -366,15 +349,50 @@ class CdsServiceBaseTest {
     @DisplayName("Should handle single card (no consolidation needed)")
     void testConsolidateDuplicateCards_SingleCard() {
       CdsServiceResponseCardJson card = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.INFO);
-      List<CdsServiceResponseCardJson> consolidated = testService.consolidateDuplicateCards(List.of(card));
+      List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(List.of(card));
 
       assertEquals(1, consolidated.size());
+    }
+
+    @Test
+    @DisplayName("Should not merge cards with different source topics")
+    void testConsolidateDuplicateCards_DifferentTopics() {
+      CdsServiceResponseCardJson card1 = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.INFO);
+      card1.getSource().setTopic(new CdsServiceResponseCodingJson()
+          .setSystem(CrdConstants.CARD_TYPE_SYSTEM)
+          .setCode("coverage-info"));
+
+      CdsServiceResponseCardJson card2 = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.INFO);
+      card2.getSource().setTopic(new CdsServiceResponseCodingJson()
+          .setSystem(CrdConstants.CARD_TYPE_SYSTEM)
+          .setCode("insurance"));
+
+      List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(List.of(card1, card2));
+
+      assertEquals(2, consolidated.size(), "Cards with different topics should not be merged");
+    }
+
+    @Test
+    @DisplayName("Should not merge cards when only one has a CrdCardExtension")
+    void testConsolidateDuplicateCards_OnlyOneCrdExtension() {
+      CdsServiceResponseCardJson card1 = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.INFO);
+      CrdCardExtension ext = new CrdCardExtension();
+      ext.addAssociatedResource("DeviceRequest/dr-1");
+      card1.setExtension(ext);
+
+      CdsServiceResponseCardJson card2 = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.INFO);
+
+      List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(List.of(card1, card2));
+
+      assertEquals(2, consolidated.size(), "Cards without matching extension types should not be merged");
     }
   }
 
   @Nested
   @DisplayName("System Action Consolidation")
   class SystemActionConsolidation {
+
+    private final CardConverter realCardConverter = new CardConverter();
 
     @Test
     @DisplayName("Should deduplicate system actions for same resource ID")
@@ -390,7 +408,7 @@ class CdsServiceBaseTest {
       action2.setResource(dr.copy()); // Same ID
 
       List<CdsServiceResponseSystemActionJson> actions = List.of(action1, action2);
-      List<CdsServiceResponseSystemActionJson> consolidated = testService.consolidateDuplicateServiceActions(actions);
+      List<CdsServiceResponseSystemActionJson> consolidated = realCardConverter.consolidateDuplicateServiceActions(actions);
 
       assertEquals(1, consolidated.size(), "Duplicate system actions should be merged");
     }
@@ -410,7 +428,7 @@ class CdsServiceBaseTest {
       action2.setResource(dr2);
 
       List<CdsServiceResponseSystemActionJson> actions = List.of(action1, action2);
-      List<CdsServiceResponseSystemActionJson> consolidated = testService.consolidateDuplicateServiceActions(actions);
+      List<CdsServiceResponseSystemActionJson> consolidated = realCardConverter.consolidateDuplicateServiceActions(actions);
 
       assertEquals(2, consolidated.size(), "Actions for different resources should not be merged");
     }
@@ -420,14 +438,18 @@ class CdsServiceBaseTest {
   @DisplayName("Default Coverage Extension")
   class DefaultCoverageExtension {
 
+    // CoverageInfoHandler needs AppProperties, so use a real instance for buildDefaultCoverageExtension
+    // which doesn't use AppProperties
+    private final CoverageInfoHandler realCoverageInfoHandler = new CoverageInfoHandler();
+
     @Test
     @DisplayName("Should build extension with all required fields")
     void testBuildDefaultCoverageExtension_HasRequiredFields() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       Coverage coverage = CdsHooksTestUtils.createTestCoverage("cov-1", "org1234");
       context.setCoverage(coverage);
 
-      Extension ext = testService.buildDefaultCoverageExtension(context);
+      Extension ext = realCoverageInfoHandler.buildDefaultCoverageExtension(context);
 
       assertNotNull(ext);
       assertEquals(CdsHooksTestUtils.COVERAGE_INFO_EXT_URL, ext.getUrl());
@@ -442,11 +464,11 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Default covered value should be 'conditional' when no rules match")
     void testBuildDefaultCoverageExtension_ConditionalCovered() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       Coverage coverage = CdsHooksTestUtils.createTestCoverage("cov-1", "org1234");
       context.setCoverage(coverage);
 
-      Extension ext = testService.buildDefaultCoverageExtension(context);
+      Extension ext = realCoverageInfoHandler.buildDefaultCoverageExtension(context);
 
       Extension coveredExt = ext.getExtensionByUrl("covered");
       assertNotNull(coveredExt);
@@ -456,12 +478,66 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should return null when coverage is null")
     void testBuildDefaultCoverageExtension_NullCoverage() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setCoverage(null);
 
-      Extension ext = testService.buildDefaultCoverageExtension(context);
+      Extension ext = realCoverageInfoHandler.buildDefaultCoverageExtension(context);
 
       assertNull(ext);
+    }
+  }
+
+  @Nested
+  @DisplayName("Data Bundle Assembly")
+  class DataBundleAssembly {
+
+    @Test
+    @DisplayName("Should include device history, service requests, and medication dispenses")
+    void testBuildDataBundle_IncludesHistoricalResources() {
+      ResolvedResources context = new ResolvedResources();
+      context.setPatient(CdsHooksTestUtils.createTestPatient("patient1"));
+      context.setCoverage(CdsHooksTestUtils.createTestCoverage("cov-1", "org1"));
+
+      DeviceRequest deviceRequest = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
+      ServiceRequest serviceRequest = CdsHooksTestUtils.createTestServiceRequest("sr-1", "99213", "patient1");
+      MedicationDispense medicationDispense = new MedicationDispense();
+      medicationDispense.setId("md-1");
+
+      context.addDeviceHistory(deviceRequest);
+      context.addServiceRequest(serviceRequest);
+      context.addMedicationDispense(medicationDispense);
+
+      Bundle bundle = testService.buildDataBundle(context, deviceRequest);
+
+      List<Resource> resources = bundle.getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .toList();
+
+      assertTrue(resources.stream().anyMatch(r -> r instanceof DeviceRequest
+          && "dr-1".equals(r.getIdElement().getIdPart())));
+      assertTrue(resources.stream().anyMatch(r -> r instanceof ServiceRequest
+          && "sr-1".equals(r.getIdElement().getIdPart())));
+      assertTrue(resources.stream().anyMatch(r -> r instanceof MedicationDispense
+          && "md-1".equals(r.getIdElement().getIdPart())));
+    }
+  }
+
+  @Nested
+  @DisplayName("Coverage Info System Action")
+  class CoverageInfoSystemAction {
+
+    @Test
+    @DisplayName("Should return false for non-DomainResource actions")
+    void testHasCoverageInfoSystemAction_NonDomainResource() {
+      CdsServiceResponseJson response = new CdsServiceResponseJson();
+      CdsServiceResponseSystemActionJson action = new CdsServiceResponseSystemActionJson();
+      action.setType("update");
+      action.setResource(new org.hl7.fhir.r4.model.Parameters());
+      response.addServiceAction(action);
+
+      CoverageInfoHandler handler = new CoverageInfoHandler();
+
+      assertFalse(handler.hasCoverageInfoSystemAction(response));
     }
   }
 
@@ -472,14 +548,13 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should return true when PlanDefinition exists for payor")
     void testIsPayorHandled_True() {
-      when(bundleProvider.isEmpty()).thenReturn(false);
-      // size() is not called by isPayorHandled - only isEmpty() is used
-
       Identifier payorId = new Identifier();
       payorId.setSystem(CdsHooksTestUtils.CMS_PAYOR_SYSTEM);
       payorId.setValue(CdsHooksTestUtils.CMS_PAYOR_VALUE);
 
-      boolean handled = testService.isPayorHandled(List.of(payorId));
+      when(planDefinitionFinder.isPayorHandled(any())).thenReturn(true);
+
+      boolean handled = planDefinitionFinder.isPayorHandled(List.of(payorId));
 
       assertTrue(handled);
     }
@@ -487,13 +562,13 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should return false when no PlanDefinition exists for payor")
     void testIsPayorHandled_False() {
-      when(bundleProvider.isEmpty()).thenReturn(true);
-
       Identifier payorId = new Identifier();
       payorId.setSystem("http://unknown-system");
       payorId.setValue("unknown-value");
 
-      boolean handled = testService.isPayorHandled(List.of(payorId));
+      when(planDefinitionFinder.isPayorHandled(any())).thenReturn(false);
+
+      boolean handled = planDefinitionFinder.isPayorHandled(List.of(payorId));
 
       assertFalse(handled);
     }

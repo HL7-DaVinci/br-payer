@@ -7,7 +7,7 @@ import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
-import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResolvedResources;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -98,7 +98,7 @@ class AppointmentBookServiceTest {
     @Test
     @DisplayName("Should throw 400 when appointments context is empty")
     void testEmptyAppointments_Returns400() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setAppointments(Collections.emptyList());
@@ -113,7 +113,7 @@ class AppointmentBookServiceTest {
     @Test
     @DisplayName("Should pass validation when appointments exist")
     void testValidAppointments_PassesValidation() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setAppointments(List.of(
@@ -130,7 +130,7 @@ class AppointmentBookServiceTest {
     @Test
     @DisplayName("Should process ALL appointments in context")
     void testSelectsAllAppointments() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       Appointment appt1 = CdsHooksTestUtils.createTestAppointment("appt-1", "394579002", "patient1"); // Cardiology
       Appointment appt2 = CdsHooksTestUtils.createTestAppointment("appt-2", "91251008", "patient1"); // Physical therapy
 

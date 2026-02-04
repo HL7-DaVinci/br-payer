@@ -1,6 +1,8 @@
 package org.hl7.davinci.cdshooks.shared;
 
+import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestContextJson;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.DisplayName;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +36,7 @@ class ResourceResolverTest {
     void testExtractPatient_FromDirectPrefetch() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
 
-      HookResourceContext context = ResourceResolver.extractAllResources(request);
+      ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
       assertNotNull(context.getPatient(), "Patient should be extracted from prefetch");
       assertEquals("example", context.getPatient().getIdElement().getIdPart());
@@ -44,7 +47,7 @@ class ResourceResolverTest {
     void testExtractCoverage_FromBundlePrefetch() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
 
-      HookResourceContext context = ResourceResolver.extractAllResources(request);
+      ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
       assertNotNull(context.getCoverage(), "Coverage should be extracted from prefetch bundle");
     }
@@ -54,7 +57,7 @@ class ResourceResolverTest {
     void testExtractOrders_FromDraftOrders() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
 
-      HookResourceContext context = ResourceResolver.extractAllResources(request);
+      ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
       assertFalse(context.getOrders().isEmpty(), "Orders should be extracted from draftOrders");
       // order-sign-1.json has a DeviceRequest
@@ -68,7 +71,7 @@ class ResourceResolverTest {
     void testExtractAppointments_FromContext() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("appointment-book-cardiology.json");
 
-      HookResourceContext context = ResourceResolver.extractAllResources(request);
+      ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
       assertFalse(context.getAppointments().isEmpty(), "Appointments should be extracted");
       // The ID may include the full URN from the Bundle fullUrl
@@ -82,7 +85,7 @@ class ResourceResolverTest {
       // appointment-book-cardiology.json includes Organization in coverage bundle
       CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("appointment-book-cardiology.json");
 
-      HookResourceContext context = ResourceResolver.extractAllResources(request);
+      ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
       assertFalse(context.getOrganizations().isEmpty(), "Organizations should be extracted");
     }
@@ -95,12 +98,98 @@ class ResourceResolverTest {
       // Practitioners in deviceRequestBundle are resolved on-demand when needed.
       CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
 
-      HookResourceContext context = ResourceResolver.extractAllResources(request);
+      ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
       // order-sign-1.json has Practitioner in deviceRequestBundle, but extractAllResources
       // doesn't scan generic prefetch bundles for all resource types
       // This is by design - practitioners are resolved on-demand when processing orders
       assertNotNull(context, "Context should be created");
+    }
+
+    @Test
+    @DisplayName("Should extract Practitioner and PractitionerRole from prefetch keys")
+    void testExtractPractitionerAndRole_FromPrefetchKeys() {
+      CdsServiceRequestJson request = new CdsServiceRequestJson();
+
+      Practitioner practitioner = CdsHooksTestUtils.createTestPractitioner("prac-1");
+      PractitionerRole role = new PractitionerRole();
+      role.setId("role-1");
+
+      Bundle practitionerBundle = new Bundle();
+      practitionerBundle.setType(Bundle.BundleType.COLLECTION);
+      practitionerBundle.addEntry().setResource(practitioner);
+
+      Bundle roleBundle = new Bundle();
+      roleBundle.setType(Bundle.BundleType.COLLECTION);
+      roleBundle.addEntry().setResource(role);
+
+      request.addPrefetch("practitioner", practitionerBundle);
+      request.addPrefetch("practitionerRoles", roleBundle);
+
+      ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
+
+      assertEquals(1, context.getPractitioners().size());
+      assertEquals("prac-1", context.getPractitioners().get(0).getIdElement().getIdPart());
+      assertEquals(1, context.getPractitionerRoles().size());
+      assertEquals("role-1", context.getPractitionerRoles().get(0).getIdElement().getIdPart());
+    }
+
+    @Test
+    @DisplayName("Should extract device and service history from prefetch")
+    void testExtractDeviceAndServiceHistory_FromPrefetch() {
+      CdsServiceRequestJson request = new CdsServiceRequestJson();
+
+      DeviceRequest deviceRequest = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
+      ServiceRequest serviceRequest = CdsHooksTestUtils.createTestServiceRequest("sr-1", "99213", "patient1");
+
+      Bundle deviceHistoryBundle = new Bundle();
+      deviceHistoryBundle.setType(Bundle.BundleType.COLLECTION);
+      deviceHistoryBundle.addEntry().setResource(deviceRequest);
+
+      Bundle serviceHistoryBundle = new Bundle();
+      serviceHistoryBundle.setType(Bundle.BundleType.COLLECTION);
+      serviceHistoryBundle.addEntry().setResource(serviceRequest);
+
+      request.addPrefetch("deviceHistory", deviceHistoryBundle);
+      request.addPrefetch("serviceHistory", serviceHistoryBundle);
+
+      ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
+
+      assertEquals(1, context.getDeviceHistory().size());
+      assertEquals("dr-1", context.getDeviceHistory().get(0).getIdElement().getIdPart());
+      assertEquals(1, context.getServiceRequests().size());
+      assertEquals("sr-1", context.getServiceRequests().get(0).getIdElement().getIdPart());
+    }
+
+    @Test
+    @DisplayName("Should extract orders from draftOrders map")
+    void testExtractOrders_FromDraftOrdersMap() throws IOException {
+      CdsServiceRequestJson request = new CdsServiceRequestJson();
+
+      DeviceRequest deviceRequest = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
+      Bundle bundle = new Bundle();
+      bundle.setType(Bundle.BundleType.COLLECTION);
+      bundle.addEntry().setResource(deviceRequest);
+
+      Map<String, Object> draftOrdersMap = new HashMap<>();
+      draftOrdersMap.put("resourceType", "Bundle");
+      draftOrdersMap.put("type", "collection");
+
+      List<Map<String, Object>> entries = new ArrayList<>();
+      Map<String, Object> entry = new HashMap<>();
+      String deviceJson = CdsHooksTestUtils.getFhirContext().newJsonParser().encodeResourceToString(deviceRequest);
+      entry.put("resource", new ObjectMapper().readValue(deviceJson, Map.class));
+      entries.add(entry);
+      draftOrdersMap.put("entry", entries);
+
+      CdsServiceRequestContextJson requestContext = new CdsServiceRequestContextJson();
+      requestContext.put("draftOrders", draftOrdersMap);
+      request.setContext(requestContext);
+
+      ResolvedResources extractedContext = CdsResourceExtractor.extractAllResources(request);
+
+      assertEquals(1, extractedContext.getOrders().size());
+      assertInstanceOf(DeviceRequest.class, extractedContext.getOrders().get(0));
     }
   }
 
@@ -307,6 +396,43 @@ class ResourceResolverTest {
       String normalized = ResourceResolver.normalizeId(null);
 
       assertNull(normalized);
+    }
+  }
+
+  @Nested
+  @DisplayName("Normalize Reference ID")
+  class NormalizeReferenceId {
+
+    @Test
+    @DisplayName("Should return ID part when type matches")
+    void testNormalizeReferenceId_MatchingType() {
+      String normalized = ResourceResolver.normalizeReferenceId("Encounter/enc-123", "Encounter");
+
+      assertEquals("enc-123", normalized);
+    }
+
+    @Test
+    @DisplayName("Should return original when type does not match")
+    void testNormalizeReferenceId_WrongType() {
+      String normalized = ResourceResolver.normalizeReferenceId("Patient/p-1", "Encounter");
+
+      assertEquals("Patient/p-1", normalized);
+    }
+  }
+
+  @Nested
+  @DisplayName("References Match Resource")
+  class ReferencesMatchResource {
+
+    @Test
+    @DisplayName("Should match resource reference with urn:uuid ID")
+    void testReferencesMatchResource_UrnUuid() {
+      DeviceRequest request = new DeviceRequest();
+      request.setId("urn:uuid:dr-123");
+
+      boolean matches = ResourceResolver.referencesMatchResource("DeviceRequest/dr-123", request);
+
+      assertTrue(matches);
     }
   }
 

@@ -7,7 +7,7 @@ import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
-import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResolvedResources;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -98,7 +98,7 @@ class OrderSelectServiceTest {
     @Test
     @DisplayName("Should throw 400 when selections context is missing")
     void testMissingSelections_Returns400() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setOrders(List.of(
@@ -118,7 +118,7 @@ class OrderSelectServiceTest {
     @Test
     @DisplayName("Should throw 400 when draftOrders is empty")
     void testEmptyDraftOrders_Returns400() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setOrders(Collections.emptyList());
@@ -154,7 +154,7 @@ class OrderSelectServiceTest {
     @Test
     @DisplayName("Should match selections by relative reference")
     void testSelectionsByRelativeRef() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       DeviceRequest dr1 = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
       DeviceRequest dr2 = CdsHooksTestUtils.createTestDeviceRequest("dr-2", "E0251", "patient1");
       context.setOrders(List.of(dr1, dr2));
@@ -172,7 +172,7 @@ class OrderSelectServiceTest {
       // Selections can be full URLs like "http://example.org/fhir/MedicationRequest/1111"
       // The service should match these to orders in draftOrders
 
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       MedicationRequest mr1 = CdsHooksTestUtils.createTestMedicationRequest("1111", "1049502", "patient1");
       MedicationRequest mr2 = CdsHooksTestUtils.createTestMedicationRequest("2222", "1049504", "patient1");
       context.setOrders(List.of(mr1, mr2));

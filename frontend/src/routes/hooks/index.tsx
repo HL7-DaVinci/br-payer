@@ -44,6 +44,7 @@ import {
 import { useCdsServer, useCdsServerSelection } from "@/hooks/use-cds-server";
 import { useFhirServer, useServerSelection } from "@/hooks/use-fhir-server";
 import type { CdsCard, CdsService, CdsSystemAction } from "@/lib/cds-types";
+import { extractFhirReferenceId } from "@/lib/cds-types";
 
 export const Route = createFileRoute("/hooks/")({
   component: CdsHooksPage,
@@ -132,7 +133,7 @@ function CdsHooksPage() {
       if (typeof value === "string" && value.includes("/")) {
         if (idOnlyFields.has(key)) {
           // Extract just the ID for patient/encounter
-          ctx[key] = value.split("/")[1];
+          ctx[key] = extractFhirReferenceId(value) ?? value;
         } else {
           // Keep full reference for userId, performer, order, etc.
           ctx[key] = value;

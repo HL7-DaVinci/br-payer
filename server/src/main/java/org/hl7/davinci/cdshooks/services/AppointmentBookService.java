@@ -6,7 +6,7 @@ import java.util.List;
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.cdshooks.shared.CdsServiceBase;
 import org.hl7.davinci.cdshooks.shared.CrdServiceExtension;
-import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResolvedResources;
 import org.hl7.fhir.r4.model.Resource;
 
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
@@ -62,7 +62,7 @@ public class AppointmentBookService extends CdsServiceBase {
   }
 
   @Override
-  protected void validateExtractedResources(HookResourceContext context) {
+  protected void validateExtractedResources(ResolvedResources context) {
     if (context.getAppointments().isEmpty()) {
       throw new CdsHooksException.BadRequestException(
         "appointments context is required but was empty, missing, or could not be resolved."
@@ -71,7 +71,7 @@ public class AppointmentBookService extends CdsServiceBase {
   }
 
   @Override
-  protected List<Resource> selectContextResources(HookResourceContext context) {
+  protected List<Resource> selectContextResources(ResolvedResources context) {
     return new ArrayList<>(context.getAppointments());
   }
 }

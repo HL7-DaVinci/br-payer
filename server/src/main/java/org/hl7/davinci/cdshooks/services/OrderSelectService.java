@@ -6,7 +6,7 @@ import java.util.List;
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.cdshooks.shared.CdsServiceBase;
 import org.hl7.davinci.cdshooks.shared.CrdServiceExtension;
-import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResolvedResources;
 import org.hl7.davinci.cdshooks.shared.ResourceResolver;
 import org.hl7.fhir.r4.model.Resource;
 
@@ -62,7 +62,7 @@ public class OrderSelectService extends CdsServiceBase {
   }
 
   @Override
-  protected void validateExtractedResources(HookResourceContext context) {
+  protected void validateExtractedResources(ResolvedResources context) {
     // Patient validation is handled by HAPI prefetch layer (no failureMode.OMIT)
     // Coverage is optional for supporting hooks - if missing, base class returns empty response
 
@@ -79,15 +79,16 @@ public class OrderSelectService extends CdsServiceBase {
   }
 
   @Override
-  protected List<Resource> selectContextResources(HookResourceContext context) {
+  protected List<Resource> selectContextResources(ResolvedResources context) {
     List<Resource> selectedOrders = new ArrayList<>();
     List<String> selections = context.getSelections();
 
     for (Resource order : context.getOrders()) {
-      String resourceRef = order.fhirType() + "/" + order.getIdElement().getIdPart();
+      String resourceRef = ResourceResolver.toRelativeReference(order);
       String resourceId = order.getIdElement().getValue();
-      if (selections.stream().anyMatch(sel ->
+      if (resourceRef != null && selections.stream().anyMatch(sel ->
           ResourceResolver.referencesMatch(sel, resourceRef)
+          || ResourceResolver.referencesMatchResource(sel, order)
           || sel.equals(resourceId)
           || sel.equals(resourceRef))) {
         selectedOrders.add(order);

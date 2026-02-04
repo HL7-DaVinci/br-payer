@@ -733,9 +733,9 @@ export function buildPrefetchUrl(
     const value = context[key];
     if (typeof value !== "string") return "";
 
-    // Check if value is a FHIR reference (e.g., "Patient/123")
-    if (value.includes("/")) {
-      const [resourceType, id] = value.split("/");
+    const parsed = parseFhirReference(value);
+    if (parsed) {
+      const { resourceType, id } = parsed;
       // Check if the template already has the resource type before the token
       // e.g., "Patient/{{context.patientId}}" should become "Patient/123" not "Patient/Patient/123"
       const tokenIndex = template.indexOf(match);
@@ -747,6 +747,32 @@ export function buildPrefetchUrl(
 
     return value;
   });
+}
+
+/**
+ * Parse a FHIR reference in the form "ResourceType/id".
+ */
+export function parseFhirReference(
+  reference: string | null | undefined,
+): { resourceType: string; id: string } | null {
+  if (!reference || !reference.includes("/")) {
+    return null;
+  }
+  const [resourceType, id] = reference.split("/");
+  if (!resourceType || !id) {
+    return null;
+  }
+  return { resourceType, id };
+}
+
+/**
+ * Extract the ID part from a FHIR reference when present.
+ */
+export function extractFhirReferenceId(
+  reference: string | null | undefined,
+): string | null {
+  const parsed = parseFhirReference(reference);
+  return parsed ? parsed.id : null;
 }
 
 /**

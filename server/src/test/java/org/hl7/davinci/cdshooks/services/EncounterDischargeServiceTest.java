@@ -7,7 +7,7 @@ import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
-import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResolvedResources;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -95,7 +95,7 @@ class EncounterDischargeServiceTest {
     @Test
     @DisplayName("Should throw 400 when encounter is null")
     void testNullEncounter_Returns400() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setEncounter(null);
@@ -110,7 +110,7 @@ class EncounterDischargeServiceTest {
     @Test
     @DisplayName("Should pass validation when encounter exists")
     void testValidEncounter_PassesValidation() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
 
@@ -130,7 +130,7 @@ class EncounterDischargeServiceTest {
     @Test
     @DisplayName("Should select the encounter as context resource")
     void testSelectsEncounter() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
 
       Encounter encounter = new Encounter();
       encounter.setId("enc-001");

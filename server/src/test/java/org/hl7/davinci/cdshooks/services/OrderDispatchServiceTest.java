@@ -7,7 +7,7 @@ import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
-import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResolvedResources;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -88,7 +88,7 @@ class OrderDispatchServiceTest {
     @Test
     @DisplayName("Should throw 400 when dispatchedOrders context is empty")
     void testEmptyDispatchedOrders_Returns400() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setOrders(Collections.emptyList());
@@ -103,7 +103,7 @@ class OrderDispatchServiceTest {
     @Test
     @DisplayName("Should pass validation when dispatchedOrders has orders")
     void testValidDispatchedOrders_PassesValidation() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setPractitioners(List.of(
@@ -122,7 +122,7 @@ class OrderDispatchServiceTest {
     @Test
     @DisplayName("Should process ALL dispatched orders")
     void testSelectsAllOrders() {
-      HookResourceContext context = new HookResourceContext();
+      ResolvedResources context = new ResolvedResources();
       ServiceRequest sr1 = CdsHooksTestUtils.createTestServiceRequest("sr-1", "70553", "patient1");
       DeviceRequest dr1 = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0424", "patient1");
 

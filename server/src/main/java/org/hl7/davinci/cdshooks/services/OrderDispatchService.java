@@ -5,7 +5,8 @@ import java.util.List;
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.cdshooks.shared.CdsServiceBase;
 import org.hl7.davinci.cdshooks.shared.CrdServiceExtension;
-import org.hl7.davinci.cdshooks.shared.HookResourceContext;
+import org.hl7.davinci.cdshooks.shared.ResolvedResources;
+import org.hl7.davinci.cdshooks.shared.ResourceResolver;
 import org.hl7.fhir.r4.model.Resource;
 
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
@@ -60,7 +61,7 @@ public class OrderDispatchService extends CdsServiceBase {
   }
 
   @Override
-  protected void validateExtractedResources(HookResourceContext context) {
+  protected void validateExtractedResources(ResolvedResources context) {
     if (context.getOrders().isEmpty()) {
       throw new CdsHooksException.BadRequestException(
         "dispatchedOrders context is required but was empty, missing, or could not be resolved.");
@@ -81,17 +82,7 @@ public class OrderDispatchService extends CdsServiceBase {
         }
 
         boolean matches = context.getOrders().stream()
-            .filter(order -> order.hasIdElement())
-            .anyMatch(order -> {
-              String idPart = order.getIdElement().getIdPart();
-              String normalizedId = org.hl7.davinci.cdshooks.shared.ResourceResolver.normalizeId(idPart);
-              String rawRef = order.fhirType() + "/" + idPart;
-              String normalizedRef = order.fhirType() + "/" + normalizedId;
-              return org.hl7.davinci.cdshooks.shared.ResourceResolver.referencesMatch(
-                  task.getFocus().getReference(), rawRef)
-                  || org.hl7.davinci.cdshooks.shared.ResourceResolver.referencesMatch(
-                      task.getFocus().getReference(), normalizedRef);
-            });
+            .anyMatch(order -> ResourceResolver.referencesMatchResource(task.getFocus().getReference(), order));
 
         if (!matches) {
           throw new CdsHooksException.UnprocessableEntityException(
@@ -102,7 +93,7 @@ public class OrderDispatchService extends CdsServiceBase {
   }
 
   @Override
-  protected List<Resource> selectContextResources(HookResourceContext context) {
+  protected List<Resource> selectContextResources(ResolvedResources context) {
     return context.getOrders();
   }
 }
