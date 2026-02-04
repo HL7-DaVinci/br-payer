@@ -3,7 +3,10 @@ package org.hl7.davinci.cdshooks;
 import org.hl7.davinci.cdshooks.shared.CrdPrefetchSvc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -69,6 +72,25 @@ public class CdsHooksConfig {
         cdsPrefetchFhirClientSvc,
         cdsHooksDaoAuthorizationSvc,
         interceptorBroadcaster);
+  }
+
+  /**
+   * Removes the cdsServiceInterceptor bean definition from the library to prevent
+   * automatic CDS service registration from PlanDefinitions. This server registers
+   * CDS services explicitly via CdsServiceCtx.
+   */
+  @Bean
+  static BeanDefinitionRegistryPostProcessor removeCdsServiceInterceptor() {
+    return new BeanDefinitionRegistryPostProcessor() {
+      @Override
+      public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
+        if (registry.containsBeanDefinition("cdsServiceInterceptor")) {
+          registry.removeBeanDefinition("cdsServiceInterceptor");
+          LoggerFactory.getLogger(CdsHooksConfig.class)
+              .info("Removed cdsServiceInterceptor bean - using explicit CDS service registration");
+        }
+      }
+    };
   }
 
 }
