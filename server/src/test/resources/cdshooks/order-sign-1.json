@@ -48,7 +48,7 @@
             "codeCodeableConcept": {
               "coding": [
                 {
-                  "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                  "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
                   "code": "E0250",
                   "display": "Hospital bed fixed height with any type of side rails, mattress"
                 }
@@ -114,7 +114,7 @@
             "codeCodeableConcept": {
               "coding": [
                 {
-                  "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                  "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
                   "code": "E0250",
                   "display": "Hospital bed fixed height with any type of side rails, mattress"
                 }

@@ -202,26 +202,28 @@ public abstract class CdsServiceBase {
           "No Coverage resource is accessible for this patient. A Coverage resource with a valid payer identifier is required.");
     }
 
-    // Per CDS Hooks spec: 422 = Valid format but semantically invalid
+    // Per CRD IG: The server SHALL return a 400 error...This includes situations where... multiple Coverages are accessible"
     if (context.getCoverageCount() > 1) {
-      throw new CdsHooksException.UnprocessableEntityException(
+      throw new CdsHooksException.BadRequestException(
           "Multiple Coverage resources are accessible for this patient. CRD requires a single primary Coverage in the request.");
     }
 
     // Get payor identifiers for PlanDefinition matching
     List<Identifier> payorIdentifiers = extractPayorIdentifiers(context);
 
-    // Per CDS Hooks spec: 422 = Valid format but semantically invalid
+    // Per CRD IG: The server SHALL return a 400 error...This includes situations where... the provided Coverage does not have a payer.identifier at all"
     if (payorIdentifiers.isEmpty()) {
-      throw new CdsHooksException.UnprocessableEntityException(
+      throw new CdsHooksException.BadRequestException(
           "Coverage resource (" + context.getCoverage().getId()
               + ") lacks valid payer identifier. Coverage.payor must reference an Organization with a valid identifier. Coverage.payor value: "
               + context.getCoverage().getPayor().stream().map(Reference::getReference).toList());
     }
 
-    // Per CDS Hooks spec: 422 = Valid format but semantically invalid
+    // Per CRD IG: "if a CRD server receives a call where the primary Coverage...does not
+    // have a payer.identifier that identifies a payer that is handled by that CRD server
+    // endpoint, the server SHALL return a 400 error"
     if (!planDefinitionFinder.isPayorHandled(payorIdentifiers)) {
-      throw new CdsHooksException.UnprocessableEntityException(
+      throw new CdsHooksException.BadRequestException(
           "The payer identifier in Coverage is not handled by this CRD server endpoint.");
     }
 

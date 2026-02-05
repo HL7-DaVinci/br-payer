@@ -1233,7 +1233,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0424",
               display: "Stationary compressed gaseous oxygen system",
             },
@@ -1257,7 +1257,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0431",
               display: "Portable gaseous oxygen system",
             },
@@ -1280,7 +1280,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E1390",
               display: "Oxygen concentrator",
             },

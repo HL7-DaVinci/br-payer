@@ -74,10 +74,12 @@ public class OrderDispatchService extends CdsServiceBase {
           "performer context is required but was empty, missing, or could not be resolved.");
     }
 
+    // Per CDS Hooks order-dispatch spec: "If Tasks are provided, each will be for a
+    // separate order and SHALL reference one of the dispatched-orders."
     if (!context.getTasks().isEmpty()) {
       for (var task : context.getTasks()) {
         if (!task.hasFocus() || !task.getFocus().hasReference()) {
-          throw new CdsHooksException.UnprocessableEntityException(
+          throw new CdsHooksException.BadRequestException(
               "fulfillmentTasks entries must reference one of the dispatchedOrders.");
         }
 
@@ -85,7 +87,7 @@ public class OrderDispatchService extends CdsServiceBase {
             .anyMatch(order -> ResourceResolver.referencesMatchResource(task.getFocus().getReference(), order));
 
         if (!matches) {
-          throw new CdsHooksException.UnprocessableEntityException(
+          throw new CdsHooksException.BadRequestException(
               "fulfillmentTasks entries must reference one of the dispatchedOrders.");
         }
       }

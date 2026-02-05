@@ -227,7 +227,7 @@ public class CdsHooksTestUtils {
 
     CodeableConcept code = new CodeableConcept();
     code.addCoding()
-        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setSystem("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
         .setCode(hcpcsCode)
         .setDisplay("Test Device");
     request.setCode(code);

@@ -183,7 +183,7 @@ class CdsServiceBaseTest {
 
       assertEquals(1, codes.size());
       assertEquals("E0250", codes.get(0).getCode());
-      assertEquals("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", codes.get(0).getSystem());
+      assertEquals("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", codes.get(0).getSystem());
     }
 
     @Test
