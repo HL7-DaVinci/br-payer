@@ -14,6 +14,7 @@ import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.NutritionOrder;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
+import org.hl7.fhir.r4.model.SupplyRequest;
 import org.hl7.fhir.r4.model.VisionPrescription;
 
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
@@ -24,6 +25,13 @@ import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 public final class FhirCodeExtractor {
 
   private FhirCodeExtractor() {
+  }
+
+  /**
+   * DTR-friendly overload: extracts codes without a CDS Hooks request context.
+   */
+  public static List<Coding> extractCodes(Resource resource, boolean normalizeSystem) {
+    return extractCodes(resource, normalizeSystem, null);
   }
 
   /**
@@ -83,6 +91,10 @@ public final class FhirCodeExtractor {
     } else if (resource instanceof ServiceRequest serviceRequest) {
       if (serviceRequest.hasCode()) {
         codes.addAll(serviceRequest.getCode().getCoding());
+      }
+    } else if (resource instanceof SupplyRequest supplyRequest) {
+      if (supplyRequest.hasItemCodeableConcept()) {
+        codes.addAll(supplyRequest.getItemCodeableConcept().getCoding());
       }
     } else if (resource instanceof VisionPrescription visionPrescription) {
       if (visionPrescription.hasLensSpecification()) {

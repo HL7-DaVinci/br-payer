@@ -110,6 +110,11 @@ public class PlanDefinitionFinder {
 
     planDefBundle.getResources(0, planDefBundle.size()).forEach(resource -> {
       if (resource instanceof PlanDefinition planDef) {
+        if (hook == null) {
+          // DTR path: no trigger filtering, accept all code+payor matches
+          plans.add(planDef);
+          return;
+        }
         if (planDef.hasAction()) {
           for (PlanDefinition.PlanDefinitionActionComponent action : planDef.getAction()) {
             if (action.hasTrigger()) {

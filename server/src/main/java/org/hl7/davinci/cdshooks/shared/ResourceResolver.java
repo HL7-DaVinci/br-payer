@@ -18,6 +18,7 @@ import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
+import org.hl7.fhir.r4.model.SupplyRequest;
 import org.hl7.fhir.r4.model.VisionPrescription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,6 +94,10 @@ public class ResourceResolver {
    */
   public static <T extends IBaseResource> T findInPrefetch(String reference, Class<T> resourceType,
       CdsServiceRequestJson request) {
+
+    if (request == null || request.getPrefetchKeys() == null) {
+      return null;
+    }
 
     for (String key : request.getPrefetchKeys()) {
       Object prefetch = request.getPrefetch(key);
@@ -215,6 +220,10 @@ public class ResourceResolver {
    */
   public static <T extends IBaseResource> T resolveFromServer(String resourceId, Class<T> resourceType,
       CdsServiceRequestJson request) {
+
+    if (request == null) {
+      return null;
+    }
 
     try {
       String fhirServerBase = request.getFhirServer();
@@ -342,6 +351,7 @@ public class ResourceResolver {
       case "MedicationRequest" -> resolveReference(ref, MedicationRequest.class, null, request);
       case "NutritionOrder" -> resolveReference(ref, NutritionOrder.class, null, request);
       case "ServiceRequest" -> resolveReference(ref, ServiceRequest.class, null, request);
+      case "SupplyRequest" -> resolveReference(ref, SupplyRequest.class, null, request);
       case "VisionPrescription" -> resolveReference(ref, VisionPrescription.class, null, request);
       case "Appointment" -> resolveReference(ref, Appointment.class, null, request);
       case "Encounter" -> resolveReference(ref, Encounter.class, null, request);
@@ -393,6 +403,7 @@ public class ResourceResolver {
         resource instanceof MedicationRequest ||
         resource instanceof NutritionOrder ||
         resource instanceof ServiceRequest ||
+        resource instanceof SupplyRequest ||
         resource instanceof VisionPrescription;
   }
 

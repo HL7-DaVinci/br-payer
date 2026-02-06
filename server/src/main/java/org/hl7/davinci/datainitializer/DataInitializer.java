@@ -7,6 +7,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.hl7.davinci.cql.CqlFileResolver;
+import org.hl7.davinci.cql.DaoLibrarySourceProvider;
+import org.hl7.davinci.cql.ElmCompiler;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Library;
 import org.slf4j.Logger;
@@ -58,6 +60,12 @@ public class DataInitializer {
 
   @Autowired
   private CqlFileResolver cqlFileResolver;
+
+  @Autowired
+  private ElmCompiler elmCompiler;
+
+  @Autowired
+  private DaoLibrarySourceProvider daoLibrarySourceProvider;
 
   @PostConstruct
   public void initializeData() {
@@ -124,9 +132,10 @@ public class DataInitializer {
           String resourceText = new String(is.readAllBytes(), StandardCharsets.UTF_8);
           IBaseResource fhirResource = fhirContext.newJsonParser().parseResource(resourceText);
 
-          // For Library resources, resolve external CQL file references
+          // For Library resources, resolve external CQL file references and compile ELM
           if (fhirResource instanceof Library library) {
             cqlFileResolver.resolveExternalContent(library, jsonResource);
+            elmCompiler.compileAndAttachElm(library, daoLibrarySourceProvider);
           }
 
           IFhirResourceDao<IBaseResource> dao = daoRegistry.getResourceDao(fhirResource);

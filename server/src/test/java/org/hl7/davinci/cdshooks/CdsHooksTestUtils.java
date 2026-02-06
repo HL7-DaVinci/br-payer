@@ -322,6 +322,26 @@ public class CdsHooksTestUtils {
     return appointment;
   }
 
+  /**
+   * Create a test SupplyRequest with item code.
+   */
+  public static SupplyRequest createTestSupplyRequest(String id, String hcpcsCode, String patientId) {
+    SupplyRequest request = new SupplyRequest();
+    request.setId(id);
+    request.setStatus(SupplyRequest.SupplyRequestStatus.ACTIVE);
+
+    CodeableConcept item = new CodeableConcept();
+    item.addCoding()
+        .setSystem("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode(hcpcsCode)
+        .setDisplay("Test Supply Item");
+    request.setItem(item);
+
+    request.getRequester().setReference("Patient/" + patientId);
+
+    return request;
+  }
+
   // ============================================================
   // ASSERTION HELPERS
   // ============================================================

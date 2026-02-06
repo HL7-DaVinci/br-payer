@@ -437,6 +437,29 @@ class ResourceResolverTest {
   }
 
   @Nested
+  @DisplayName("Resolve Order Reference")
+  class ResolveOrderReference {
+
+    @Test
+    @DisplayName("Should resolve SupplyRequest from reference string")
+    void testResolveOrderReference_SupplyRequest() {
+      CdsServiceRequestJson request = new CdsServiceRequestJson();
+
+      SupplyRequest supplyRequest = CdsHooksTestUtils.createTestSupplyRequest("sup-1", "E0100", "patient1");
+      Bundle bundle = new Bundle();
+      bundle.setType(Bundle.BundleType.COLLECTION);
+      bundle.addEntry().setResource(supplyRequest);
+      request.addPrefetch("draftOrders", bundle);
+
+      Resource resolved = ResourceResolver.resolveOrderReference("SupplyRequest/sup-1", request);
+
+      assertNotNull(resolved);
+      assertInstanceOf(SupplyRequest.class, resolved);
+      assertEquals("sup-1", resolved.getIdElement().getIdPart());
+    }
+  }
+
+  @Nested
   @DisplayName("Extract Orders From Bundle")
   class ExtractOrdersFromBundle {
 
