@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "CareManagementEnrollment",
-  "url": "http://example.org/fhir/PlanDefinition/CareManagementEnrollment",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/CareManagementEnrollment",
   "version": "1.0.0",
   "name": "CareManagementEnrollment",
   "title": "Care Management Program Enrollment Notification",

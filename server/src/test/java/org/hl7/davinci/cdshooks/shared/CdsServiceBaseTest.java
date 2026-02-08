@@ -3,6 +3,7 @@ package org.hl7.davinci.cdshooks.shared;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.*;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
+import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +35,9 @@ import static org.mockito.Mockito.*;
 class CdsServiceBaseTest {
 
   @Mock
+  private PlanDefinitionService planDefinitionService;
+
+  @Mock
   private PlanDefinitionFinder planDefinitionFinder;
 
   @Mock
@@ -48,6 +52,7 @@ class CdsServiceBaseTest {
   @BeforeEach
   void setUp() {
     testService = new TestCdsService();
+    testService.planDefinitionService = planDefinitionService;
     testService.planDefinitionFinder = planDefinitionFinder;
     testService.coverageInfoHandler = coverageInfoHandler;
     testService.cardConverter = cardConverter;
@@ -552,9 +557,9 @@ class CdsServiceBaseTest {
       payorId.setSystem(CdsHooksTestUtils.CMS_PAYOR_SYSTEM);
       payorId.setValue(CdsHooksTestUtils.CMS_PAYOR_VALUE);
 
-      when(planDefinitionFinder.isPayorHandled(any())).thenReturn(true);
+      when(planDefinitionService.isPayorHandled(any())).thenReturn(true);
 
-      boolean handled = planDefinitionFinder.isPayorHandled(List.of(payorId));
+      boolean handled = planDefinitionService.isPayorHandled(List.of(payorId));
 
       assertTrue(handled);
     }
@@ -566,9 +571,9 @@ class CdsServiceBaseTest {
       payorId.setSystem("http://unknown-system");
       payorId.setValue("unknown-value");
 
-      when(planDefinitionFinder.isPayorHandled(any())).thenReturn(false);
+      when(planDefinitionService.isPayorHandled(any())).thenReturn(false);
 
-      boolean handled = planDefinitionFinder.isPayorHandled(List.of(payorId));
+      boolean handled = planDefinitionService.isPayorHandled(List.of(payorId));
 
       assertFalse(handled);
     }

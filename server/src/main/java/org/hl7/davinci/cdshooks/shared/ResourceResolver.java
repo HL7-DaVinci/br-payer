@@ -3,6 +3,7 @@ package org.hl7.davinci.cdshooks.shared;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
@@ -77,16 +78,11 @@ public class ResourceResolver {
 
   /**
    * Finds a resource in the parent's contained resources.
+   * @see FhirUtil#findInContained(String, Class, DomainResource)
    */
   public static <T extends IBaseResource> T findInContained(String containedId, Class<T> resourceType,
       DomainResource parentResource) {
-
-    for (Resource contained : parentResource.getContained()) {
-      if (resourceType.isInstance(contained) && containedId.equals(contained.getIdElement().getIdPart())) {
-        return resourceType.cast(contained);
-      }
-    }
-    return null;
+    return FhirUtil.findInContained(containedId, resourceType, parentResource);
   }
 
   /**
@@ -277,20 +273,11 @@ public class ResourceResolver {
   }
 
   /**
-   * Returns the URL with swapped protocol (https<->http), or null if not
-   * http/https.
+   * Returns the URL with swapped protocol (https↔http), or null if not http/https.
+   * @see FhirUtil#getAlternateProtocolUrl(String)
    */
   public static String getAlternateProtocolUrl(String url) {
-    if (url == null) {
-      return null;
-    }
-    if (url.startsWith("https://")) {
-      return url.replaceFirst("https://", "http://");
-    }
-    if (url.startsWith("http://")) {
-      return url.replaceFirst("http://", "https://");
-    }
-    return null;
+    return FhirUtil.getAlternateProtocolUrl(url);
   }
 
   /**

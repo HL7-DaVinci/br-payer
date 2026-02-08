@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "InsuranceEligibilityCheck",
-  "url": "http://example.org/fhir/PlanDefinition/InsuranceEligibilityCheck",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/InsuranceEligibilityCheck",
   "version": "1.0.0",
   "name": "InsuranceEligibilityCheck",
   "title": "Insurance Eligibility Check at Encounter Start",

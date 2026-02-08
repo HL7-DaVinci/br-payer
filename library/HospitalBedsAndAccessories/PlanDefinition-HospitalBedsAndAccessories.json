@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "HospitalBedsAndAccessories",
-  "url": "http://example.org/fhir/PlanDefinition/HospitalBedsAndAccessories",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/HospitalBedsAndAccessories",
   "version": "1.0.0",
   "name": "HospitalBedsAndAccessories",
   "title": "Hospital Beds and Accessories",

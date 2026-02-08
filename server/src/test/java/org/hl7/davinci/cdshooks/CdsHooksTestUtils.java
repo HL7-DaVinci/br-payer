@@ -471,7 +471,6 @@ public class CdsHooksTestUtils {
   /**
    * Modify a request's context to set a different hook name.
    */
-  @SuppressWarnings("unchecked")
   public static void setHookName(CdsServiceRequestJson request, String hookName) {
     // CdsServiceRequestJson uses reflection/gson, so we access via the underlying map
     try {

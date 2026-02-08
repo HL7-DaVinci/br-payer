@@ -809,7 +809,7 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Wrong hook name returns 400")
     void testEncounterStart_WrongHookName_Returns400() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+      String requestBody = CdsHooksTestUtils.loadFixture("encounter-discharge-home.json");
 
       int statusCode = postAndGetStatusCode("encounter-start-crd", requestBody);
 
@@ -861,7 +861,7 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Wrong hook name returns 400")
     void testEncounterDischarge_WrongHookName_Returns400() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+      String requestBody = CdsHooksTestUtils.loadFixture("encounter-start-inpatient.json");
 
       int statusCode = postAndGetStatusCode("encounter-discharge-crd", requestBody);
 

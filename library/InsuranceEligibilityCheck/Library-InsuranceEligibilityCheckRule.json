@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "InsuranceEligibilityCheckRule",
-  "url": "http://example.org/fhir/Library/InsuranceEligibilityCheckRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/InsuranceEligibilityCheckRule",
   "version": "1.0.0",
   "name": "InsuranceEligibilityCheckRule",
   "title": "Insurance Eligibility Check Rule",

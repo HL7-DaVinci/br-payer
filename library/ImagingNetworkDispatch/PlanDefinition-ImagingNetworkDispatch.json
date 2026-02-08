@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "ImagingNetworkDispatch",
-  "url": "http://example.org/fhir/PlanDefinition/ImagingNetworkDispatch",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/ImagingNetworkDispatch",
   "version": "1.0.0",
   "name": "ImagingNetworkDispatch",
   "title": "Imaging Services Network Dispatch",

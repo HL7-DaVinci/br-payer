@@ -101,7 +101,7 @@ define "Covered": 'covered'
 
 define "Questionnaire URLs":
   CRD."Questionnaire URLs Value"("Documentation Required",
-    { 'Questionnaire/HospitalBedsAndAccessories', 'Questionnaire/HospitalBedsAndAccessoriesFaceToFace' })
+    { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HospitalBedsAndAccessories' })
 
 // ============================================================
 // FINAL COVERAGE EXTENSION

@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "CardiologyConsultation",
-  "url": "http://example.org/fhir/PlanDefinition/CardiologyConsultation",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/CardiologyConsultation",
   "version": "1.0.0",
   "name": "CardiologyConsultation",
   "title": "Cardiology Consultation Appointment",

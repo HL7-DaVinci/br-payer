@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "CareTransitionFollowup",
-  "url": "http://example.org/fhir/PlanDefinition/CareTransitionFollowup",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/CareTransitionFollowup",
   "version": "1.0.0",
   "name": "CareTransitionFollowup",
   "title": "Care Transition Follow-up Guidance",

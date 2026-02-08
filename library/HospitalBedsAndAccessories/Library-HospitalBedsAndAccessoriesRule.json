@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "HospitalBedsAndAccessoriesRule",
-  "url": "http://example.org/fhir/Library/HospitalBedsAndAccessoriesRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/HospitalBedsAndAccessoriesRule",
   "name": "HospitalBedsAndAccessoriesRule",
   "version": "1.0.0",
   "title": "Hospital Bed and Accessories CRD Rule",

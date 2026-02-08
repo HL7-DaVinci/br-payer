@@ -103,7 +103,7 @@
     },
     {
       "name": "questionnaire",
-      "valueCanonical": "http://example.org/fhir/Questionnaire/HospitalBedsAndAccessories"
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HospitalBedsAndAccessories"
     }
   ]
 }

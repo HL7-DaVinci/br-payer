@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "DischargeDocumentationRule",
-  "url": "http://example.org/fhir/Library/DischargeDocumentationRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/DischargeDocumentationRule",
   "version": "1.0.0",
   "name": "DischargeDocumentationRule",
   "title": "Discharge Documentation Rule",

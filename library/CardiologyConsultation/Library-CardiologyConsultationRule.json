@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "CardiologyConsultationRule",
-  "url": "http://example.org/fhir/Library/CardiologyConsultationRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/CardiologyConsultationRule",
   "name": "CardiologyConsultationRule",
   "version": "1.0.0",
   "title": "Cardiology Consultation CRD Rule",

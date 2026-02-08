@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "CareManagementEnrollmentRule",
-  "url": "http://example.org/fhir/Library/CareManagementEnrollmentRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/CareManagementEnrollmentRule",
   "version": "1.0.0",
   "name": "CareManagementEnrollmentRule",
   "title": "Care Management Enrollment Rule",

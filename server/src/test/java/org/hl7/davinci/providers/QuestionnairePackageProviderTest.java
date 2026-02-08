@@ -1,6 +1,7 @@
 package org.hl7.davinci.providers;
 
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
+import org.hl7.davinci.dtr.DtrPackageService;
 import org.hl7.fhir.instance.model.api.IAnyResource;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,15 +14,22 @@ import java.util.List;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 class QuestionnairePackageProviderTest {
 
   private QuestionnairePackageProvider provider;
+  private DtrPackageService mockPackageService;
   private Coverage testCoverage;
 
   @BeforeEach
   void setUp() {
-    provider = new QuestionnairePackageProvider();
+    mockPackageService = mock(DtrPackageService.class);
+    // Return empty Parameters by default
+    when(mockPackageService.generatePackages(any(), any(), any(), any()))
+        .thenReturn(new Parameters());
+    provider = new QuestionnairePackageProvider(mockPackageService);
     testCoverage = CdsHooksTestUtils.createTestCoverage("cov-1", "org-1");
   }
 
@@ -30,7 +38,7 @@ class QuestionnairePackageProviderTest {
   class ValidRequestTests {
 
     @Test
-    @DisplayName("Canonical-only request returns empty Parameters")
+    @DisplayName("Canonical-only request delegates to service")
     void canonicalOnly_returns200() {
       List<CanonicalType> questionnaires = List.of(
           new CanonicalType("http://example.org/Questionnaire/test"));
@@ -39,10 +47,11 @@ class QuestionnairePackageProviderTest {
           testCoverage, null, questionnaires, null, null);
 
       assertNotNull(result);
+      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), eq(questionnaires), isNull());
     }
 
     @Test
-    @DisplayName("Order-only request returns empty Parameters")
+    @DisplayName("Order-only request delegates to service")
     void orderOnly_returns200() {
       DeviceRequest order = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0424", "patient-1");
       List<IAnyResource> orders = List.of(order);
@@ -51,10 +60,11 @@ class QuestionnairePackageProviderTest {
           testCoverage, orders, null, null, null);
 
       assertNotNull(result);
+      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), isNull(), isNull());
     }
 
     @Test
-    @DisplayName("Combined order and questionnaire request returns empty Parameters")
+    @DisplayName("Combined order and questionnaire request delegates to service")
     void combined_returns200() {
       DeviceRequest order = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0424", "patient-1");
       List<IAnyResource> orders = List.of(order);
@@ -65,10 +75,11 @@ class QuestionnairePackageProviderTest {
           testCoverage, orders, questionnaires, null, null);
 
       assertNotNull(result);
+      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), eq(questionnaires), isNull());
     }
 
     @Test
-    @DisplayName("Context alongside questionnaire is accepted")
+    @DisplayName("Context alongside questionnaire is accepted with warning")
     void contextWithQuestionnaire_returns200() {
       List<CanonicalType> questionnaires = List.of(
           new CanonicalType("http://example.org/Questionnaire/test"));
@@ -91,6 +102,8 @@ class QuestionnairePackageProviderTest {
           testCoverage, null, questionnaires, null, new InstantType("2026-01-01T00:00:00Z"));
 
       assertNotNull(result);
+      verify(mockPackageService).generatePackages(
+          eq(testCoverage), anyList(), eq(questionnaires), any(InstantType.class));
     }
   }
 
@@ -181,6 +194,54 @@ class QuestionnairePackageProviderTest {
 
       assertNotNull(result);
       assertTrue(result.hasParameter("outcome"));
+    }
+  }
+
+  @Nested
+  @DisplayName("Service delegation")
+  class ServiceDelegationTests {
+
+    @Test
+    @DisplayName("Service result with packagebundle is returned to caller")
+    void serviceResult_returned() {
+      Parameters serviceResult = new Parameters();
+      serviceResult.addParameter().setName("packagebundle").setResource(new Bundle());
+      when(mockPackageService.generatePackages(any(), any(), any(), any()))
+          .thenReturn(serviceResult);
+
+      List<CanonicalType> questionnaires = List.of(
+          new CanonicalType("http://example.org/Questionnaire/test"));
+
+      Parameters result = provider.questionnairePackage(
+          testCoverage, null, questionnaires, null, null);
+
+      assertTrue(result.hasParameter("packagebundle"));
+    }
+
+    @Test
+    @DisplayName("Service warnings merged with provider warnings")
+    void warningsMerged() {
+      // Service returns result with its own outcome
+      Parameters serviceResult = new Parameters();
+      OperationOutcome serviceOutcome = new OperationOutcome();
+      serviceOutcome.addIssue()
+          .setSeverity(OperationOutcome.IssueSeverity.WARNING)
+          .setCode(OperationOutcome.IssueType.INFORMATIONAL)
+          .setDiagnostics("Service-level warning");
+      serviceResult.addParameter().setName("outcome").setResource(serviceOutcome);
+      when(mockPackageService.generatePackages(any(), any(), any(), any()))
+          .thenReturn(serviceResult);
+
+      // Trigger a provider-level warning via context parameter
+      List<CanonicalType> questionnaires = List.of(
+          new CanonicalType("http://example.org/Questionnaire/test"));
+
+      Parameters result = provider.questionnairePackage(
+          testCoverage, null, questionnaires, new StringType("some-context"), null);
+
+      OperationOutcome outcome = (OperationOutcome) result.getParameter("outcome").getResource();
+      // Should have both service-level and provider-level warnings
+      assertTrue(outcome.getIssue().size() >= 2);
     }
   }
 }

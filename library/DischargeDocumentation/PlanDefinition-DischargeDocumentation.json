@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "DischargeDocumentation",
-  "url": "http://example.org/fhir/PlanDefinition/DischargeDocumentation",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/DischargeDocumentation",
   "version": "1.0.0",
   "name": "DischargeDocumentation",
   "title": "Discharge Documentation Completeness Check",

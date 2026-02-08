@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "ImagingNetworkDispatchRule",
-  "url": "http://example.org/fhir/Library/ImagingNetworkDispatchRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/ImagingNetworkDispatchRule",
   "version": "1.0.0",
   "name": "ImagingNetworkDispatchRule",
   "title": "Imaging Network Dispatch Rule",

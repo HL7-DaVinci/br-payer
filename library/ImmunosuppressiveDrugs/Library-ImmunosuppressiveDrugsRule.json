@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "ImmunosuppressiveDrugsRule",
-  "url": "http://example.org/fhir/Library/ImmunosuppressiveDrugsRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/ImmunosuppressiveDrugsRule",
   "name": "ImmunosuppressiveDrugsRule",
   "version": "1.0.0",
   "title": "Immunosuppressive Drugs CRD Rule",

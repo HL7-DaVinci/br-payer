@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "PhysicalTherapyRule",
-  "url": "http://example.org/fhir/Library/PhysicalTherapyRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/PhysicalTherapyRule",
   "name": "PhysicalTherapyRule",
   "version": "1.0.0",
   "title": "Physical Therapy CRD Rule",

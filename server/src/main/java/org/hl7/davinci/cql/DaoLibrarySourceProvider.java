@@ -33,6 +33,11 @@ public class DaoLibrarySourceProvider implements LibrarySourceProvider {
   // Libraries bundled on the classpath (resolved by the translator's built-in FhirLibrarySourceProvider)
   private static final Set<String> CLASSPATH_LIBRARIES = Set.of("FHIRHelpers");
 
+  /** Check if a library name is provided on the classpath (not stored in the repository). */
+  public static boolean isClasspathLibrary(String name) {
+    return name != null && CLASSPATH_LIBRARIES.contains(name);
+  }
+
   private final DaoRegistry daoRegistry;
 
   public DaoLibrarySourceProvider(DaoRegistry daoRegistry) {
@@ -59,7 +64,7 @@ public class DaoLibrarySourceProvider implements LibrarySourceProvider {
         .search(searchParams, new SystemRequestDetails());
 
     if (results.isEmpty()) {
-      logger.warn("Library not found in repository: {} version {}", name, version);
+      logger.debug("Library not found in repository: {} version {}", name, version);
       return null;
     }
 

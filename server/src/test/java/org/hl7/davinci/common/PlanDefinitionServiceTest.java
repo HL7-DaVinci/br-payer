@@ -1,4 +1,4 @@
-package org.hl7.davinci.cdshooks.shared;
+package org.hl7.davinci.common;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
@@ -21,19 +21,14 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class PlanDefinitionFinderTest {
+class PlanDefinitionServiceTest {
 
   @Mock
   private DaoRegistry daoRegistry;
-
-  @Mock
-  private CardConverter cardConverter;
-
-  @Mock
-  private CoverageInfoHandler coverageInfoHandler;
 
   @Mock
   @SuppressWarnings("rawtypes")
@@ -43,7 +38,7 @@ class PlanDefinitionFinderTest {
   private IBundleProvider bundleProvider;
 
   @InjectMocks
-  private PlanDefinitionFinder planDefinitionFinder;
+  private PlanDefinitionService planDefinitionService;
 
   private Coding testCode;
   private List<Identifier> payorIdentifiers;
@@ -58,8 +53,8 @@ class PlanDefinitionFinderTest {
     payorIdentifiers = List.of(
         new Identifier().setSystem("urn:oid:2.16.840.1.113883.6.300").setValue("00001"));
 
-    when(daoRegistry.getResourceDao(PlanDefinition.class)).thenReturn(planDefinitionDao);
-    when(planDefinitionDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+    lenient().when(daoRegistry.getResourceDao(PlanDefinition.class)).thenReturn(planDefinitionDao);
+    lenient().when(planDefinitionDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
         .thenReturn(bundleProvider);
   }
 
@@ -93,7 +88,7 @@ class PlanDefinitionFinderTest {
       when(bundleProvider.size()).thenReturn(resources.size());
       when(bundleProvider.getResources(0, resources.size())).thenReturn(resources);
 
-      List<PlanDefinition> results = planDefinitionFinder.findPlanDefinitions(testCode, payorIdentifiers, null);
+      List<PlanDefinition> results = planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, null);
 
       assertEquals(3, results.size(), "Null hook should return all PlanDefinitions without trigger filtering");
     }
@@ -113,7 +108,7 @@ class PlanDefinitionFinderTest {
       when(bundleProvider.size()).thenReturn(resources.size());
       when(bundleProvider.getResources(0, resources.size())).thenReturn(resources);
 
-      List<PlanDefinition> results = planDefinitionFinder.findPlanDefinitions(testCode, payorIdentifiers, "order-sign");
+      List<PlanDefinition> results = planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, "order-sign");
 
       assertEquals(1, results.size());
       assertEquals("pd-1", results.get(0).getId());
@@ -128,9 +123,62 @@ class PlanDefinitionFinderTest {
       when(bundleProvider.size()).thenReturn(resources.size());
       when(bundleProvider.getResources(0, resources.size())).thenReturn(resources);
 
-      List<PlanDefinition> results = planDefinitionFinder.findPlanDefinitions(testCode, payorIdentifiers, "encounter-start");
+      List<PlanDefinition> results = planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, "encounter-start");
 
       assertTrue(results.isEmpty());
+    }
+  }
+
+  @Nested
+  @DisplayName("extractRequestGroup")
+  class ExtractRequestGroupTests {
+
+    @Test
+    @DisplayName("Returns null for null input")
+    void returnsNull_forNullInput() {
+      assertNull(planDefinitionService.extractRequestGroup(null));
+    }
+
+    @Test
+    @DisplayName("Extracts RequestGroup from R4 CarePlan contained resource")
+    void extractsFromCarePlan() {
+      RequestGroup rg = new RequestGroup();
+      rg.setId("rg-1");
+
+      CarePlan carePlan = new CarePlan();
+      carePlan.addContained(rg);
+      CarePlan.CarePlanActivityComponent activity = carePlan.addActivity();
+      activity.getReference().setReference("#rg-1");
+
+      RequestGroup result = planDefinitionService.extractRequestGroup(carePlan);
+
+      assertNotNull(result);
+      assertEquals("rg-1", result.getIdElement().getIdPart());
+    }
+
+    @Test
+    @DisplayName("Returns null from CarePlan without activities")
+    void returnsNull_fromCarePlanWithoutActivities() {
+      CarePlan carePlan = new CarePlan();
+      assertNull(planDefinitionService.extractRequestGroup(carePlan));
+    }
+
+    @Test
+    @DisplayName("Extracts RequestGroup from R5 Parameters return")
+    void extractsFromParameters() {
+      RequestGroup rg = new RequestGroup();
+      rg.setId("rg-1");
+
+      Bundle bundle = new Bundle();
+      bundle.addEntry().setResource(rg);
+
+      Parameters params = new Parameters();
+      params.addParameter().setName("return").setResource(bundle);
+
+      RequestGroup result = planDefinitionService.extractRequestGroup(params);
+
+      assertNotNull(result);
+      assertEquals("rg-1", result.getIdElement().getIdPart());
     }
   }
 }

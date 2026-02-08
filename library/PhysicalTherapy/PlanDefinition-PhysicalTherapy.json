@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "PhysicalTherapy",
-  "url": "http://example.org/fhir/PlanDefinition/PhysicalTherapy",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/PhysicalTherapy",
   "version": "1.0.0",
   "name": "PhysicalTherapy",
   "title": "Physical Therapy Appointment",

@@ -1,4 +1,4 @@
-package org.hl7.davinci.cdshooks.shared;
+package org.hl7.davinci.common;
 
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
 import org.hl7.fhir.r4.model.*;
@@ -37,6 +37,36 @@ class FhirCodeExtractorTest {
 
       assertTrue(codes.isEmpty());
     }
+
+    @Test
+    @DisplayName("Extracts codes from SupplyRequest with itemReference via resolved Medication")
+    void extractsCodes_fromSupplyRequestWithResolvedMedication() {
+      SupplyRequest request = new SupplyRequest();
+      request.setId("sr-ref");
+      request.setItem(new Reference("Medication/med-1"));
+
+      Medication medication = new Medication();
+      medication.setCode(new CodeableConcept().addCoding(new Coding()
+          .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
+          .setCode("197361")));
+
+      List<Coding> codes = FhirCodeExtractor.extractCodes(request, false, medication);
+
+      assertFalse(codes.isEmpty(), "Should extract codes from resolved Medication");
+      assertEquals("197361", codes.get(0).getCode());
+    }
+
+    @Test
+    @DisplayName("Returns empty list from SupplyRequest with itemReference but no resolved resource")
+    void returnsEmpty_fromSupplyRequestWithUnresolvedReference() {
+      SupplyRequest request = new SupplyRequest();
+      request.setId("sr-unresolved");
+      request.setItem(new Reference("Medication/med-1"));
+
+      List<Coding> codes = FhirCodeExtractor.extractCodes(request, false, null);
+
+      assertTrue(codes.isEmpty());
+    }
   }
 
   @Nested
@@ -44,7 +74,7 @@ class FhirCodeExtractorTest {
   class TwoParamOverloadTests {
 
     @Test
-    @DisplayName("Two-param overload works for DeviceRequest without CdsServiceRequestJson")
+    @DisplayName("Two-param overload works for DeviceRequest")
     void twoParamOverload_worksForDeviceRequest() {
       DeviceRequest request = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0424", "patient-1");
 
@@ -66,7 +96,7 @@ class FhirCodeExtractorTest {
       List<Coding> codes = assertDoesNotThrow(() -> FhirCodeExtractor.extractCodes(request, false));
 
       assertNotNull(codes);
-      assertTrue(codes.isEmpty(), "No request context means external medication references cannot be resolved");
+      assertTrue(codes.isEmpty(), "No resolved Medication means references cannot be resolved");
     }
   }
 
@@ -127,7 +157,6 @@ class FhirCodeExtractorTest {
     @DisplayName("Normalizes https:// to http:// when enabled")
     void normalizesSystem() {
       DeviceRequest request = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0424", "patient-1");
-      // The test device request uses https:// for HCPCS
 
       List<Coding> codes = FhirCodeExtractor.extractCodes(request, true);
 

@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "CareTransitionFollowupRule",
-  "url": "http://example.org/fhir/Library/CareTransitionFollowupRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/CareTransitionFollowupRule",
   "version": "1.0.0",
   "name": "CareTransitionFollowupRule",
   "title": "Care Transition Follow-up Rule",

@@ -1,0 +1,28 @@
+{
+  "resourceType": "ValueSet",
+  "id": "home-oxygen-therapy-codes",
+  "url": "http://example.org/fhir/ValueSet/home-oxygen-therapy-codes",
+  "name": "HomeOxygenTherapyCodes",
+  "title": "Home Oxygen Therapy HCPCS Codes",
+  "status": "active",
+  "compose": {
+    "include": [{
+      "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+      "concept": [
+        {"code": "E0424", "display": "Stationary compressed gas system"},
+        {"code": "E0431", "display": "Portable gaseous oxygen system"},
+        {"code": "E0433", "display": "Portable liquid oxygen system"},
+        {"code": "E0434", "display": "Portable oxygen contents"},
+        {"code": "E0439", "display": "Stationary liquid oxygen system"},
+        {"code": "E0441", "display": "Oxygen contents, gaseous"},
+        {"code": "E0442", "display": "Oxygen contents, liquid"},
+        {"code": "E0443", "display": "Portable oxygen contents, gaseous"},
+        {"code": "E0444", "display": "Portable oxygen contents, liquid"},
+        {"code": "E1390", "display": "Oxygen concentrator"},
+        {"code": "E1391", "display": "Oxygen concentrator, dual delivery"},
+        {"code": "E1392", "display": "Portable oxygen concentrator"},
+        {"code": "K0738", "display": "Portable gaseous oxygen system"}
+      ]
+    }]
+  }
+}

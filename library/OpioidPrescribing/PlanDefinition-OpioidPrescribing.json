@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "OpioidPrescribing",
-  "url": "http://example.org/fhir/PlanDefinition/OpioidPrescribing",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/OpioidPrescribing",
   "version": "1.0.0",
   "name": "OpioidPrescribing",
   "title": "Opioid Prescribing Coverage Requirements Discovery",

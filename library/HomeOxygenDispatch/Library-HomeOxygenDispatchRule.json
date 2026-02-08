@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "HomeOxygenDispatchRule",
-  "url": "http://example.org/fhir/Library/HomeOxygenDispatchRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/HomeOxygenDispatchRule",
   "version": "1.0.0",
   "name": "HomeOxygenDispatchRule",
   "title": "Home Oxygen Dispatch Rule",

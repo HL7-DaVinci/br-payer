@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "OpioidPrescribingRule",
-  "url": "http://example.org/fhir/Library/OpioidPrescribingRule",
+  "url": "http://hl7.org/fhir/us/davinci-crd/Library/OpioidPrescribingRule",
   "name": "OpioidPrescribingRule",
   "version": "1.0.0",
   "title": "Opioid Prescribing CRD Rule",

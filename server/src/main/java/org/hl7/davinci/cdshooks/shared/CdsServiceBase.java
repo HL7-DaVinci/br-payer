@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
+import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Coding;
@@ -43,6 +44,9 @@ public abstract class CdsServiceBase {
       """;
 
   protected final Logger logger = LoggerFactory.getLogger(getClass());
+
+  @Autowired
+  protected PlanDefinitionService planDefinitionService;
 
   @Autowired
   protected PlanDefinitionFinder planDefinitionFinder;
@@ -222,7 +226,7 @@ public abstract class CdsServiceBase {
     // Per CRD IG: "if a CRD server receives a call where the primary Coverage...does not
     // have a payer.identifier that identifies a payer that is handled by that CRD server
     // endpoint, the server SHALL return a 400 error"
-    if (!planDefinitionFinder.isPayorHandled(payorIdentifiers)) {
+    if (!planDefinitionService.isPayorHandled(payorIdentifiers)) {
       throw new CdsHooksException.BadRequestException(
           "The payer identifier in Coverage is not handled by this CRD server endpoint.");
     }
@@ -315,7 +319,7 @@ public abstract class CdsServiceBase {
     // Collect all matching PlanDefinitions and deduplicate by ID
     Map<String, PlanDefinition> uniquePlans = new LinkedHashMap<>();
     for (Coding code : codes) {
-      List<PlanDefinition> plans = planDefinitionFinder.findPlanDefinitions(code, payorIdentifiers, getHookName());
+      List<PlanDefinition> plans = planDefinitionService.findPlanDefinitions(code, payorIdentifiers, getHookName());
       logger.info("Found {} PlanDefinitions for code {}|{}", plans.size(), code.getSystem(), code.getCode());
       for (PlanDefinition plan : plans) {
         String planId = plan.getIdElement().getIdPart();
@@ -330,7 +334,7 @@ public abstract class CdsServiceBase {
     Bundle dataBundle = buildDataBundle(resourceContext, contextResource);
 
     for (PlanDefinition plan : uniquePlans.values()) {
-      CdsServiceResponseJson planResponse = planDefinitionFinder.executePlanDefinition(
+      CdsServiceResponseJson planResponse = planDefinitionFinder.applyForCdsResponse(
           plan, resourceContext, contextResource, request, getHookName(), dataBundle);
       if (planResponse != null) {
         logger.info("PlanDefinition executed with {} cards and {} service actions",

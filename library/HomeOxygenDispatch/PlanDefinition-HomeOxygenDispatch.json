@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "HomeOxygenDispatch",
-  "url": "http://example.org/fhir/PlanDefinition/HomeOxygenDispatch",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/HomeOxygenDispatch",
   "version": "1.0.0",
   "name": "HomeOxygenDispatch",
   "title": "Home Oxygen Therapy Dispatch",

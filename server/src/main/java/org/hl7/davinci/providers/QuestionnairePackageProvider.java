@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.hl7.davinci.cdshooks.error.OperationOutcomeBuilder;
 import org.hl7.davinci.common.BaseProvider;
+import org.hl7.davinci.dtr.DtrPackageService;
 import org.hl7.fhir.instance.model.api.IAnyResource;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Coverage;
@@ -49,6 +50,12 @@ public class QuestionnairePackageProvider extends BaseProvider {
       "ServiceRequest",
       "SupplyRequest",
       "VisionPrescription");
+
+  private final DtrPackageService dtrPackageService;
+
+  public QuestionnairePackageProvider(DtrPackageService dtrPackageService) {
+    this.dtrPackageService = dtrPackageService;
+  }
 
   @Operation(
       name = "$questionnaire-package",
@@ -95,14 +102,14 @@ public class QuestionnairePackageProvider extends BaseProvider {
     }
 
     // Order type validation: partition into valid/unsupported
+    List<Resource> validOrders = new ArrayList<>();
     if (hasOrders) {
-      List<IAnyResource> validOrders = new ArrayList<>();
       List<String> unsupportedTypes = new ArrayList<>();
 
       for (IAnyResource order : theOrders) {
         String resourceType = ((Resource) order).fhirType();
         if (SUPPORTED_ORDER_TYPES.contains(resourceType)) {
-          validOrders.add(order);
+          validOrders.add((Resource) order);
         } else {
           unsupportedTypes.add(resourceType);
         }
@@ -127,22 +134,42 @@ public class QuestionnairePackageProvider extends BaseProvider {
       warnings.add("The 'context' parameter was provided but is not yet supported; it was ignored.");
     }
 
-    // Build response with outcome containing any warnings
-    Parameters result = new Parameters();
+    // Delegate to service
+    Parameters result = dtrPackageService.generatePackages(
+        theCoverage, validOrders, theQuestionnaires, theChangedsince);
 
+    // Merge provider-level warnings into result outcome
     if (!warnings.isEmpty()) {
-      OperationOutcome outcome = new OperationOutcome();
-      for (String warning : warnings) {
-        outcome.addIssue()
-            .setSeverity(IssueSeverity.WARNING)
-            .setCode(IssueType.INFORMATIONAL)
-            .setDiagnostics(warning);
+      mergeWarnings(result, warnings);
+    }
+
+    return result;
+  }
+
+  /**
+   * Merge provider-level warnings into the Parameters result's outcome.
+   * Creates or appends to the existing outcome OperationOutcome.
+   */
+  private void mergeWarnings(Parameters result, List<String> warnings) {
+    // Find existing outcome parameter
+    OperationOutcome outcome = null;
+    for (Parameters.ParametersParameterComponent param : result.getParameter()) {
+      if ("outcome".equals(param.getName()) && param.getResource() instanceof OperationOutcome oo) {
+        outcome = oo;
+        break;
       }
+    }
+
+    if (outcome == null) {
+      outcome = new OperationOutcome();
       result.addParameter().setName("outcome").setResource(outcome);
     }
-    
-    // TODO: implement actual questionnaire package generation logic here, using the validated parameters
-    
-    return result;
+
+    for (String warning : warnings) {
+      outcome.addIssue()
+          .setSeverity(IssueSeverity.WARNING)
+          .setCode(IssueType.INFORMATIONAL)
+          .setDiagnostics(warning);
+    }
   }
 }

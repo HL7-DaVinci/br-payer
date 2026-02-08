@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "ImmunosuppressiveDrugs",
-  "url": "http://example.org/fhir/PlanDefinition/ImmunosuppressiveDrugs",
+  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/ImmunosuppressiveDrugs",
   "version": "1.0.0",
   "name": "ImmunosuppressiveDrugs",
   "title": "Immunosuppressive Drugs",
