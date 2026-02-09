@@ -188,7 +188,7 @@ class CdsServiceBaseTest {
 
       assertEquals(1, codes.size());
       assertEquals("E0250", codes.get(0).getCode());
-      assertEquals("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", codes.get(0).getSystem());
+      assertEquals("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", codes.get(0).getSystem());
     }
 
     @Test
@@ -231,7 +231,7 @@ class CdsServiceBaseTest {
       request.setId("dr-1");
       CodeableConcept code = new CodeableConcept();
       code.addCoding()
-          .setSystem("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+          .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
           .setCode("E0250");
       request.setCode(code);
 

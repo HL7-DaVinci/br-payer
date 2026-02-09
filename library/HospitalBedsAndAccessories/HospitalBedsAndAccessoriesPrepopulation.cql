@@ -29,7 +29,7 @@ define "EncounterList": DTR.ConvertEncounterDetails("RecentEncounters")
 
 define "DeviceRequestHcpcsCoding": singleton from (
   ((cast device_request.code as CodeableConcept).coding) coding
-    where coding.system.value = 'https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets')
+    where coding.system.value = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets')
 
 define "DeviceRequestDescription": 'HCPCS ' + "DeviceRequestHcpcsCoding".code.value + ' - ' + "DeviceRequestHcpcsCoding".display.value
 define "DeviceRequested":

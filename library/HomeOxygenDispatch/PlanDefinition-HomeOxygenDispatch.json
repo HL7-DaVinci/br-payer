@@ -39,17 +39,17 @@
       "valueCodeableConcept": {
         "coding": [
           {
-            "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
             "code": "E0424",
             "display": "Stationary compressed gaseous oxygen system"
           },
           {
-            "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
             "code": "E0431",
             "display": "Portable gaseous oxygen system"
           },
           {
-            "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+            "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
             "code": "E1390",
             "display": "Oxygen concentrator"
           }

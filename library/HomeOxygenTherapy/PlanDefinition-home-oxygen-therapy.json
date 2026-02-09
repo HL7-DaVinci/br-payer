@@ -34,7 +34,7 @@
       },
       "valueCodeableConcept": {
         "coding": [{
-          "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+          "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
           "code": "E0424"
         }]
       }

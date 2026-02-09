@@ -7,7 +7,7 @@
   "status": "active",
   "compose": {
     "include": [{
-      "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+      "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
       "concept": [
         {"code": "E0424", "display": "Stationary compressed gas system"},
         {"code": "E0431", "display": "Portable gaseous oxygen system"},

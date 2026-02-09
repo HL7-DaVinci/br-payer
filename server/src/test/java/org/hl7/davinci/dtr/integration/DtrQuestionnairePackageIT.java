@@ -371,7 +371,7 @@ class DtrQuestionnairePackageIT {
       deviceRequest.setIntent(DeviceRequest.RequestIntent.ORDER);
       deviceRequest.setCode(new CodeableConcept().addCoding(
           new Coding()
-              .setSystem("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+              .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
               .setCode("E0250")
               .setDisplay("Hospital bed, fixed height, with any type side rails, with mattress")));
       deviceRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));

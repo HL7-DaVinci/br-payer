@@ -47,7 +47,7 @@ class PlanDefinitionServiceTest {
   @SuppressWarnings("unchecked")
   void setUp() {
     testCode = new Coding()
-        .setSystem("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
         .setCode("E0424");
 
     payorIdentifiers = List.of(

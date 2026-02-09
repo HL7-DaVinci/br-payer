@@ -942,7 +942,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
           coding: [
             {
               system:
-                "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "G0180",
               display:
                 "Physician certification for Medicare-covered home health services",
@@ -1182,7 +1182,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
           coding: [
             {
               system:
-                "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0250",
               display:
                 "Hospital bed fixed height with any type of side rails, mattress",
@@ -1208,7 +1208,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
           coding: [
             {
               system:
-                "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0251",
               display:
                 "Hospital bed variable height with any type of side rails, mattress",
@@ -1233,7 +1233,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+              system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0424",
               display: "Stationary compressed gaseous oxygen system",
             },
@@ -1257,7 +1257,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+              system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0431",
               display: "Portable gaseous oxygen system",
             },
@@ -1280,7 +1280,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
         codeCodeableConcept: {
           coding: [
             {
-              system: "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+              system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E1390",
               display: "Oxygen concentrator",
             },
@@ -1304,7 +1304,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
           coding: [
             {
               system:
-                "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
               code: "E0601",
               display: "Continuous positive airway pressure (CPAP) device",
             },
