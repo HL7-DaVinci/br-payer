@@ -81,6 +81,12 @@ public class DtrValueSetCollector {
         continue;
       }
 
+      // ValueSet.description is required. VSAC-sourced ValueSets often omit it
+      // https://hl7.org/fhir/R4/shareablevalueset.html
+      if (!vs.hasDescription()) {
+        vs.setDescription(vs.hasTitle() ? vs.getTitle() : vs.hasName() ? vs.getName() : "ValueSet " + url);
+      }
+
       // Pre-expand small ValueSets
       tryExpand(vs, warnings);
 

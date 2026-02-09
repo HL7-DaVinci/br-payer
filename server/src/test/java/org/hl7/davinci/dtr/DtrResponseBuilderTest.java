@@ -1,21 +1,41 @@
 package org.hl7.davinci.dtr;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
+import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemAnswerComponent;
+import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.opencds.cqf.fhir.cr.hapi.common.IQuestionnaireProcessorFactory;
+import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
+
+import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
+import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 class DtrResponseBuilderTest {
 
@@ -27,14 +47,31 @@ class DtrResponseBuilderTest {
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse";
   private static final String QR_CONTEXT_EXT =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
+  private static final String INFO_ORIGIN_EXT =
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
 
+  private IQuestionnaireProcessorFactory mockFactory;
+  private QuestionnaireProcessor mockProcessor;
+  private DaoRegistry mockDaoRegistry;
+  @SuppressWarnings("rawtypes")
+  private IFhirResourceDao mockPatientDao;
   private DtrResponseBuilder builder;
   private Questionnaire testQ;
   private Coverage testCoverage;
 
+  @SuppressWarnings("unchecked")
   @BeforeEach
   void setUp() {
-    builder = new DtrResponseBuilder();
+    mockFactory = mock(IQuestionnaireProcessorFactory.class);
+    mockProcessor = mock(QuestionnaireProcessor.class);
+    when(mockFactory.create(any())).thenReturn(mockProcessor);
+
+    mockDaoRegistry = mock(DaoRegistry.class);
+    mockPatientDao = mock(IFhirResourceDao.class);
+    when(mockDaoRegistry.getResourceDao(Patient.class)).thenReturn(mockPatientDao);
+    when(mockPatientDao.read(any(), any())).thenThrow(new ResourceNotFoundException("Not found"));
+
+    builder = new DtrResponseBuilder(mockFactory, mockDaoRegistry);
 
     testQ = new Questionnaire();
     testQ.setId("q-1");
@@ -46,141 +83,395 @@ class DtrResponseBuilderTest {
     testCoverage.setBeneficiary(new Reference("Patient/pat-1"));
   }
 
-  @Test
-  @DisplayName("QR has correct profile, status, and version-specific questionnaire canonical")
-  void basicQrFields() {
-    DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-        new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-            "http://example.org/Questionnaire/test|1.0", testQ,
-            DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE, new ArrayList<>(), null);
-
-    QuestionnaireResponse qr = builder.buildResponse(testQ, testCoverage, provenance, List.of());
-
-    assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
-    assertEquals(QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS, qr.getStatus());
-    assertEquals("http://example.org/Questionnaire/test|1.0", qr.getQuestionnaire());
-    assertNotNull(qr.getAuthored());
+  private DtrQuestionnaireResolver.ResolvedQuestionnaire questionnaireProvenance() {
+    return new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+        "http://example.org/Questionnaire/test|1.0", testQ,
+        DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE, new ArrayList<>(), null);
   }
 
-  @Test
-  @DisplayName("Subject set from Coverage beneficiary")
-  void subjectFromCoverage() {
-    DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-        new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-            "http://example.org/Questionnaire/test|1.0", testQ,
-            DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE, new ArrayList<>(), null);
-
-    QuestionnaireResponse qr = builder.buildResponse(testQ, testCoverage, provenance, List.of());
-
-    assertNotNull(qr.getSubject());
-    assertEquals("Patient/pat-1", qr.getSubject().getReference());
+  /**
+   * Stubs the 6-arg populate() overload: populate(IBaseResource, String, List, IBaseExtension, IBaseBundle, LibraryEngine)
+   */
+  private void stubPopulateReturnsNull() {
+    when(mockProcessor.populate(
+        any(IBaseResource.class), any(), any(), any(), any(), any()))
+        .thenReturn(null);
   }
 
-  @Test
-  @DisplayName("qr-coverage extension present with Coverage reference")
-  void qrCoverageExtension() {
-    DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-        new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-            "http://example.org/Questionnaire/test|1.0", testQ,
-            DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE, new ArrayList<>(), null);
-
-    QuestionnaireResponse qr = builder.buildResponse(testQ, testCoverage, provenance, List.of());
-
-    Extension covExt = qr.getExtensionByUrl(QR_COVERAGE_EXT);
-    assertNotNull(covExt);
-    assertTrue(covExt.getValue() instanceof Reference);
-    Reference coverageRef = (Reference) covExt.getValue();
-    assertEquals("Coverage/cov-1", coverageRef.getReference());
+  private void stubPopulateThrows(RuntimeException ex) {
+    when(mockProcessor.populate(
+        any(IBaseResource.class), any(), any(), any(), any(), any()))
+        .thenThrow(ex);
   }
 
-  @Test
-  @DisplayName("intendedUse extension present with withorder code")
-  void intendedUseExtension() {
-    DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-        new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-            "http://example.org/Questionnaire/test|1.0", testQ,
-            DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE, new ArrayList<>(), null);
-
-    QuestionnaireResponse qr = builder.buildResponse(testQ, testCoverage, provenance, List.of());
-
-    Extension intendedUse = qr.getExtensionByUrl(INTENDED_USE_EXT);
-    assertNotNull(intendedUse);
+  private void stubPopulateReturns(QuestionnaireResponse qr) {
+    when(mockProcessor.populate(
+        any(IBaseResource.class), any(), any(), any(), any(), any()))
+        .thenReturn(qr);
   }
 
-  @Test
-  @DisplayName("QUESTIONNAIRE: all orders get qr-context")
-  void questionnaire_allOrders() {
-    DeviceRequest order1 = new DeviceRequest();
-    order1.setId("dr-1");
-    ServiceRequest order2 = new ServiceRequest();
-    order2.setId("sr-1");
-    List<Resource> orders = List.of(order1, order2);
-
-    DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-        new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-            "http://example.org/Questionnaire/test|1.0", testQ,
-            DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE, new ArrayList<>(), null);
-
-    QuestionnaireResponse qr = builder.buildResponse(testQ, testCoverage, provenance, orders);
-
-    List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
-    assertEquals(2, contextExts.size());
-    List<String> contextRefs = contextExts.stream()
-        .map(Extension::getValue)
-        .filter(Reference.class::isInstance)
-        .map(Reference.class::cast)
-        .map(Reference::getReference)
-        .toList();
-    assertTrue(contextRefs.contains("DeviceRequest/dr-1"));
-    assertTrue(contextRefs.contains("ServiceRequest/sr-1"));
+  private QuestionnaireResponse buildPopulatedQr() {
+    QuestionnaireResponse qr = new QuestionnaireResponse();
+    QuestionnaireResponseItemComponent item = qr.addItem().setLinkId("1");
+    item.addAnswer().setValue(new StringType("pre-populated value"));
+    QuestionnaireResponseItemComponent nested = item.addItem().setLinkId("1.1");
+    nested.addAnswer().setValue(new StringType("nested value"));
+    // Item without answer — should NOT get information-origin
+    qr.addItem().setLinkId("2");
+    return qr;
   }
 
-  @Test
-  @DisplayName("ORDER: only source orders get qr-context")
-  void order_sourceOrdersOnly() {
-    DeviceRequest order1 = new DeviceRequest();
-    order1.setId("DeviceRequest/dr-1");
-    ServiceRequest order2 = new ServiceRequest();
-    order2.setId("ServiceRequest/sr-1");
-    List<Resource> orders = List.of(order1, order2);
+  @Nested
+  @DisplayName("DTR Extension Enrichment")
+  class DtrExtensionTests {
 
-    List<String> sourceOrderIds = new ArrayList<>();
-    sourceOrderIds.add("DeviceRequest/dr-1");
+    @BeforeEach
+    void stubPopulate() {
+      stubPopulateReturnsNull();
+    }
 
-    DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-        new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-            "http://example.org/Questionnaire/test|1.0", testQ,
-            DtrQuestionnaireResolver.ResolutionPath.ORDER, sourceOrderIds, null);
+    @Test
+    @DisplayName("QR has correct profile, status, and version-specific questionnaire canonical")
+    void basicQrFields() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
 
-    QuestionnaireResponse qr = builder.buildResponse(testQ, testCoverage, provenance, orders);
+      assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
+      assertEquals(QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS, qr.getStatus());
+      assertEquals("http://example.org/Questionnaire/test|1.0", qr.getQuestionnaire());
+      assertNotNull(qr.getAuthored());
+    }
 
-    List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
-    assertEquals(1, contextExts.size());
-    assertTrue(contextExts.get(0).getValue() instanceof Reference);
-    Reference contextRef = (Reference) contextExts.get(0).getValue();
-    assertEquals("DeviceRequest/dr-1", contextRef.getReference());
+    @Test
+    @DisplayName("Subject set from Coverage beneficiary")
+    void subjectFromCoverage() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertNotNull(qr.getSubject());
+      assertEquals("Patient/pat-1", qr.getSubject().getReference());
+    }
+
+    @Test
+    @DisplayName("qr-coverage extension present with Coverage reference")
+    void qrCoverageExtension() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      Extension covExt = qr.getExtensionByUrl(QR_COVERAGE_EXT);
+      assertNotNull(covExt);
+      assertTrue(covExt.getValue() instanceof Reference);
+      Reference coverageRef = (Reference) covExt.getValue();
+      assertEquals("Coverage/cov-1", coverageRef.getReference());
+    }
+
+    @Test
+    @DisplayName("intendedUse extension uses CRD temp CodeSystem with withorder code and display")
+    void intendedUseExtension() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      Extension intendedUse = qr.getExtensionByUrl(INTENDED_USE_EXT);
+      assertNotNull(intendedUse);
+      assertInstanceOf(CodeableConcept.class, intendedUse.getValue());
+      CodeableConcept cc = (CodeableConcept) intendedUse.getValue();
+      assertEquals(1, cc.getCoding().size());
+      Coding coding = cc.getCodingFirstRep();
+      assertEquals("http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes", coding.getSystem());
+      assertEquals("withorder", coding.getCode());
+      assertEquals("Include with order", coding.getDisplay());
+    }
+
+    @Test
+    @DisplayName("QUESTIONNAIRE: all orders get qr-context")
+    void questionnaire_allOrders() {
+      DeviceRequest order1 = new DeviceRequest();
+      order1.setId("dr-1");
+      ServiceRequest order2 = new ServiceRequest();
+      order2.setId("sr-1");
+      List<Resource> orders = List.of(order1, order2);
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), orders, List.of());
+      QuestionnaireResponse qr = result.response();
+
+      List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
+      assertEquals(2, contextExts.size());
+      List<String> contextRefs = contextExts.stream()
+          .map(Extension::getValue)
+          .filter(Reference.class::isInstance)
+          .map(Reference.class::cast)
+          .map(Reference::getReference)
+          .toList();
+      assertTrue(contextRefs.contains("DeviceRequest/dr-1"));
+      assertTrue(contextRefs.contains("ServiceRequest/sr-1"));
+    }
+
+    @Test
+    @DisplayName("ORDER: only source orders get qr-context")
+    void order_sourceOrdersOnly() {
+      DeviceRequest order1 = new DeviceRequest();
+      order1.setId("DeviceRequest/dr-1");
+      ServiceRequest order2 = new ServiceRequest();
+      order2.setId("ServiceRequest/sr-1");
+      List<Resource> orders = List.of(order1, order2);
+
+      List<String> sourceOrderIds = new ArrayList<>();
+      sourceOrderIds.add("DeviceRequest/dr-1");
+
+      DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
+          new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+              "http://example.org/Questionnaire/test|1.0", testQ,
+              DtrQuestionnaireResolver.ResolutionPath.ORDER, sourceOrderIds, null);
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, provenance, orders, List.of());
+      QuestionnaireResponse qr = result.response();
+
+      List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
+      assertEquals(1, contextExts.size());
+      assertTrue(contextExts.get(0).getValue() instanceof Reference);
+      Reference contextRef = (Reference) contextExts.get(0).getValue();
+      assertEquals("DeviceRequest/dr-1", contextRef.getReference());
+    }
+
+    @Test
+    @DisplayName("BOTH: all orders get qr-context")
+    void both_allOrders() {
+      DeviceRequest order1 = new DeviceRequest();
+      order1.setId("dr-1");
+      ServiceRequest order2 = new ServiceRequest();
+      order2.setId("sr-1");
+      List<Resource> orders = List.of(order1, order2);
+
+      List<String> sourceOrderIds = new ArrayList<>();
+      sourceOrderIds.add("DeviceRequest/dr-1");
+
+      DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
+          new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+              "http://example.org/Questionnaire/test|1.0", testQ,
+              DtrQuestionnaireResolver.ResolutionPath.BOTH, sourceOrderIds, null);
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, provenance, orders, List.of());
+      QuestionnaireResponse qr = result.response();
+
+      List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
+      assertEquals(2, contextExts.size());
+    }
   }
 
-  @Test
-  @DisplayName("BOTH: all orders get qr-context")
-  void both_allOrders() {
-    DeviceRequest order1 = new DeviceRequest();
-    order1.setId("dr-1");
-    ServiceRequest order2 = new ServiceRequest();
-    order2.setId("sr-1");
-    List<Resource> orders = List.of(order1, order2);
+  @Nested
+  @DisplayName("CQL Pre-population")
+  class PrepopulationTests {
 
-    List<String> sourceOrderIds = new ArrayList<>();
-    sourceOrderIds.add("DeviceRequest/dr-1");
+    @Test
+    @DisplayName("Pre-populated answers have information-origin extension with auto code")
+    void populateSuccess_informationOrigin() {
+      QuestionnaireResponse populatedQr = buildPopulatedQr();
+      stubPopulateReturns(populatedQr);
 
-    DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-        new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-            "http://example.org/Questionnaire/test|1.0", testQ,
-            DtrQuestionnaireResolver.ResolutionPath.BOTH, sourceOrderIds, null);
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
 
-    QuestionnaireResponse qr = builder.buildResponse(testQ, testCoverage, provenance, orders);
+      // Item answer should have information-origin
+      QuestionnaireResponseItemComponent item1 = qr.getItem().get(0);
+      assertNull(item1.getExtensionByUrl(INFO_ORIGIN_EXT),
+          "information-origin should not be on item");
+      QuestionnaireResponseItemAnswerComponent item1Answer = item1.getAnswer().get(0);
+      Extension originExt = item1Answer.getExtensionByUrl(INFO_ORIGIN_EXT);
+      assertNotNull(originExt, "Answer should have information-origin extension");
+      Extension sourceExt = originExt.getExtensionByUrl("source");
+      assertNotNull(sourceExt, "information-origin should have source sub-extension");
+      assertTrue(sourceExt.getValue() instanceof CodeType);
+      assertEquals("auto-server", ((CodeType) sourceExt.getValue()).getValue());
 
-    List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
-    assertEquals(2, contextExts.size());
+      // Nested item answer should also have information-origin
+      QuestionnaireResponseItemComponent nested = item1.getItem().get(0);
+      assertNull(nested.getExtensionByUrl(INFO_ORIGIN_EXT),
+          "information-origin should not be on nested item");
+      assertNotNull(nested.getAnswer().get(0).getExtensionByUrl(INFO_ORIGIN_EXT),
+          "Nested answer should have information-origin");
+
+      // Item without answer should NOT have information-origin
+      QuestionnaireResponseItemComponent item2 = qr.getItem().get(1);
+      assertNull(item2.getExtensionByUrl(INFO_ORIGIN_EXT),
+          "Item without answer should not have information-origin");
+    }
+
+    @Test
+    @DisplayName("information-origin recurses through answer.item descendants")
+    void populateSuccess_informationOrigin_answerItemRecursion() {
+      QuestionnaireResponse populatedQr = new QuestionnaireResponse();
+      QuestionnaireResponseItemComponent parent = populatedQr.addItem().setLinkId("1");
+      QuestionnaireResponseItemAnswerComponent parentAnswer =
+          parent.addAnswer().setValue(new StringType("parent"));
+      QuestionnaireResponseItemComponent nestedUnderAnswer = parentAnswer.addItem().setLinkId("1.1");
+      nestedUnderAnswer.addAnswer().setValue(new StringType("nested"));
+      stubPopulateReturns(populatedQr);
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      QuestionnaireResponseItemComponent item1 = qr.getItem().get(0);
+      QuestionnaireResponseItemAnswerComponent item1Answer = item1.getAnswer().get(0);
+      QuestionnaireResponseItemComponent nested = item1Answer.getItem().get(0);
+
+      assertNotNull(item1Answer.getExtensionByUrl(INFO_ORIGIN_EXT),
+          "Parent answer should have information-origin");
+      assertNotNull(nested.getAnswer().get(0).getExtensionByUrl(INFO_ORIGIN_EXT),
+          "Answer item descendants should have information-origin");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    @DisplayName("Patient in repository: no Patient in data bundle (avoids duplicate with repository)")
+    void populateSuccess_patientInRepo_notInBundle() {
+      Patient realPatient = new Patient();
+      realPatient.setId("pat-1");
+      realPatient.addName().setFamily("Smith").addGiven("John");
+      doReturn(realPatient).when(mockPatientDao).read(any(), any());
+
+      QuestionnaireResponse populatedQr = buildPopulatedQr();
+      stubPopulateReturns(populatedQr);
+
+      builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+
+      ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+      verify(mockProcessor).populate(any(IBaseResource.class), any(),
+          any(), any(), bundleCaptor.capture(), any());
+
+      Bundle dataBundle = bundleCaptor.getValue();
+      boolean hasPatient = dataBundle.getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .anyMatch(Patient.class::isInstance);
+
+      assertFalse(hasPatient,
+          "Data bundle should NOT contain Patient when it exists in the repository");
+    }
+
+    @Test
+    @DisplayName("Patient not in repository: stub Patient in data bundle for CQL context")
+    void populateSuccess_patientNotInRepo_stubInBundle() {
+      QuestionnaireResponse populatedQr = buildPopulatedQr();
+      stubPopulateReturns(populatedQr);
+
+      builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+
+      ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+      verify(mockProcessor).populate(any(IBaseResource.class), any(),
+          any(), any(), bundleCaptor.capture(), any());
+
+      Bundle dataBundle = bundleCaptor.getValue();
+      Patient bundlePatient = dataBundle.getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .filter(Patient.class::isInstance)
+          .map(Patient.class::cast)
+          .findFirst().orElse(null);
+
+      assertNotNull(bundlePatient, "Data bundle should contain a Patient stub");
+      assertEquals("pat-1", bundlePatient.getIdElement().getIdPart());
+      assertFalse(bundlePatient.hasName(), "Stub Patient should not have name");
+    }
+
+    @Test
+    @DisplayName("Absolute beneficiary reference keeps base URL for populate subject and avoids local collision")
+    void populateSuccess_absoluteBeneficiaryReference() {
+      Patient localCollision = new Patient();
+      localCollision.setId("pat-abs");
+      doReturn(localCollision).when(mockPatientDao).read(any(), any());
+
+      testCoverage.setBeneficiary(new Reference("https://payer.example/fhir/Patient/pat-abs"));
+      QuestionnaireResponse populatedQr = buildPopulatedQr();
+      stubPopulateReturns(populatedQr);
+
+      builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+
+      ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+      verify(mockProcessor).populate(any(IBaseResource.class), subjectCaptor.capture(),
+          any(), any(), bundleCaptor.capture(), any());
+
+      assertEquals("https://payer.example/fhir/Patient/pat-abs", subjectCaptor.getValue());
+      verify(mockPatientDao, never()).read(any(), any());
+
+      Patient bundlePatient = bundleCaptor.getValue().getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .filter(Patient.class::isInstance)
+          .map(Patient.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(bundlePatient, "Data bundle should contain Patient from absolute beneficiary reference");
+      assertEquals("https://payer.example/fhir/Patient/pat-abs",
+          bundlePatient.getIdElement().toVersionless().getValue());
+    }
+
+    @Test
+    @DisplayName("Pre-populated QR still gets DTR extensions")
+    void populateSuccess_dtrExtensionsPresent() {
+      QuestionnaireResponse populatedQr = buildPopulatedQr();
+      stubPopulateReturns(populatedQr);
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
+      assertNotNull(qr.getExtensionByUrl(QR_COVERAGE_EXT));
+      assertNotNull(qr.getExtensionByUrl(INTENDED_USE_EXT));
+    }
+
+    @Test
+    @DisplayName("populate() returns null: fallback to empty QR with DTR extensions")
+    void populateReturnsNull_fallbackToEmpty() {
+      stubPopulateReturnsNull();
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
+      assertNotNull(qr.getExtensionByUrl(QR_COVERAGE_EXT));
+      assertTrue(qr.getItem().isEmpty());
+    }
+
+    @Test
+    @DisplayName("populate() throws exception: fallback to empty QR with warning")
+    void populateThrows_fallbackWithWarning() {
+      stubPopulateThrows(new RuntimeException("CQL engine error"));
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
+      assertTrue(qr.getItem().isEmpty());
+      assertFalse(result.warnings().isEmpty(), "Should have a warning about the failure");
+      assertTrue(result.warnings().get(0).contains("CQL engine error"));
+    }
+
+    @Test
+    @DisplayName("Warnings from pre-population are collected")
+    void populateWarnings_collected() {
+      QuestionnaireResponse populatedQr = buildPopulatedQr();
+      OperationOutcome oo = new OperationOutcome();
+      oo.addIssue()
+          .setSeverity(OperationOutcome.IssueSeverity.WARNING)
+          .setDiagnostics("Expression evaluation returned null for item 2.1");
+      populatedQr.addContained(oo);
+      stubPopulateReturns(populatedQr);
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+
+      assertFalse(result.warnings().isEmpty());
+      assertTrue(result.warnings().stream()
+          .anyMatch(w -> w.contains("Expression evaluation returned null")));
+    }
   }
 }

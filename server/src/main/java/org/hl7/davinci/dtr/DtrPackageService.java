@@ -143,9 +143,12 @@ public class DtrPackageService {
       }
     }
 
-    // Build QuestionnaireResponse
+    // Build QuestionnaireResponse with server-side CQL pre-population
     List<Resource> orders = (validOrders != null) ? validOrders : List.of();
-    QuestionnaireResponse qr = responseBuilder.buildResponse(questionnaire, coverage, rq, orders);
+    DtrResponseBuilder.PrepopulationResult prepopResult =
+        responseBuilder.buildResponse(questionnaire, coverage, rq, orders, libraries);
+    QuestionnaireResponse qr = prepopResult.response();
+    warnings.addAll(prepopResult.warnings());
 
     // Assemble bundle
     DtrBundleAssembler.BundleResult bundleResult = bundleAssembler.assembleBundle(

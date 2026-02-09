@@ -1,0 +1,97 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "PatientInfo",
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo",
+  "version": "1.0.0",
+  "name": "PatientInfo",
+  "title": "Patient Information Sub-Questionnaire",
+  "status": "active",
+  "subjectType": ["Patient"],
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation"
+    }
+  ],
+  "item": [
+    {
+      "linkId": "PBI.1",
+      "text": "Last Name",
+      "type": "string",
+      "required": false,
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+          "valueExpression": {
+            "language": "text/cql",
+            "expression": "\"BasicPatientInfoPrepopulation\".LastName",
+            "extension": [
+              {
+                "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                "valueExpression": {
+                  "language": "application/elm+json",
+                  "expression": "{\"type\":\"ExpressionRef\",\"name\":\"LastName\",\"libraryName\":\"BasicPatientInfoPrepopulation\"}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "linkId": "PBI.2",
+      "text": "First Name",
+      "type": "string",
+      "required": false,
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+          "valueExpression": {
+            "language": "text/cql",
+            "expression": "\"BasicPatientInfoPrepopulation\".FirstName",
+            "extension": [
+              {
+                "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                "valueExpression": {
+                  "language": "application/elm+json",
+                  "expression": "{\"type\":\"ExpressionRef\",\"name\":\"FirstName\",\"libraryName\":\"BasicPatientInfoPrepopulation\"}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "linkId": "PBI.3",
+      "text": "Date of Birth",
+      "type": "date",
+      "required": false,
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+          "valueExpression": {
+            "language": "text/cql",
+            "expression": "\"BasicPatientInfoPrepopulation\".DateOfBirth",
+            "extension": [
+              {
+                "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                "valueExpression": {
+                  "language": "application/elm+json",
+                  "expression": "{\"type\":\"ExpressionRef\",\"name\":\"DateOfBirth\",\"libraryName\":\"BasicPatientInfoPrepopulation\"}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -141,6 +141,53 @@ class DtrValueSetCollectorTest {
   }
 
   @Test
+  @DisplayName("ValueSet without description gets default from title")
+  void valueSetWithoutDescription_defaultsFromTitle() {
+    ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
+    vs.setTitle("Test Value Set");
+    // Ensure no description is set
+    assertFalse(vs.hasDescription());
+
+    IBundleProvider results = mock(IBundleProvider.class);
+    when(results.isEmpty()).thenReturn(false);
+    when(results.getResources(0, 1)).thenReturn(List.of(vs));
+    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
+
+    Questionnaire q = new Questionnaire();
+    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE)
+        .setAnswerValueSet("http://example.org/ValueSet/test");
+
+    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
+
+    assertEquals(1, result.valueSets().size());
+    assertEquals("Test Value Set", result.valueSets().get(0).getDescription());
+  }
+
+  @Test
+  @DisplayName("ValueSet with existing description is not overwritten")
+  void valueSetWithDescription_notOverwritten() {
+    ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
+    vs.setTitle("Title");
+    vs.setDescription("Original description");
+
+    IBundleProvider results = mock(IBundleProvider.class);
+    when(results.isEmpty()).thenReturn(false);
+    when(results.getResources(0, 1)).thenReturn(List.of(vs));
+    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
+
+    Questionnaire q = new Questionnaire();
+    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE)
+        .setAnswerValueSet("http://example.org/ValueSet/test");
+
+    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
+
+    assertEquals(1, result.valueSets().size());
+    assertEquals("Original description", result.valueSets().get(0).getDescription());
+  }
+
+  @Test
   @DisplayName("Deduplication: same URL from Q and Library yields one ValueSet")
   void deduplication() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);

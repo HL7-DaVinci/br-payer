@@ -56,8 +56,8 @@ class DtrPackageServiceTest {
         .thenReturn(new DtrLibraryResolver.LibraryResolution(List.of(), List.of()));
     when(mockVsCollector.collectValueSets(any(), any()))
         .thenReturn(new DtrValueSetCollector.ValueSetCollection(List.of(), List.of()));
-    when(mockResponseBuilder.buildResponse(any(), any(), any(), any()))
-        .thenReturn(new QuestionnaireResponse());
+    when(mockResponseBuilder.buildResponse(any(), any(), any(), any(), any()))
+        .thenReturn(new DtrResponseBuilder.PrepopulationResult(new QuestionnaireResponse(), List.of()));
   }
 
   private Questionnaire createTestQ(String id, String url, String version) {

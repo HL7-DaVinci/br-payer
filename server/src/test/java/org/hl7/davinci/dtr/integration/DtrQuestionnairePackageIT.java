@@ -11,8 +11,11 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.DeviceRequest;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Organization;
@@ -20,8 +23,10 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
+import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -116,10 +121,11 @@ class DtrQuestionnairePackageIT {
         });
     log.info("CDS services registered. Setting up DTR integration test data...");
 
-    // Create Patient
+    // Create Patient with demographics for pre-population testing
     testPatient = new Patient();
     testPatient.setId("dtr-test-patient");
     testPatient.addName().setFamily("Smith").addGiven("John");
+    testPatient.setBirthDateElement(new DateType("1960-03-15"));
     testPatient = (Patient) daoRegistry.getResourceDao(Patient.class)
         .update(testPatient, new SystemRequestDetails()).getResource();
 
@@ -285,6 +291,68 @@ class DtrQuestionnairePackageIT {
   }
 
   // ============================================================
+  // PRE-POPULATION: Patient Demographics via CQL
+  // ============================================================
+
+  @Nested
+  @DisplayName("Patient Demographics Pre-Population")
+  class PatientDemographicsTests {
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Patient demographics are pre-populated from repository via CQL")
+    void questionnaire_patientDemographicsPrePopulated() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(Q_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Should have package bundle. Warnings: " + extractWarnings(result));
+
+      QuestionnaireResponse qr = bundle.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(qr, "Bundle should contain a QuestionnaireResponse");
+
+      // Find pre-populated patient info items (assembled linkIds: 1.PBI.1, 1.PBI.2, 1.PBI.3)
+      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.2");
+      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.3");
+
+      assertNotNull(lastName, "Should have Last Name item (1.PBI.1)");
+      assertNotNull(firstName, "Should have First Name item (1.PBI.2)");
+      assertNotNull(dob, "Should have Date of Birth item (1.PBI.3)");
+
+      // Verify pre-populated values
+      assertFalse(lastName.getAnswer().isEmpty(), "Last Name should have an answer");
+      assertEquals("Smith",
+          ((StringType) lastName.getAnswer().get(0).getValue()).getValue());
+
+      assertFalse(firstName.getAnswer().isEmpty(), "First Name should have an answer");
+      assertEquals("John",
+          ((StringType) firstName.getAnswer().get(0).getValue()).getValue());
+
+      assertFalse(dob.getAnswer().isEmpty(), "Date of Birth should have an answer");
+      assertTrue(dob.getAnswer().get(0).getValue() instanceof DateType);
+      assertTrue(((DateType) dob.getAnswer().get(0).getValue()).getValueAsString().startsWith("1960-03-15"));
+
+      // Verify information-origin extension on answers
+      for (QuestionnaireResponseItemComponent item : List.of(lastName, firstName, dob)) {
+        Extension originExt = item.getAnswer().get(0).getExtensionByUrl(
+            "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin");
+        assertNotNull(originExt,
+            "Pre-populated answer for " + item.getLinkId() + " should have information-origin extension");
+        Extension sourceExt = originExt.getExtensionByUrl("source");
+        assertNotNull(sourceExt, "information-origin should have source sub-extension");
+        assertEquals("auto-server", ((CodeType) sourceExt.getValue()).getValue());
+      }
+    }
+  }
+
+  // ============================================================
   // ORDER: Order-Based Resolution
   // ============================================================
 
@@ -364,6 +432,17 @@ class DtrQuestionnairePackageIT {
   // ============================================================
   // HELPERS
   // ============================================================
+
+  private QuestionnaireResponseItemComponent findItemByLinkId(
+      List<QuestionnaireResponseItemComponent> items, String linkId) {
+    if (items == null) return null;
+    for (QuestionnaireResponseItemComponent item : items) {
+      if (linkId.equals(item.getLinkId())) return item;
+      QuestionnaireResponseItemComponent found = findItemByLinkId(item.getItem(), linkId);
+      if (found != null) return found;
+    }
+    return null;
+  }
 
   private Bundle extractPackageBundle(Parameters result) {
     if (result == null) return null;

@@ -115,6 +115,84 @@ class DtrSubQuestionnaireAssemblerTest {
   }
 
   @Test
+  @DisplayName("Sub-questionnaire cqf-library extensions merged into parent, deduplicated")
+  void subQ_cqfLibraryExtensionsMerged() {
+    String cqfLibUrl = "http://hl7.org/fhir/StructureDefinition/cqf-library";
+    String sharedLibCanonical = "http://example.org/Library/SharedLib";
+    String existingLibCanonical = "http://example.org/Library/ExistingLib";
+
+    // Sub-questionnaire with a cqf-library extension
+    Questionnaire subQ = new Questionnaire();
+    subQ.setUrl("http://example.org/Questionnaire/sub-with-lib");
+    subQ.addExtension(new Extension(cqfLibUrl, new CanonicalType(sharedLibCanonical)));
+    subQ.addItem().setLinkId("s1").setType(QuestionnaireItemType.STRING);
+
+    IBundleProvider results = mock(IBundleProvider.class);
+    when(results.isEmpty()).thenReturn(false);
+    when(results.getResources(0, 1)).thenReturn(List.of(subQ));
+    when(mockQDao.search(any(), any())).thenReturn(results);
+
+    // Parent questionnaire already has one cqf-library
+    Questionnaire parent = new Questionnaire();
+    parent.setUrl("http://example.org/Questionnaire/parent");
+    parent.addExtension(new Extension(cqfLibUrl, new CanonicalType(existingLibCanonical)));
+    QuestionnaireItemComponent item = parent.addItem();
+    item.setLinkId("group1");
+    item.setType(QuestionnaireItemType.DISPLAY);
+    item.addExtension(new Extension(
+        "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        new CanonicalType("http://example.org/Questionnaire/sub-with-lib")));
+
+    List<String> warnings = assembler.assemble(parent);
+
+    assertTrue(warnings.isEmpty());
+    // Parent should now have both cqf-library extensions
+    List<Extension> cqfExts = parent.getExtensionsByUrl(cqfLibUrl);
+    assertEquals(2, cqfExts.size(), "Parent should have 2 cqf-library extensions");
+    List<String> canonicals = cqfExts.stream()
+        .map(e -> e.getValue().primitiveValue())
+        .toList();
+    assertTrue(canonicals.contains(existingLibCanonical));
+    assertTrue(canonicals.contains(sharedLibCanonical));
+  }
+
+  @Test
+  @DisplayName("Duplicate cqf-library canonicals are not added twice")
+  void subQ_cqfLibraryDeduplicated() {
+    String cqfLibUrl = "http://hl7.org/fhir/StructureDefinition/cqf-library";
+    String sameCanonical = "http://example.org/Library/SameLib";
+
+    // Sub-questionnaire with cqf-library that parent already has
+    Questionnaire subQ = new Questionnaire();
+    subQ.setUrl("http://example.org/Questionnaire/sub-dup");
+    subQ.addExtension(new Extension(cqfLibUrl, new CanonicalType(sameCanonical)));
+    subQ.addItem().setLinkId("s1").setType(QuestionnaireItemType.STRING);
+
+    IBundleProvider results = mock(IBundleProvider.class);
+    when(results.isEmpty()).thenReturn(false);
+    when(results.getResources(0, 1)).thenReturn(List.of(subQ));
+    when(mockQDao.search(any(), any())).thenReturn(results);
+
+    // Parent already has the same canonical
+    Questionnaire parent = new Questionnaire();
+    parent.setUrl("http://example.org/Questionnaire/parent");
+    parent.addExtension(new Extension(cqfLibUrl, new CanonicalType(sameCanonical)));
+    QuestionnaireItemComponent item = parent.addItem();
+    item.setLinkId("group1");
+    item.setType(QuestionnaireItemType.DISPLAY);
+    item.addExtension(new Extension(
+        "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        new CanonicalType("http://example.org/Questionnaire/sub-dup")));
+
+    List<String> warnings = assembler.assemble(parent);
+
+    assertTrue(warnings.isEmpty());
+    // Should still have only 1 cqf-library extension (deduplicated)
+    List<Extension> cqfExts = parent.getExtensionsByUrl(cqfLibUrl);
+    assertEquals(1, cqfExts.size(), "Duplicate canonical should not be added");
+  }
+
+  @Test
   @DisplayName("Missing sub-questionnaire: warning returned, item left as-is")
   void missingSubQ_warning() {
     IBundleProvider emptyResults = mock(IBundleProvider.class);

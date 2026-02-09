@@ -21,6 +21,13 @@
       "valueBoolean": false
     },
     {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
       "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/HospitalBedsAndAccessoriesPrepopulation"
     }
@@ -30,26 +37,10 @@
       "linkId": "1",
       "text": "Patient Information",
       "type": "group",
-      "item": [
-        {
-          "linkId": "1.1",
-          "text": "Last Name",
-          "type": "string",
-          "required": false
-        },
-        {
-          "linkId": "1.2",
-          "text": "First Name",
-          "type": "string",
-          "required": false
-        },
-        {
-          "linkId": "1.3",
-          "text": "Date of Birth",
-          "type": "date",
-          "required": false
-        }
-      ]
+      "extension": [{
+        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+      }]
     },
     {
       "linkId": "2",
@@ -158,14 +149,14 @@
           "answerOption": [
             {
               "valueCoding": {
-                "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
                 "code": "E0250",
                 "display": "Hospital bed, fixed height, with any type side rails, with mattress"
               }
             },
             {
               "valueCoding": {
-                "system": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
                 "code": "E0251",
                 "display": "Hospital bed, fixed height, with any type side rails, without mattress"
               }

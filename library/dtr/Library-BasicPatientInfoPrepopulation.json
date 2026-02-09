@@ -1,0 +1,26 @@
+{
+  "resourceType": "Library",
+  "id": "BasicPatientInfoPrepopulation",
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation",
+  "name": "BasicPatientInfoPrepopulation",
+  "version": "1.0.0",
+  "title": "Basic Patient Information Prepopulation",
+  "status": "active",
+  "type": {
+    "coding": [{
+      "system": "http://terminology.hl7.org/CodeSystem/library-type",
+      "code": "logic-library"
+    }]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    }
+  ],
+  "content": [{
+    "contentType": "text/cql",
+    "url": "BasicPatientInfoPrepopulation.cql"
+  }]
+}

@@ -30,6 +30,9 @@ public class DtrSubQuestionnaireAssembler {
   private static final String SUB_QUESTIONNAIRE_EXT_URL =
       "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire";
 
+  private static final String CQF_LIBRARY_EXT_URL =
+      "http://hl7.org/fhir/StructureDefinition/cqf-library";
+
   private final DaoRegistry daoRegistry;
 
   public DtrSubQuestionnaireAssembler(DaoRegistry daoRegistry) {
@@ -52,11 +55,11 @@ public class DtrSubQuestionnaireAssembler {
       visited.add(rootCanonical);
     }
 
-    assembleItems(questionnaire.getItem(), warnings, visited);
+    assembleItems(questionnaire, questionnaire.getItem(), warnings, visited);
     return warnings;
   }
 
-  private void assembleItems(List<QuestionnaireItemComponent> items,
+  private void assembleItems(Questionnaire parent, List<QuestionnaireItemComponent> items,
       List<String> warnings, Set<String> visited) {
 
     for (int i = 0; i < items.size(); i++) {
@@ -84,6 +87,9 @@ public class DtrSubQuestionnaireAssembler {
         // Inline the sub-questionnaire items
         visited.add(canonical);
 
+        // Merge cqf-library extensions from sub-questionnaire into parent (deduplicated)
+        mergeCqfLibraryExtensions(parent, subQ);
+
         List<QuestionnaireItemComponent> inlinedItems = new ArrayList<>();
         for (QuestionnaireItemComponent subItem : subQ.getItem()) {
           QuestionnaireItemComponent copy = subItem.copy();
@@ -96,14 +102,37 @@ public class DtrSubQuestionnaireAssembler {
         item.removeExtension(SUB_QUESTIONNAIRE_EXT_URL);
 
         // Recursively process inlined items
-        assembleItems(inlinedItems, warnings, visited);
+        assembleItems(parent, inlinedItems, warnings, visited);
 
         visited.remove(canonical);
       }
 
       // Recursively process existing child items
       if (item.hasItem() && subQExt == null) {
-        assembleItems(item.getItem(), warnings, visited);
+        assembleItems(parent, item.getItem(), warnings, visited);
+      }
+    }
+  }
+
+  /**
+   * Merge cqf-library extensions from a sub-questionnaire into the parent,
+   * skipping any canonical URLs already present on the parent.
+   */
+  private void mergeCqfLibraryExtensions(Questionnaire parent, Questionnaire subQ) {
+    Set<String> existingCanonicals = new HashSet<>();
+    for (Extension ext : parent.getExtensionsByUrl(CQF_LIBRARY_EXT_URL)) {
+      if (ext.hasValue()) {
+        existingCanonicals.add(ext.getValue().primitiveValue());
+      }
+    }
+
+    for (Extension ext : subQ.getExtensionsByUrl(CQF_LIBRARY_EXT_URL)) {
+      if (ext.hasValue()) {
+        String canonical = ext.getValue().primitiveValue();
+        if (canonical != null && !existingCanonicals.contains(canonical)) {
+          parent.addExtension(ext.copy());
+          existingCanonicals.add(canonical);
+        }
       }
     }
   }
