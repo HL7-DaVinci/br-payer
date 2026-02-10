@@ -11,8 +11,8 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -24,24 +24,20 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ConditionalOnExpression("!'${vsac.api-key:}'.isEmpty()")
+@EnableConfigurationProperties(VsacProperties.class)
 public class VsacTerminologyConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(VsacTerminologyConfig.class);
 
     private static final String VSAC_VALUESET_PREFIX = "http://cts.nlm.nih.gov/fhir/ValueSet/";
 
-    @Value("${vsac.url:https://cts.nlm.nih.gov/fhir}")
-    private String vsacUrl;
-
-    @Value("${vsac.api-key}")
-    private String vsacApiKey;
-
     @Bean
     public IValidationSupport vsacValidationSupport(
-            FhirContext fhirContext, ValidationSupportChain validationSupportChain) {
+            FhirContext fhirContext, ValidationSupportChain validationSupportChain,
+            VsacProperties vsacProperties) {
 
-        IGenericClient client = fhirContext.newRestfulGenericClient(vsacUrl);
-        client.registerInterceptor(new BasicAuthInterceptor("apikey", vsacApiKey));
+        IGenericClient client = fhirContext.newRestfulGenericClient(vsacProperties.url());
+        client.registerInterceptor(new BasicAuthInterceptor("apikey", vsacProperties.apiKey()));
 
         var support = new VsacValidationSupport(fhirContext, client);
         validationSupportChain.addValidationSupport(0, support);

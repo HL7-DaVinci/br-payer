@@ -3,9 +3,11 @@ package org.hl7.davinci.dtr;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
@@ -21,6 +23,7 @@ import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemAnsw
 import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.UriType;
 import org.opencds.cqf.fhir.cr.hapi.common.IQuestionnaireProcessorFactory;
 import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
 import org.slf4j.Logger;
@@ -44,6 +47,10 @@ public class DtrResponseBuilder {
 
   private static final String QR_PROFILE =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse";
+  private static final String QR_ADAPT_PROFILE =
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
+  private static final String Q_ADAPT_PROFILE =
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt";
   private static final String QR_COVERAGE_EXT =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
   private static final String INTENDED_USE_EXT =
@@ -54,17 +61,34 @@ public class DtrResponseBuilder {
       "http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes";
   private static final String INFO_ORIGIN_EXT =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
+  private static final String QUESTIONNAIRE_ADAPTIVE_EXT =
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
 
   private final IQuestionnaireProcessorFactory questionnaireProcessorFactory;
   private final DaoRegistry daoRegistry;
+  private final DtrAdaptiveProperties adaptiveProperties;
 
-  public DtrResponseBuilder(IQuestionnaireProcessorFactory questionnaireProcessorFactory,
-      DaoRegistry daoRegistry) {
+  public DtrResponseBuilder(
+      IQuestionnaireProcessorFactory questionnaireProcessorFactory,
+      DaoRegistry daoRegistry,
+      DtrAdaptiveProperties adaptiveProperties) {
     this.questionnaireProcessorFactory = questionnaireProcessorFactory;
     this.daoRegistry = daoRegistry;
+    this.adaptiveProperties = adaptiveProperties;
   }
 
   public record PrepopulationResult(QuestionnaireResponse response, List<String> warnings) {}
+
+  /**
+   * A Questionnaire is adaptive if it carries the required questionnaireAdaptive extension
+   * (1..1 per dtr-questionnaire-adapt profile) or declares the adaptive profile in meta (unreliable but a fallback).
+   */
+  public static boolean isAdaptiveQuestionnaire(Questionnaire q) {
+    if (q.hasExtension(QUESTIONNAIRE_ADAPTIVE_EXT)) {
+      return true;
+    }
+    return q.getMeta().hasProfile(Q_ADAPT_PROFILE);
+  }
 
   /**
    * Build a QuestionnaireResponse with DTR extensions and server-side CQL pre-population.
@@ -108,6 +132,80 @@ public class DtrResponseBuilder {
 
     // Enrich with DTR-required fields and extensions
     enrichWithDtrExtensions(qr, questionnaire, coverage, provenance, allOrders);
+
+    return new PrepopulationResult(qr, warnings);
+  }
+
+  /**
+   * Build an adaptive QuestionnaireResponse for questionnaires that use the
+   * dtr-questionnaire-adapt profile. No CQL pre-population — questions are
+   * delivered incrementally via $next-question.
+   */
+  public PrepopulationResult buildAdaptiveResponse(
+      Questionnaire questionnaire,
+      Coverage coverage,
+      DtrQuestionnaireResolver.ResolvedQuestionnaire provenance,
+      List<Resource> allOrders) {
+
+    List<String> warnings = new ArrayList<>();
+    QuestionnaireResponse qr = new QuestionnaireResponse();
+
+    // Generate a UUID ID (used as the session key for $next-question)
+    String qrId = UUID.randomUUID().toString();
+    qr.setId(qrId);
+
+    // Adaptive QR profile
+    qr.getMeta().addProfile(QR_ADAPT_PROFILE);
+    qr.setStatus(QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS);
+
+    // Version-specific questionnaire canonical
+    String canonical = DtrFhirUtil.toVersionSpecific(questionnaire.getUrl(), questionnaire.getVersion());
+    String containedQuestionnaireId = "contained-questionnaire";
+    qr.setQuestionnaire("#" + containedQuestionnaireId);
+
+    // Subject from coverage beneficiary
+    if (coverage.hasBeneficiary()) {
+      qr.setSubject(coverage.getBeneficiary().copy());
+    }
+
+    // Authored timestamp
+    qr.setAuthored(new Date());
+
+    // qr-coverage extension
+    Extension coverageExt = new Extension(QR_COVERAGE_EXT);
+    coverageExt.setValue(toRelativeTypedReference(coverage));
+    qr.addExtension(coverageExt);
+
+    // intendedUse extension
+    Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
+    CodeableConcept intendedUseCC = new CodeableConcept();
+    intendedUseCC.addCoding(new Coding()
+        .setSystem(CRD_COVERAGE_INFO_SYSTEM)
+        .setCode("withorder")
+        .setDisplay("Include with order"));
+    intendedUseExt.setValue(intendedUseCC);
+    qr.addExtension(intendedUseExt);
+
+    // qr-context extensions
+    addQrContextExtensions(qr, provenance, allOrders);
+
+    // Contained Questionnaire: empty, derived from the adaptive source
+    Questionnaire contained = new Questionnaire();
+    contained.setId(containedQuestionnaireId);
+    contained.setDerivedFrom(List.of(new CanonicalType(canonical)));
+    qr.addContained(contained);
+
+    // questionnaireAdaptive extension pointing to $next-question endpoint
+    // must be carried on the contained Questionnaire for adaptive clients
+    String nextQuestionUrl = adaptiveProperties.nextQuestionUrl();
+    if (nextQuestionUrl != null && !nextQuestionUrl.isBlank()) {
+      Extension adaptiveExt = new Extension(QUESTIONNAIRE_ADAPTIVE_EXT);
+      adaptiveExt.setValue(new UriType(nextQuestionUrl));
+      contained.addExtension(adaptiveExt);
+    } else {
+      warnings.add("dtr.adaptive.next-question-url is not configured; "
+          + "questionnaireAdaptive extension omitted from contained adaptive Questionnaire");
+    }
 
     return new PrepopulationResult(qr, warnings);
   }

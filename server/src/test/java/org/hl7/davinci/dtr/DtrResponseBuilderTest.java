@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
@@ -24,6 +25,7 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.UriType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +43,8 @@ class DtrResponseBuilderTest {
 
   private static final String QR_PROFILE =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse";
+  private static final String QR_ADAPT_PROFILE =
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
   private static final String QR_COVERAGE_EXT =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
   private static final String INTENDED_USE_EXT =
@@ -49,6 +53,8 @@ class DtrResponseBuilderTest {
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
   private static final String INFO_ORIGIN_EXT =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
+  private static final String QUESTIONNAIRE_ADAPTIVE_EXT =
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
 
   private IQuestionnaireProcessorFactory mockFactory;
   private QuestionnaireProcessor mockProcessor;
@@ -71,7 +77,8 @@ class DtrResponseBuilderTest {
     when(mockDaoRegistry.getResourceDao(Patient.class)).thenReturn(mockPatientDao);
     when(mockPatientDao.read(any(), any())).thenThrow(new ResourceNotFoundException("Not found"));
 
-    builder = new DtrResponseBuilder(mockFactory, mockDaoRegistry);
+    builder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
+        new DtrAdaptiveProperties("http://payer.example/fhir/Questionnaire/$next-question", 60));
 
     testQ = new Questionnaire();
     testQ.setId("q-1");
@@ -472,6 +479,183 @@ class DtrResponseBuilderTest {
       assertFalse(result.warnings().isEmpty());
       assertTrue(result.warnings().stream()
           .anyMatch(w -> w.contains("Expression evaluation returned null")));
+    }
+  }
+
+  @Nested
+  @DisplayName("Adaptive Questionnaire Detection")
+  class AdaptiveDetectionTests {
+
+    @Test
+    @DisplayName("Detects adaptive via questionnaireAdaptive extension (primary signal)")
+    void detectsViaExtension() {
+      Questionnaire q = new Questionnaire();
+      q.addExtension(QUESTIONNAIRE_ADAPTIVE_EXT, new UriType("http://example.org/$next-question"));
+      assertTrue(DtrResponseBuilder.isAdaptiveQuestionnaire(q));
+    }
+
+    @Test
+    @DisplayName("Detects adaptive via meta.profile (fallback signal)")
+    void detectsViaProfile() {
+      Questionnaire q = new Questionnaire();
+      q.getMeta().addProfile("http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt");
+      assertTrue(DtrResponseBuilder.isAdaptiveQuestionnaire(q));
+    }
+
+    @Test
+    @DisplayName("Detects adaptive when both extension and profile present")
+    void detectsViaBoth() {
+      Questionnaire q = new Questionnaire();
+      q.addExtension(QUESTIONNAIRE_ADAPTIVE_EXT, new UriType("http://example.org/$next-question"));
+      q.getMeta().addProfile("http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt");
+      assertTrue(DtrResponseBuilder.isAdaptiveQuestionnaire(q));
+    }
+
+    @Test
+    @DisplayName("Returns false for standard profile without extension")
+    void standardProfileNotAdaptive() {
+      Questionnaire q = new Questionnaire();
+      q.getMeta().addProfile("http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-r4");
+      assertFalse(DtrResponseBuilder.isAdaptiveQuestionnaire(q));
+    }
+
+    @Test
+    @DisplayName("Returns false when no profiles and no extension")
+    void noSignalsNotAdaptive() {
+      Questionnaire q = new Questionnaire();
+      assertFalse(DtrResponseBuilder.isAdaptiveQuestionnaire(q));
+    }
+  }
+
+  @Nested
+  @DisplayName("Adaptive QuestionnaireResponse Construction")
+  class AdaptiveResponseTests {
+
+    private Questionnaire adaptiveQ;
+
+    @BeforeEach
+    void setUpAdaptive() {
+      adaptiveQ = new Questionnaire();
+      adaptiveQ.setId("q-adapt");
+      adaptiveQ.setUrl("http://example.org/Questionnaire/adaptive");
+      adaptiveQ.setVersion("2.0");
+      adaptiveQ.getMeta().addProfile("http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt");
+    }
+
+    private DtrQuestionnaireResolver.ResolvedQuestionnaire adaptiveProvenance() {
+      return new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+          "http://example.org/Questionnaire/adaptive|2.0", adaptiveQ,
+          DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE, new ArrayList<>(), null);
+    }
+
+    @Test
+    @DisplayName("Adaptive QR has dtr-questionnaireresponse-adapt profile")
+    void adaptiveProfile() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertTrue(qr.getMeta().hasProfile(QR_ADAPT_PROFILE));
+      assertFalse(qr.getMeta().hasProfile(QR_PROFILE),
+          "Adaptive QR should NOT have the standard profile");
+    }
+
+    @Test
+    @DisplayName("Adaptive QR has a generated UUID ID")
+    void generatedUuid() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertNotNull(qr.getIdElement().getIdPart());
+      // Verify it's a valid UUID format
+      assertDoesNotThrow(() -> java.util.UUID.fromString(qr.getIdElement().getIdPart()));
+    }
+
+    @Test
+    @DisplayName("Adaptive QR contains a contained Questionnaire with no items")
+    void containedQuestionnaire() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertEquals(1, qr.getContained().size());
+      assertInstanceOf(Questionnaire.class, qr.getContained().get(0));
+      Questionnaire contained = (Questionnaire) qr.getContained().get(0);
+      assertTrue(contained.getItem().isEmpty(), "Contained questionnaire should have no items");
+    }
+
+    @Test
+    @DisplayName("Contained Questionnaire has derivedFrom pointing to adaptive Q canonical")
+    void containedDerivedFrom() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      Questionnaire contained = (Questionnaire) qr.getContained().get(0);
+      assertFalse(contained.getDerivedFrom().isEmpty());
+      assertEquals("http://example.org/Questionnaire/adaptive|2.0",
+          contained.getDerivedFrom().get(0).getValue());
+    }
+
+    @Test
+    @DisplayName("Contained Questionnaire has questionnaireAdaptive extension with configured URL")
+    void questionnaireAdaptiveExtension() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      Questionnaire contained = (Questionnaire) qr.getContained().get(0);
+      Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
+      assertNotNull(adaptiveExt, "Should have questionnaireAdaptive extension");
+      assertInstanceOf(UriType.class, adaptiveExt.getValue());
+      assertEquals("http://payer.example/fhir/Questionnaire/$next-question",
+          ((UriType) adaptiveExt.getValue()).getValue());
+    }
+
+    @Test
+    @DisplayName("Adaptive QR has required DTR extensions")
+    void dtrExtensions() {
+      DeviceRequest order = new DeviceRequest();
+      order.setId("dr-1");
+
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of(order));
+      QuestionnaireResponse qr = result.response();
+
+      assertNotNull(qr.getExtensionByUrl(QR_COVERAGE_EXT), "Should have qr-coverage");
+      assertNotNull(qr.getExtensionByUrl(INTENDED_USE_EXT), "Should have intendedUse");
+      assertFalse(qr.getExtensionsByUrl(QR_CONTEXT_EXT).isEmpty(), "Should have qr-context");
+    }
+
+    @Test
+    @DisplayName("Adaptive QR has correct status, questionnaire, and subject")
+    void basicFields() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertEquals(QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS, qr.getStatus());
+      assertEquals("#contained-questionnaire", qr.getQuestionnaire());
+      assertEquals("Patient/pat-1", qr.getSubject().getReference());
+      assertNotNull(qr.getAuthored());
+    }
+
+    @Test
+    @DisplayName("Missing adaptive URL produces warning and omits extension")
+    void missingUrlWarning() {
+      DtrResponseBuilder noUrlBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
+          new DtrAdaptiveProperties("", 60));
+
+      DtrResponseBuilder.PrepopulationResult result =
+          noUrlBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      Questionnaire contained = (Questionnaire) qr.getContained().get(0);
+      assertNull(contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT),
+          "Extension should be omitted when URL not configured");
+      assertFalse(result.warnings().isEmpty());
+      assertTrue(result.warnings().get(0).contains("not configured"));
     }
   }
 }

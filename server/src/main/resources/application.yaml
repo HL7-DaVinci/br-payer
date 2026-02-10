@@ -36,13 +36,6 @@ management:
       export:
         enabled: true
 
-initial-data:
-  - examples-crd
-  - examples-dtr
-  - examples-pas
-  - seed-data
-  - library  # CQL-related resources copied from /library folder in project root
-
 spring:
   # -------------------------------------------------------------------------------
   # A. Spring AI — Model Context Protocol (MCP)
@@ -461,3 +454,20 @@ hapi:
     # R. LastN (analytics)
     # -------------------------------------------------------------------------------
     # lastn_enabled: true
+
+
+# -------------------------------------------------------------------------------------
+# Custom properties we are adding
+# -------------------------------------------------------------------------------------
+
+initial-data:
+  - examples-crd
+  - examples-dtr
+  - examples-pas
+  - seed-data
+  - library  # Copied from /library folder in project root as defined in pom and Dockerfile
+
+dtr:
+  adaptive:
+    next-question-url: ""  # Set to payer's $next-question endpoint URL
+    session-ttl-minutes: 60

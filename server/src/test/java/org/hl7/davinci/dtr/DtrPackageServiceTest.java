@@ -30,6 +30,7 @@ class DtrPackageServiceTest {
   private DtrValueSetCollector mockVsCollector;
   private DtrBundleAssembler mockBundleAssembler;
   private DtrResponseBuilder mockResponseBuilder;
+  private DtrSessionContextStore mockSessionStore;
 
   private Coverage testCoverage;
 
@@ -41,10 +42,12 @@ class DtrPackageServiceTest {
     mockVsCollector = mock(DtrValueSetCollector.class);
     mockBundleAssembler = mock(DtrBundleAssembler.class);
     mockResponseBuilder = mock(DtrResponseBuilder.class);
+    mockSessionStore = mock(DtrSessionContextStore.class);
 
     service = new DtrPackageService(
         mockResolver, mockSubQAssembler, mockLibResolver,
-        mockVsCollector, mockBundleAssembler, mockResponseBuilder);
+        mockVsCollector, mockBundleAssembler, mockResponseBuilder,
+        mockSessionStore, new DtrAdaptiveProperties("", 60));
 
     testCoverage = new Coverage();
     testCoverage.setId("cov-1");
@@ -58,6 +61,15 @@ class DtrPackageServiceTest {
         .thenReturn(new DtrValueSetCollector.ValueSetCollection(List.of(), List.of()));
     when(mockResponseBuilder.buildResponse(any(), any(), any(), any(), any()))
         .thenReturn(new DtrResponseBuilder.PrepopulationResult(new QuestionnaireResponse(), List.of()));
+    when(mockResponseBuilder.buildAdaptiveResponse(any(), any(), any(), any()))
+        .thenReturn(new DtrResponseBuilder.PrepopulationResult(
+            createAdaptiveQr("adapt-qr-1"), List.of()));
+  }
+
+  private QuestionnaireResponse createAdaptiveQr(String id) {
+    QuestionnaireResponse qr = new QuestionnaireResponse();
+    qr.setId(id);
+    return qr;
   }
 
   private Questionnaire createTestQ(String id, String url, String version) {
@@ -231,5 +243,107 @@ class DtrPackageServiceTest {
 
     assertTrue(result.getMeta().hasProfile(
         "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-qpackage-output-parameters"));
+  }
+
+  @Test
+  @DisplayName("Adaptive questionnaire routes to buildAdaptiveResponse")
+  void adaptiveQuestionnaire_routesToAdaptive() {
+    Questionnaire adaptiveQ = createTestQ("q-adapt", "http://example.org/Questionnaire/adaptive", "1.0");
+    adaptiveQ.getMeta().addProfile(
+        "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt");
+    String canonical = "http://example.org/Questionnaire/adaptive|1.0";
+
+    when(mockResolver.resolve(any(), any(), any())).thenReturn(
+        new DtrQuestionnaireResolver.ResolutionResult(List.of(
+            new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+                canonical, adaptiveQ, DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE,
+                new ArrayList<>(), null)),
+            List.of()));
+
+    Bundle bundle = new Bundle();
+    bundle.setType(Bundle.BundleType.COLLECTION);
+    when(mockBundleAssembler.assembleBundle(any(), any(), any(), any()))
+        .thenReturn(new DtrBundleAssembler.BundleResult(bundle, null));
+
+    service.generatePackages(testCoverage, List.of(), List.of(new CanonicalType(canonical)), null);
+
+    verify(mockResponseBuilder).buildAdaptiveResponse(any(), any(), any(), any());
+    verify(mockResponseBuilder, never()).buildResponse(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("Adaptive questionnaire saves session context")
+  void adaptiveQuestionnaire_savesSession() {
+    Questionnaire adaptiveQ = createTestQ("q-adapt", "http://example.org/Questionnaire/adaptive", "1.0");
+    adaptiveQ.getMeta().addProfile(
+        "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt");
+    String canonical = "http://example.org/Questionnaire/adaptive|1.0";
+
+    when(mockResolver.resolve(any(), any(), any())).thenReturn(
+        new DtrQuestionnaireResolver.ResolutionResult(List.of(
+            new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+                canonical, adaptiveQ, DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE,
+                new ArrayList<>(), null)),
+            List.of()));
+
+    Bundle bundle = new Bundle();
+    bundle.setType(Bundle.BundleType.COLLECTION);
+    when(mockBundleAssembler.assembleBundle(any(), any(), any(), any()))
+        .thenReturn(new DtrBundleAssembler.BundleResult(bundle, null));
+
+    service.generatePackages(testCoverage, List.of(), List.of(new CanonicalType(canonical)), null);
+
+    verify(mockSessionStore).save(eq("adapt-qr-1"), any(DtrSessionContextStore.SessionContext.class));
+  }
+
+  @Test
+  @DisplayName("Adaptive questionnaire does not save session when bundle assembly fails")
+  void adaptiveQuestionnaire_noSessionOnBundleError() {
+    Questionnaire adaptiveQ = createTestQ("q-adapt", "http://example.org/Questionnaire/adaptive", "1.0");
+    adaptiveQ.getMeta().addProfile(
+        "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt");
+    String canonical = "http://example.org/Questionnaire/adaptive|1.0";
+
+    when(mockResolver.resolve(any(), any(), any())).thenReturn(
+        new DtrQuestionnaireResolver.ResolutionResult(List.of(
+            new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+                canonical, adaptiveQ, DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE,
+                new ArrayList<>(), null)),
+            List.of()));
+
+    when(mockBundleAssembler.assembleBundle(any(), any(), any(), any()))
+        .thenReturn(new DtrBundleAssembler.BundleResult(null, "Bundle assembly failed"));
+
+    Parameters result =
+        service.generatePackages(testCoverage, List.of(), List.of(new CanonicalType(canonical)), null);
+
+    assertFalse(result.hasParameter("packagebundle"));
+    assertTrue(result.hasParameter("outcome"));
+    verify(mockSessionStore, never()).save(any(), any());
+  }
+
+  @Test
+  @DisplayName("Standard questionnaire still routes to buildResponse (regression)")
+  void standardQuestionnaire_routesToStandard() {
+    Questionnaire q = createTestQ("q-1", "http://example.org/Questionnaire/test", "1.0");
+    String canonical = "http://example.org/Questionnaire/test|1.0";
+
+    when(mockResolver.resolve(any(), any(), any())).thenReturn(
+        new DtrQuestionnaireResolver.ResolutionResult(List.of(
+            new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+                canonical, q, DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE,
+                new ArrayList<>(), null)),
+            List.of()));
+
+    Bundle bundle = new Bundle();
+    bundle.setType(Bundle.BundleType.COLLECTION);
+    when(mockBundleAssembler.assembleBundle(any(), any(), any(), any()))
+        .thenReturn(new DtrBundleAssembler.BundleResult(bundle, null));
+
+    service.generatePackages(testCoverage, List.of(), List.of(new CanonicalType(canonical)), null);
+
+    verify(mockResponseBuilder).buildResponse(any(), any(), any(), any(), any());
+    verify(mockResponseBuilder, never()).buildAdaptiveResponse(any(), any(), any(), any());
+    verify(mockSessionStore, never()).save(any(), any());
   }
 }

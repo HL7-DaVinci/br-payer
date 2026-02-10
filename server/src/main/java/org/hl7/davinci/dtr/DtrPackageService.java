@@ -1,8 +1,11 @@
 package org.hl7.davinci.dtr;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -40,6 +43,8 @@ public class DtrPackageService {
   private final DtrValueSetCollector valueSetCollector;
   private final DtrBundleAssembler bundleAssembler;
   private final DtrResponseBuilder responseBuilder;
+  private final DtrSessionContextStore sessionContextStore;
+  private final DtrAdaptiveProperties adaptiveProperties;
 
   public DtrPackageService(
       DtrQuestionnaireResolver questionnaireResolver,
@@ -47,13 +52,17 @@ public class DtrPackageService {
       DtrLibraryResolver libraryResolver,
       DtrValueSetCollector valueSetCollector,
       DtrBundleAssembler bundleAssembler,
-      DtrResponseBuilder responseBuilder) {
+      DtrResponseBuilder responseBuilder,
+      DtrSessionContextStore sessionContextStore,
+      DtrAdaptiveProperties adaptiveProperties) {
     this.questionnaireResolver = questionnaireResolver;
     this.subQuestionnaireAssembler = subQuestionnaireAssembler;
     this.libraryResolver = libraryResolver;
     this.valueSetCollector = valueSetCollector;
     this.bundleAssembler = bundleAssembler;
     this.responseBuilder = responseBuilder;
+    this.sessionContextStore = sessionContextStore;
+    this.adaptiveProperties = adaptiveProperties;
   }
 
   /**
@@ -143,12 +152,25 @@ public class DtrPackageService {
       }
     }
 
-    // Build QuestionnaireResponse with server-side CQL pre-population
+    // Build QuestionnaireResponse adaptive or standard path
     List<Resource> orders = (validOrders != null) ? validOrders : List.of();
-    DtrResponseBuilder.PrepopulationResult prepopResult =
-        responseBuilder.buildResponse(questionnaire, coverage, rq, orders, libraries);
-    QuestionnaireResponse qr = prepopResult.response();
-    warnings.addAll(prepopResult.warnings());
+    QuestionnaireResponse qr;
+    List<String> qrWarnings;
+    boolean isAdaptiveQuestionnaire = DtrResponseBuilder.isAdaptiveQuestionnaire(questionnaire);
+
+    if (isAdaptiveQuestionnaire) {
+      var adaptiveResult = responseBuilder.buildAdaptiveResponse(
+          questionnaire, coverage, rq, orders);
+      qr = adaptiveResult.response();
+      qrWarnings = adaptiveResult.warnings();
+    } else {
+      var prepopResult = responseBuilder.buildResponse(
+          questionnaire, coverage, rq, orders, libraries);
+      qr = prepopResult.response();
+      qrWarnings = prepopResult.warnings();
+    }
+
+    warnings.addAll(qrWarnings);
 
     // Assemble bundle
     DtrBundleAssembler.BundleResult bundleResult = bundleAssembler.assembleBundle(
@@ -157,6 +179,11 @@ public class DtrPackageService {
     if (bundleResult.error() != null) {
       warnings.add(bundleResult.error());
       return null;
+    }
+
+    if (isAdaptiveQuestionnaire) {
+      sessionContextStore.save(qr.getIdElement().getIdPart(),
+          buildSessionContext(qr, questionnaire, libraries, valueSets, coverage, orders));
     }
 
     return bundleResult.bundle();
@@ -207,5 +234,50 @@ public class DtrPackageService {
     }
 
     return params;
+  }
+
+  private DtrSessionContextStore.SessionContext buildSessionContext(
+      QuestionnaireResponse qr,
+      Questionnaire questionnaire,
+      List<Library> libraries,
+      List<ValueSet> valueSets,
+      Coverage coverage,
+      List<Resource> orders) {
+
+    String qrId = qr.getIdElement().getIdPart();
+    String qCanonical = DtrFhirUtil.toVersionSpecific(questionnaire.getUrl(), questionnaire.getVersion());
+
+    Map<String, String> libVersions = new LinkedHashMap<>();
+    for (Library lib : libraries) {
+      libVersions.put(lib.getUrl(), lib.getVersion());
+    }
+
+    Map<String, String> vsVersions = new LinkedHashMap<>();
+    for (ValueSet vs : valueSets) {
+      vsVersions.put(vs.getUrl(), vs.getVersion());
+    }
+
+    String coverageRef = coverage.getIdElement().toUnqualifiedVersionless().getValue();
+    if (coverageRef == null || coverageRef.isBlank()) {
+      coverageRef = "Coverage/" + coverage.getIdElement().getIdPart();
+    }
+
+    List<String> orderRefs = new ArrayList<>();
+    for (Resource order : orders) {
+      String ref = order.getIdElement().toUnqualifiedVersionless().getValue();
+      if (ref != null && !ref.isBlank()) {
+        orderRefs.add(ref);
+      }
+    }
+
+    // Caller identity is a structural placeholder until SMART Backend Services auth (Phase 7)
+    String callerIdentity = "";
+
+    Instant now = Instant.now();
+    Instant expiresAt = now.plusSeconds(adaptiveProperties.sessionTtlMinutes() * 60);
+
+    return new DtrSessionContextStore.SessionContext(
+        qrId, qCanonical, libVersions, vsVersions,
+        coverageRef, orderRefs, callerIdentity, 1L, now, expiresAt);
   }
 }
