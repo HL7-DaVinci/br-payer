@@ -31,7 +31,8 @@
           "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
           "valueExpression": {
             "language": "text/cql",
-            "expression": "\"BasicPatientInfoPrepopulation\".LastName",
+            "expression": "LastName",
+            "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -55,7 +56,8 @@
           "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
           "valueExpression": {
             "language": "text/cql",
-            "expression": "\"BasicPatientInfoPrepopulation\".FirstName",
+            "expression": "FirstName",
+            "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -79,7 +81,8 @@
           "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
           "valueExpression": {
             "language": "text/cql",
-            "expression": "\"BasicPatientInfoPrepopulation\".DateOfBirth",
+            "expression": "DateOfBirth",
+            "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",

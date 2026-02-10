@@ -57,7 +57,8 @@
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
                 "language": "text/cql",
-                "expression": "\"HospitalBedsAndAccessoriesPrepopulation\".BodyWeight",
+                "expression": "BodyWeight",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HospitalBedsAndAccessoriesPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -90,7 +91,8 @@
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
               "valueExpression": {
                 "language": "text/cql",
-                "expression": "\"HospitalBedsAndAccessoriesPrepopulation\".EncounterList",
+                "expression": "EncounterList",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HospitalBedsAndAccessoriesPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -167,7 +169,8 @@
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
               "valueExpression": {
                 "language": "text/cql",
-                "expression": "\"HospitalBedsAndAccessoriesPrepopulation\".DeviceRequested",
+                "expression": "DeviceRequested",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HospitalBedsAndAccessoriesPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
