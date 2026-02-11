@@ -1,0 +1,472 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "ImmunosuppressiveDrugs",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugs",
+  "version": "1.0.0",
+  "name": "ImmunosuppressiveDrugs",
+  "title": "Immunosuppressive Drugs Questionnaire",
+  "status": "active",
+  "subjectType": ["Patient"],
+  "date": "2026-02-10",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation"
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Patient Information",
+      "type": "group",
+      "extension": [{
+        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+      }]
+    },
+    {
+      "linkId": "2",
+      "text": "Transplant / Indication",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "2.1",
+          "text": "Qualifying transplant condition on record",
+          "type": "boolean",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "QualifyingTransplant",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"QualifyingTransplant\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.2",
+          "text": "Date of transplant",
+          "type": "date",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "TransplantDate",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"TransplantDate\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.3",
+          "text": "Transplant procedure",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "TransplantProcedureDisplay",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"TransplantProcedureDisplay\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "3",
+      "text": "Medication Details",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "3.1",
+          "text": "Medication name",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "MedicationDescription",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"MedicationDescription\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.2",
+          "text": "Current dosage",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "CurrentDosage",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"CurrentDosage\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.3",
+          "text": "Route of administration",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "MedicationRoute",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"MedicationRoute\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.4",
+          "text": "Frequency",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "MedicationFrequency",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"MedicationFrequency\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.5",
+          "text": "Dispense quantity",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "MedicationQuantity",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"MedicationQuantity\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.6",
+          "text": "Refills authorized",
+          "type": "integer",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "RefillsAuthorized",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"RefillsAuthorized\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "4",
+      "text": "Baseline Labs",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "4.1",
+          "text": "Baseline serum creatinine",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "BaselineCreatinine",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"BaselineCreatinine\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.2",
+          "text": "Baseline liver function (ALT)",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "BaselineLiverFunction",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"BaselineLiverFunction\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.3",
+          "text": "Lab test date",
+          "type": "date",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "LabTestDate",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"LabTestDate\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "5",
+      "text": "Current Immunosuppressive Medications",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "5.1",
+          "text": "Current immunosuppressive medications",
+          "type": "open-choice",
+          "required": false,
+          "repeats": true,
+          "answerOption": [],
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "CurrentMedicationsList",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"CurrentMedicationsList\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "5.2",
+          "text": "Therapy start date",
+          "type": "date",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "TherapyStartDate",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"TherapyStartDate\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "6",
+      "text": "Monitoring Plan",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "6.1",
+          "text": "Face-to-face evaluation within 6 months",
+          "type": "open-choice",
+          "required": false,
+          "repeats": true,
+          "answerOption": [],
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "EncounterList",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"EncounterList\",\"libraryName\":\"ImmunosuppressiveDrugsPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "6.2",
+          "text": "Lab monitoring frequency",
+          "type": "string",
+          "required": false
+        },
+        {
+          "linkId": "6.3",
+          "text": "Drug level monitoring plan",
+          "type": "text",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

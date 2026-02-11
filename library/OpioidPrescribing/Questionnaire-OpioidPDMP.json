@@ -1,0 +1,172 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "OpioidPDMP",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPDMP",
+  "version": "1.0.0",
+  "name": "OpioidPDMP",
+  "title": "Opioid PDMP Review Questionnaire",
+  "status": "active",
+  "subjectType": ["Patient"],
+  "date": "2026-02-10",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation"
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Patient Information",
+      "type": "group",
+      "extension": [{
+        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+      }]
+    },
+    {
+      "linkId": "2",
+      "text": "PDMP Review",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "2.1",
+          "text": "Medication being prescribed",
+          "type": "string",
+          "required": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "MedicationDescription",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"MedicationDescription\",\"libraryName\":\"OpioidPDMPPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.2",
+          "text": "Patient identification for PDMP query",
+          "type": "string",
+          "required": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "PatientIdentifiers",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"PatientIdentifiers\",\"libraryName\":\"OpioidPDMPPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.3",
+          "text": "Prior opioid prescriptions found",
+          "type": "open-choice",
+          "required": false,
+          "repeats": true,
+          "answerOption": [],
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "PrescribedOpioidHistory",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"PrescribedOpioidHistory\",\"libraryName\":\"OpioidPDMPPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.4",
+          "text": "PDMP check date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "linkId": "2.5",
+          "text": "PDMP findings summary",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "linkId": "3",
+      "text": "Verification",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "3.1",
+          "text": "I confirm that I have reviewed the PDMP report for this patient",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "linkId": "3.2",
+          "text": "Are there any concerning findings from the PDMP review?",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "linkId": "3.3",
+          "text": "If concerning findings, describe mitigation plan",
+          "type": "text",
+          "required": false,
+          "enableWhen": [{
+            "question": "3.2",
+            "operator": "=",
+            "answerBoolean": true
+          }]
+        }
+      ]
+    }
+  ]
+}

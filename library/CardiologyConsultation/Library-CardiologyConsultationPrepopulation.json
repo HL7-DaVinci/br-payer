@@ -1,0 +1,54 @@
+{
+  "resourceType": "Library",
+  "id": "CardiologyConsultationPrepopulation",
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+  "name": "CardiologyConsultationPrepopulation",
+  "version": "1.0.0",
+  "title": "Cardiology Consultation DTR Prepopulation",
+  "status": "active",
+  "type": {
+    "coding": [{
+      "system": "http://terminology.hl7.org/CodeSystem/library-type",
+      "code": "logic-library"
+    }]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "DTR Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-dtr/Library/DTRHelpers|1.0.0"
+    }
+  ],
+  "parameter": [
+    {
+      "name": "appointment",
+      "use": "in",
+      "min": 0,
+      "max": "1",
+      "type": "Appointment"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "Appointment"
+    },
+    {
+      "type": "ServiceRequest"
+    },
+    {
+      "type": "Condition"
+    },
+    {
+      "type": "Encounter"
+    }
+  ],
+  "content": [{
+    "contentType": "text/cql",
+    "url": "CardiologyConsultationPrepopulation.cql"
+  }]
+}

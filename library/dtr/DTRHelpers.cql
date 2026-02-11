@@ -122,3 +122,60 @@ define function CodesFromProcedures(ProcedureList List<FHIR.Procedure>):
           return FHIRHelpers.ToCode(CODING)
       return DiagnosesCodings
   ))
+
+// ============================================================
+// OBSERVATION SORTING
+// ============================================================
+
+define function MostRecent(ObsList List<Observation>):
+  Last(ObsList O sort by Coalesce(
+    (effective as FHIR.dateTime).value,
+    (effective as FHIR.instant).value,
+    (effective as FHIR.Period)."end".value,
+    issued.value
+  ))
+
+define function ObservationValueAsString(Obs Observation):
+  if Obs is null then null
+  else if Obs.value is FHIR.Quantity then
+    ToString((Obs.value as FHIR.Quantity).value.value) + ' ' + Coalesce((Obs.value as FHIR.Quantity).unit.value, '')
+  else if Obs.value is FHIR.string then
+    (Obs.value as FHIR.string).value
+  else if Obs.value is FHIR.CodeableConcept then
+    First((Obs.value as FHIR.CodeableConcept).coding).display.value
+  else null
+
+// ============================================================
+// CONDITION FILTERING
+// ============================================================
+
+define function ActiveOrRecurring(CondList List<Condition>):
+  CondList C
+    where C.clinicalStatus is not null
+      and exists(C.clinicalStatus.coding cs
+        where cs.code.value in { 'active', 'recurrence', 'relapse' })
+
+define function ConditionLookBack(CondList List<Condition>, LookBack System.Quantity):
+  CondList C
+    let LookBackInterval: Interval[Now() - LookBack, Now()]
+    where (C.onset as FHIR.dateTime).value in LookBackInterval
+      or PeriodToInterval(C.onset as FHIR.Period) overlaps LookBackInterval
+      or (C.recordedDate).value in LookBackInterval
+
+// ============================================================
+// MEDICATION HELPERS
+// ============================================================
+
+define function MedicationStatementLookBack(MedList List<MedicationStatement>, LookBack System.Quantity):
+  MedList M
+    let LookBackInterval: Interval[Now() - LookBack, Now()]
+    where (M.effective as FHIR.dateTime).value in LookBackInterval
+      or PeriodToInterval(M.effective as FHIR.Period) overlaps LookBackInterval
+
+define function ActiveMedicationStatements(MedList List<MedicationStatement>):
+  MedList M where M.status.value in { 'active', 'intended' }
+
+define function MedicationRequestCoding(MedReq MedicationRequest):
+  if MedReq is not null and MedReq.medication is FHIR.CodeableConcept then
+    (MedReq.medication as FHIR.CodeableConcept).coding
+  else null

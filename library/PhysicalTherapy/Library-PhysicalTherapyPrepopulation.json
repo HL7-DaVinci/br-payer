@@ -1,0 +1,62 @@
+{
+  "resourceType": "Library",
+  "id": "PhysicalTherapyPrepopulation",
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+  "name": "PhysicalTherapyPrepopulation",
+  "version": "1.0.0",
+  "title": "Physical Therapy DTR Prepopulation",
+  "status": "active",
+  "type": {
+    "coding": [{
+      "system": "http://terminology.hl7.org/CodeSystem/library-type",
+      "code": "logic-library"
+    }]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "DTR Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-dtr/Library/DTRHelpers|1.0.0"
+    }
+  ],
+  "parameter": [
+    {
+      "name": "appointment",
+      "use": "in",
+      "min": 0,
+      "max": "1",
+      "type": "Appointment"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "Appointment"
+    },
+    {
+      "type": "Procedure",
+      "codeFilter": [{
+        "path": "code",
+        "code": [
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "97110"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "97140"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "97530"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "97112"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "97116"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "97535"}
+        ]
+      }]
+    },
+    {
+      "type": "Condition"
+    }
+  ],
+  "content": [{
+    "contentType": "text/cql",
+    "url": "PhysicalTherapyPrepopulation.cql"
+  }]
+}

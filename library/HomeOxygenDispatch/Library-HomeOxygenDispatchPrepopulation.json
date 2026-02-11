@@ -1,0 +1,112 @@
+{
+  "resourceType": "Library",
+  "id": "HomeOxygenDispatchPrepopulation",
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+  "name": "HomeOxygenDispatchPrepopulation",
+  "version": "1.0.0",
+  "title": "Home Oxygen Dispatch DTR Prepopulation",
+  "status": "active",
+  "type": {
+    "coding": [{
+      "system": "http://terminology.hl7.org/CodeSystem/library-type",
+      "code": "logic-library"
+    }]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "DTR Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-dtr/Library/DTRHelpers|1.0.0"
+    }
+  ],
+  "parameter": [
+    {
+      "name": "device_request",
+      "use": "in",
+      "min": 0,
+      "max": "1",
+      "type": "DeviceRequest"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "DeviceRequest",
+      "codeFilter": [{
+        "path": "code",
+        "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.80"
+      }]
+    },
+    {
+      "type": "DeviceRequest",
+      "codeFilter": [{
+        "path": "code",
+        "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.79"
+      }]
+    },
+    {
+      "type": "DeviceRequest",
+      "codeFilter": [{
+        "path": "code",
+        "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.77"
+      }]
+    },
+    {
+      "type": "DeviceRequest",
+      "codeFilter": [{
+        "path": "code",
+        "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.74"
+      }]
+    },
+    {
+      "type": "DeviceRequest",
+      "codeFilter": [{
+        "path": "code",
+        "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.78"
+      }]
+    },
+    {
+      "type": "Observation",
+      "codeFilter": [{
+        "path": "code",
+        "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.106"
+      }]
+    },
+    {
+      "type": "Observation",
+      "codeFilter": [{
+        "path": "code",
+        "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.132"
+      }]
+    },
+    {
+      "type": "Observation",
+      "codeFilter": [{
+        "path": "code",
+        "code": [
+          {"system": "http://loinc.org", "code": "59408-5"},
+          {"system": "http://loinc.org", "code": "2708-6"},
+          {"system": "http://loinc.org", "code": "2703-7"}
+        ]
+      }]
+    },
+    {
+      "type": "Condition",
+      "codeFilter": [{
+        "path": "code",
+        "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.25"
+      }]
+    },
+    {
+      "type": "Encounter"
+    }
+  ],
+  "content": [{
+    "contentType": "text/cql",
+    "url": "HomeOxygenDispatchPrepopulation.cql"
+  }]
+}

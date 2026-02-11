@@ -1,0 +1,262 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "PhysicalTherapyExtension",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PhysicalTherapyExtension",
+  "version": "1.0.0",
+  "name": "PhysicalTherapyExtension",
+  "title": "Physical Therapy Session Extension Questionnaire",
+  "status": "active",
+  "subjectType": ["Patient"],
+  "date": "2026-02-10",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation"
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Patient Information",
+      "type": "group",
+      "extension": [{
+        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+      }]
+    },
+    {
+      "linkId": "2",
+      "text": "Current Diagnosis and Treatment",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "2.1",
+          "text": "Primary Diagnosis",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "DiagnosisDisplay",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"DiagnosisDisplay\",\"libraryName\":\"PhysicalTherapyPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.2",
+          "text": "Appointment Service Type",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "AppointmentServiceType",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"AppointmentServiceType\",\"libraryName\":\"PhysicalTherapyPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "3",
+      "text": "Session History",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "3.1",
+          "text": "Sessions Used This Year",
+          "type": "integer",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "SessionsUsedThisYear",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"SessionsUsedThisYear\",\"libraryName\":\"PhysicalTherapyPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.2",
+          "text": "Plan Session Limit",
+          "type": "integer",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "PlanSessionLimit",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"PlanSessionLimit\",\"libraryName\":\"PhysicalTherapyPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.3",
+          "text": "Sessions Remaining",
+          "type": "integer",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "SessionsRemaining",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"SessionsRemaining\",\"libraryName\":\"PhysicalTherapyPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.4",
+          "text": "PT Sessions This Year",
+          "type": "open-choice",
+          "required": false,
+          "repeats": true,
+          "answerOption": [],
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "PTHistoryFormatted",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"PTHistoryFormatted\",\"libraryName\":\"PhysicalTherapyPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "4",
+      "text": "Medical Necessity for Extension",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "4.1",
+          "text": "Clinical justification for additional sessions beyond the plan limit",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "4.2",
+          "text": "Number of additional sessions requested",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "linkId": "4.3",
+          "text": "Expected treatment duration (weeks)",
+          "type": "integer",
+          "required": false
+        }
+      ]
+    },
+    {
+      "linkId": "5",
+      "text": "Functional Assessment",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "5.1",
+          "text": "Current functional limitations",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "5.2",
+          "text": "Treatment goals for extended sessions",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "5.3",
+          "text": "Progress toward goals to date",
+          "type": "text",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

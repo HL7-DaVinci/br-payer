@@ -85,6 +85,17 @@ define "Info Detail":
   end
 
 // ============================================================
+// COVERAGE EXTENSION VALUES
+// ============================================================
+
+define "Doc Purpose":
+  if "Documentation Required" then { 'withorder' } else null as List<String>
+
+define "Questionnaire URLs":
+  CRD."Questionnaire URLs Value"("Documentation Required",
+    { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/CardiologyConsultation' })
+
+// ============================================================
 // FINAL COVERAGE EXTENSION
 // ============================================================
 
@@ -97,9 +108,9 @@ define "Coverage Info Extension":
       CRD."Build Assertion ID"("Assertion Prefix", "Coverage"),
       CRD."PA Needed Value"("Prior Authorization Required"),
       CRD."Doc Needed Value"("Documentation Required", 'clinical'),
+      "Doc Purpose",
       null as List<String>,
-      null as List<String>,
-      null as List<String>,
+      "Questionnaire URLs",
       null as List<FHIR.CodeableConcept>,
       "Appointment Coding"
     )

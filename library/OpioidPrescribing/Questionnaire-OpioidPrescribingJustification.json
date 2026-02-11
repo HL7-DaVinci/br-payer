@@ -1,0 +1,214 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "OpioidPrescribingJustification",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPrescribingJustification",
+  "version": "1.0.0",
+  "name": "OpioidPrescribingJustification",
+  "title": "Opioid Prescribing Justification Questionnaire",
+  "status": "active",
+  "subjectType": ["Patient"],
+  "date": "2026-02-10",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-adaptive",
+      "valueUrl": ""
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPrescribingJustificationPrepopulation"
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Patient Information",
+      "type": "group",
+      "extension": [{
+        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+      }]
+    },
+    {
+      "linkId": "2",
+      "text": "Pain Assessment",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "2.1",
+          "text": "What is the primary pain diagnosis?",
+          "type": "string",
+          "required": true
+        },
+        {
+          "linkId": "2.2",
+          "text": "Pain severity (0-10 scale)",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "linkId": "2.3",
+          "text": "Duration of pain condition",
+          "type": "choice",
+          "required": true,
+          "answerOption": [
+            { "valueCoding": { "code": "acute", "display": "Acute (< 3 months)" } },
+            { "valueCoding": { "code": "subacute", "display": "Subacute (3-6 months)" } },
+            { "valueCoding": { "code": "chronic", "display": "Chronic (> 6 months)" } }
+          ]
+        },
+        {
+          "linkId": "2.4",
+          "text": "Functional impact description",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "linkId": "3",
+      "text": "Prior Treatment History",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "3.1",
+          "text": "Non-opioid medications tried",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "3.2",
+          "text": "Non-pharmacologic therapies tried",
+          "type": "text",
+          "required": false
+        },
+        {
+          "linkId": "3.3",
+          "text": "Reason prior treatments were insufficient",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "linkId": "4",
+      "text": "Risk Assessment",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "4.1",
+          "text": "Is the patient opioid-naive?",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "linkId": "4.2",
+          "text": "Opioid Risk Tool (ORT) score",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "linkId": "4.3",
+          "text": "History of substance use disorder",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "linkId": "4.4",
+          "text": "Is the formulation extended-release?",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "linkId": "5",
+      "text": "Prescribing Justification",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "5.1",
+          "text": "Medication being prescribed",
+          "type": "string",
+          "required": true
+        },
+        {
+          "linkId": "5.2",
+          "text": "Requested days supply",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "linkId": "5.3",
+          "text": "Clinical justification for opioid therapy",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "5.4",
+          "text": "Treatment goals and expected duration",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "5.5",
+          "text": "Monitoring plan",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "linkId": "6",
+      "text": "Drug Interaction Review",
+      "type": "group",
+      "enableWhen": [{
+        "question": "4.1",
+        "operator": "exists",
+        "answerBoolean": true
+      }],
+      "item": [
+        {
+          "linkId": "6.1",
+          "text": "Does the patient have an active benzodiazepine prescription?",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "linkId": "6.2",
+          "text": "If concurrent benzodiazepine use, provide risk mitigation plan",
+          "type": "text",
+          "required": false,
+          "enableWhen": [{
+            "question": "6.1",
+            "operator": "=",
+            "answerBoolean": true
+          }]
+        },
+        {
+          "linkId": "6.3",
+          "text": "Current medications that may interact with opioid therapy",
+          "type": "text",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

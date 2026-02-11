@@ -1,0 +1,237 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "CardiologyConsultation",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/CardiologyConsultation",
+  "version": "1.0.0",
+  "name": "CardiologyConsultation",
+  "title": "Cardiology Consultation Questionnaire",
+  "status": "active",
+  "subjectType": ["Patient"],
+  "date": "2026-02-10",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation"
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Patient Information",
+      "type": "group",
+      "extension": [{
+        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+      }]
+    },
+    {
+      "linkId": "2",
+      "text": "Referral Information",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "2.1",
+          "text": "Referral Status",
+          "type": "string",
+          "required": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ReferralStatus",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ReferralStatus\",\"libraryName\":\"CardiologyConsultationPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.2",
+          "text": "Existing Referral Details",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ExistingReferralDetails",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ExistingReferralDetails\",\"libraryName\":\"CardiologyConsultationPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "3",
+      "text": "Cardiac History",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "3.1",
+          "text": "Cardiac Conditions",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "CardiacConditionDisplay",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"CardiacConditionDisplay\",\"libraryName\":\"CardiologyConsultationPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.2",
+          "text": "Recent Cardiac Encounters (past 12 months)",
+          "type": "open-choice",
+          "required": false,
+          "repeats": true,
+          "answerOption": [],
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "RecentCardiacHistory",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"RecentCardiacHistory\",\"libraryName\":\"CardiologyConsultationPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.3",
+          "text": "Patient Age",
+          "type": "integer",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "PatientAge",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"PatientAge\",\"libraryName\":\"CardiologyConsultationPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "4",
+      "text": "Consultation Details",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "4.1",
+          "text": "Appointment Service Type",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "AppointmentServiceType",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"AppointmentServiceType\",\"libraryName\":\"CardiologyConsultationPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.2",
+          "text": "Reason for Consultation",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "4.3",
+          "text": "Referring Provider Name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "linkId": "4.4",
+          "text": "Preferred Appointment Date",
+          "type": "date",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

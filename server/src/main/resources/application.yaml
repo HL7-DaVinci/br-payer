@@ -469,5 +469,5 @@ initial-data:
 
 dtr:
   adaptive:
-    next-question-url: ""  # Set to payer's $next-question endpoint URL
+    next-question-url: "http://localhost:8080/fhir/Questionnaire/$next-question"  # Set to payer's $next-question endpoint URL
     session-ttl-minutes: 60

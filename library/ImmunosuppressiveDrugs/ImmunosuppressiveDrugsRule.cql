@@ -117,7 +117,7 @@ define "Doc Purpose":
   if "Documentation Required" then { 'withorder' } else null as List<String>
 
 define "Questionnaire URLs":
-  { 'Questionnaire/ImmunosuppressiveDrugs', 'Questionnaire/ImmunosuppressiveDrugsProgressNote' }
+  { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugs', 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugsProgressNote' }
 
 define "Coverage Reason":
   case

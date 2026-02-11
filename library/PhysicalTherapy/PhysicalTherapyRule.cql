@@ -114,7 +114,7 @@ define "Coverage Info Extension":
       CRD."Doc Needed Value"("Documentation Required", 'clinical'),
       null as List<String>,
       null as List<String>,
-      CRD."Questionnaire URLs Value"("Exceeded Session Limit", { 'Questionnaire/PhysicalTherapyExtension' }),
+      CRD."Questionnaire URLs Value"("Exceeded Session Limit", { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PhysicalTherapyExtension' }),
       null as List<FHIR.CodeableConcept>,
       "Appointment Coding"
     )

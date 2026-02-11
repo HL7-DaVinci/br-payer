@@ -1,0 +1,51 @@
+{
+  "resourceType": "Library",
+  "id": "OpioidPrescribingJustificationPrepopulation",
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPrescribingJustificationPrepopulation",
+  "name": "OpioidPrescribingJustificationPrepopulation",
+  "version": "1.0.0",
+  "title": "Opioid Prescribing Justification DTR Prepopulation",
+  "status": "active",
+  "type": {
+    "coding": [{
+      "system": "http://terminology.hl7.org/CodeSystem/library-type",
+      "code": "logic-library"
+    }]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "DTR Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-dtr/Library/DTRHelpers|1.0.0"
+    }
+  ],
+  "parameter": [
+    {
+      "name": "medication_request",
+      "use": "in",
+      "min": 0,
+      "max": "1",
+      "type": "MedicationRequest"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "MedicationRequest"
+    },
+    {
+      "type": "MedicationStatement"
+    },
+    {
+      "type": "Condition"
+    }
+  ],
+  "content": [{
+    "contentType": "text/cql",
+    "url": "OpioidPrescribingJustificationPrepopulation.cql"
+  }]
+}

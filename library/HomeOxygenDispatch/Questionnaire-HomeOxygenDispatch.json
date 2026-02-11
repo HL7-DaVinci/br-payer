@@ -1,0 +1,406 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "HomeOxygenDispatch",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenDispatch",
+  "version": "1.0.0",
+  "name": "HomeOxygenDispatch",
+  "title": "Home Oxygen Dispatch Questionnaire",
+  "status": "active",
+  "subjectType": ["Patient"],
+  "date": "2026-02-10",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation"
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Patient Information",
+      "type": "group",
+      "extension": [{
+        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+      }]
+    },
+    {
+      "linkId": "2",
+      "text": "Coverage Requirements",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "2.1",
+          "text": "Relevant Diagnoses",
+          "type": "open-choice",
+          "required": false,
+          "repeats": true,
+          "answerOption": [],
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "RelevantDiagnoses",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"RelevantDiagnoses\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.2",
+          "text": "Arterial Oxygen Saturation (%)",
+          "type": "quantity",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ArterialOxygenSaturation",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ArterialOxygenSaturation\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.3",
+          "text": "Arterial Partial Pressure of Oxygen (mmHg)",
+          "type": "quantity",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ArterialPartialPressureOfOxygen",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ArterialPartialPressureOfOxygen\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.4",
+          "text": "Patient is Mobile",
+          "type": "boolean",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "PatientMobile",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"PatientMobile\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.5",
+          "text": "Hematocrit Value (%)",
+          "type": "quantity",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "HematocritThatIsGreaterThanThreshold",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"HematocritThatIsGreaterThanThreshold\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "3",
+      "text": "Prescribed Use",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "3.1",
+          "text": "Start Date",
+          "type": "date",
+          "required": false
+        },
+        {
+          "linkId": "3.2",
+          "text": "Length of Need (months)",
+          "type": "integer",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "LengthOfNeed",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"LengthOfNeed\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.3",
+          "text": "Prescribed Flow Rate (liters/min)",
+          "type": "decimal",
+          "required": false
+        },
+        {
+          "linkId": "3.4",
+          "text": "Frequency of Use",
+          "type": "choice",
+          "required": false,
+          "answerOption": [
+            {
+              "valueCoding": {
+                "display": "At rest"
+              }
+            },
+            {
+              "valueCoding": {
+                "display": "During exertion"
+              }
+            },
+            {
+              "valueCoding": {
+                "display": "During sleep"
+              }
+            },
+            {
+              "valueCoding": {
+                "display": "Continuous (24 hours)"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "4",
+      "text": "Oxygen Supply Order Details",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "4.1",
+          "text": "Device Description",
+          "type": "string",
+          "required": false,
+          "readOnly": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "DeviceRequestDescription",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"DeviceRequestDescription\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.2",
+          "text": "Portable Device",
+          "type": "boolean",
+          "required": false,
+          "readOnly": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "DeviceRequestedIsPortable",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"DeviceRequestedIsPortable\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.3",
+          "text": "Device Type",
+          "type": "choice",
+          "required": false,
+          "answerOption": [
+            {
+              "valueCoding": {
+                "display": "Liquid Oxygen"
+              }
+            },
+            {
+              "valueCoding": {
+                "display": "Compressed Gas"
+              }
+            },
+            {
+              "valueCoding": {
+                "display": "Concentrator"
+              }
+            }
+          ],
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "DeviceType",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"DeviceType\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.4",
+          "text": "Delivery Means (e.g., nasal cannula, mask)",
+          "type": "string",
+          "required": false
+        }
+      ]
+    },
+    {
+      "linkId": "5",
+      "text": "Face-to-Face Evaluation",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "5.1",
+          "text": "Face-to-face Evaluation within 6 months",
+          "type": "open-choice",
+          "required": false,
+          "repeats": true,
+          "answerOption": [],
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "EncounterList",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"EncounterList\",\"libraryName\":\"HomeOxygenDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "6",
+      "text": "Medical Necessity",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "6.1",
+          "text": "Medical Necessity Statement",
+          "type": "text",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

@@ -122,7 +122,7 @@ define "Doc Purpose":
 
 define "Questionnaire URLs":
   CRD."Questionnaire URLs Value"("Documentation Required",
-    { 'Questionnaire/home-o2-std-questionnaire' })
+    { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenDispatch' })
 
 define "Coverage Info Extension":
   if "Coverage" is not null and "Coverage".id is not null then
