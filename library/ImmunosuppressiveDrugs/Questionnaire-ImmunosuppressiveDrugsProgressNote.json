@@ -9,6 +9,7 @@
   "name": "ImmunosuppressiveDrugsProgressNote",
   "title": "Immunosuppressive Drugs Progress Note",
   "status": "active",
+  "publisher": "Da Vinci",
   "subjectType": ["Patient"],
   "date": "2026-02-10",
   "extension": [
@@ -30,6 +31,19 @@
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
       "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        {
+          "url": "clinicalTime",
+          "valueCode": "under-5min"
+        },
+        {
+          "url": "totalTime",
+          "valueCode": "under-5min"
+        }
+      ]
     }
   ],
   "item": [

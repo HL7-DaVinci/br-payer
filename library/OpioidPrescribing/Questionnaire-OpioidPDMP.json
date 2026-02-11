@@ -9,6 +9,7 @@
   "name": "OpioidPDMP",
   "title": "Opioid PDMP Review Questionnaire",
   "status": "active",
+  "publisher": "Da Vinci",
   "subjectType": ["Patient"],
   "date": "2026-02-10",
   "extension": [
@@ -30,6 +31,19 @@
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
       "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        {
+          "url": "clinicalTime",
+          "valueCode": "under-3min"
+        },
+        {
+          "url": "totalTime",
+          "valueCode": "under-3min"
+        }
+      ]
     }
   ],
   "item": [

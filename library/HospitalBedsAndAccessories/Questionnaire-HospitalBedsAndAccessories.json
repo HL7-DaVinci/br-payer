@@ -9,6 +9,7 @@
   "name": "HospitalBedsAndAccessories",
   "title": "Hospital Beds and Accessories Questionnaire",
   "status": "active",
+  "publisher": "Da Vinci",
   "subjectType": ["Patient"],
   "date": "2026-02-06",
   "extension": [
@@ -30,6 +31,19 @@
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
       "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/HospitalBedsAndAccessoriesPrepopulation"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        {
+          "url": "clinicalTime",
+          "valueCode": "under-5min"
+        },
+        {
+          "url": "totalTime",
+          "valueCode": "under-5min"
+        }
+      ]
     }
   ],
   "item": [

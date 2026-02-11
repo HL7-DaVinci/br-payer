@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.hl7.davinci.dtr.DtrPackageService;
+import org.hl7.davinci.dtr.DtrSessionContextStore;
+import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
@@ -17,6 +19,7 @@ import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Library;
+import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Parameters;
@@ -79,7 +82,8 @@ import ca.uhn.hapi.fhir.cdshooks.api.ICdsServiceRegistry;
         "hapi.fhir.cr.enabled=true",
         "hapi.fhir.cdshooks.enabled=true",
         "spring.main.allow-bean-definition-overriding=true",
-        "vsac.api-key="
+        "vsac.api-key=",
+        "dtr.adaptive.next-question-url=http://localhost:8080/fhir/Questionnaire/$next-question"
     }
 )
 class DtrQuestionnairePackageIT {
@@ -98,6 +102,9 @@ class DtrQuestionnairePackageIT {
 
   @Autowired
   private ICdsServiceRegistry cdsServiceRegistry;
+
+  @Autowired
+  private DtrSessionContextStore sessionContextStore;
 
   private Patient testPatient;
   private Organization testOrganization;
@@ -426,6 +433,476 @@ class DtrQuestionnairePackageIT {
         }
       }
       assertTrue(hasWarning, "Should have warning about nonexistent questionnaire");
+    }
+  }
+
+  // ============================================================
+  // HOME OXYGEN DISPATCH
+  // ============================================================
+
+  @Nested
+  @DisplayName("Home Oxygen Dispatch")
+  class HomeOxygenDispatchTests {
+
+    private static final String HOME_OXYGEN_CANONICAL =
+        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenDispatch";
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Canonical resolution returns complete package")
+    void canonicalResolution_returnsCompletePackage() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(HOME_OXYGEN_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      assertNotNull(result);
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Should have package bundle. Warnings: " + extractWarnings(result));
+
+      Resource firstResource = bundle.getEntry().get(0).getResource();
+      assertInstanceOf(Questionnaire.class, firstResource);
+      assertTrue(((Questionnaire) firstResource).getUrl().contains("HomeOxygenDispatch"));
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("PatientInfo sub-questionnaire items are inlined")
+    void bundleContainsSubQuestionnaire_patientInfoInlined() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(HOME_OXYGEN_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle);
+
+      QuestionnaireResponse qr = bundle.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(qr);
+
+      // After sub-questionnaire assembly, PatientInfo items are inlined under linkId "1"
+      assertNotNull(findItemByLinkId(qr.getItem(), "1.PBI.1"),
+          "Inlined PatientInfo Last Name item should be present");
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Libraries present with ELM content")
+    void librariesHaveElm() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(HOME_OXYGEN_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle);
+
+      List<Library> libraries = bundle.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(Library.class::isInstance)
+          .map(Library.class::cast)
+          .toList();
+
+      assertFalse(libraries.isEmpty(), "Should have at least one library");
+      boolean hasElm = libraries.stream()
+          .anyMatch(lib -> lib.getContent().stream()
+              .anyMatch(c -> "application/elm+json".equals(c.getContentType()) && c.hasData()));
+      assertTrue(hasElm, "At least one library should have ELM content");
+    }
+
+    @Test
+    @Disabled("Order-based PlanDefinition matching tested separately")
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("DeviceRequest E0424 order resolves via PlanDefinition")
+    void orderResolution_deviceRequestProducesPackage() {
+      DeviceRequest deviceRequest = new DeviceRequest();
+      deviceRequest.setId("dtr-test-home-oxygen-dr");
+      deviceRequest.setStatus(DeviceRequest.DeviceRequestStatus.DRAFT);
+      deviceRequest.setIntent(DeviceRequest.RequestIntent.ORDER);
+      deviceRequest.setCode(new CodeableConcept().addCoding(
+          new Coding()
+              .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+              .setCode("E0424")
+              .setDisplay("Stationary compressed gaseous oxygen system, rental")));
+      deviceRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(deviceRequest), List.of(), null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Order-based resolution should produce a package for E0424. "
+          + "Warnings: " + extractWarnings(result));
+    }
+  }
+
+  // ============================================================
+  // IMMUNOSUPPRESSIVE DRUGS
+  // ============================================================
+
+  @Nested
+  @DisplayName("Immunosuppressive Drugs")
+  class ImmunosuppressiveDrugsTests {
+
+    private static final String IMMUNO_CANONICAL =
+        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugs";
+    private static final String PROGRESS_NOTE_CANONICAL =
+        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugsProgressNote";
+    private static final String IMMUNO_LIBRARY_URL =
+        "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation";
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Main form canonical produces package")
+    void mainFormCanonical_returnsPackage() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(IMMUNO_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Should produce package. Warnings: " + extractWarnings(result));
+
+      Resource firstResource = bundle.getEntry().get(0).getResource();
+      assertInstanceOf(Questionnaire.class, firstResource);
+      assertTrue(((Questionnaire) firstResource).getUrl().contains("ImmunosuppressiveDrugs"));
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Progress note canonical produces separate package")
+    void progressNoteCanonical_returnsSeparatePackage() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(PROGRESS_NOTE_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Should produce package. Warnings: " + extractWarnings(result));
+
+      Resource firstResource = bundle.getEntry().get(0).getResource();
+      assertInstanceOf(Questionnaire.class, firstResource);
+      assertTrue(((Questionnaire) firstResource).getUrl().contains("ProgressNote"));
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Both questionnaires reference same prepopulation Library")
+    void sharedLibrary_samePrepopulationLibraryInBothPackages() {
+      Parameters mainResult = dtrPackageService.generatePackages(
+          testCoverage, List.of(), List.of(new CanonicalType(IMMUNO_CANONICAL)), null);
+      Bundle mainBundle = extractPackageBundle(mainResult);
+      assertNotNull(mainBundle);
+
+      Parameters noteResult = dtrPackageService.generatePackages(
+          testCoverage, List.of(), List.of(new CanonicalType(PROGRESS_NOTE_CANONICAL)), null);
+      Bundle noteBundle = extractPackageBundle(noteResult);
+      assertNotNull(noteBundle);
+
+      // Library URLs may include version suffix (e.g. "url|1.0.0") from HAPI canonical resolution
+      boolean mainHasLib = mainBundle.getEntry().stream()
+          .filter(e -> e.getResource() instanceof Library)
+          .map(e -> ((Library) e.getResource()).getUrl())
+          .anyMatch(url -> url != null && url.startsWith(IMMUNO_LIBRARY_URL));
+      boolean noteHasLib = noteBundle.getEntry().stream()
+          .filter(e -> e.getResource() instanceof Library)
+          .map(e -> ((Library) e.getResource()).getUrl())
+          .anyMatch(url -> url != null && url.startsWith(IMMUNO_LIBRARY_URL));
+
+      assertTrue(mainHasLib,
+          "Main form package should contain ImmunosuppressiveDrugsPrepopulation. Warnings: "
+              + extractWarnings(mainResult));
+      assertTrue(noteHasLib,
+          "Progress note package should contain ImmunosuppressiveDrugsPrepopulation. Warnings: "
+              + extractWarnings(noteResult));
+    }
+
+    @Test
+    @Disabled("Order-based PlanDefinition matching tested separately")
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("MedicationRequest RxNorm 105585 resolves both questionnaires")
+    void orderResolution_medicationRequestResolvesBoth() {
+      MedicationRequest medRequest = new MedicationRequest();
+      medRequest.setId("dtr-test-immuno-mr");
+      medRequest.setStatus(MedicationRequest.MedicationRequestStatus.ACTIVE);
+      medRequest.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
+      medRequest.setMedication(new CodeableConcept().addCoding(
+          new Coding()
+              .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
+              .setCode("105585")
+              .setDisplay("Tacrolimus")));
+      medRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(medRequest), List.of(), null);
+
+      long bundleCount = result.getParameter().stream()
+          .filter(p -> "packagebundle".equals(p.getName()))
+          .count();
+      assertTrue(bundleCount >= 2,
+          "Order should resolve both questionnaires. Warnings: " + extractWarnings(result));
+    }
+  }
+
+  // ============================================================
+  // PHYSICAL THERAPY
+  // ============================================================
+
+  @Nested
+  @DisplayName("Physical Therapy")
+  class PhysicalTherapyTests {
+
+    private static final String PT_CANONICAL =
+        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PhysicalTherapyExtension";
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Canonical resolution returns complete package")
+    void canonicalResolution_returnsCompletePackage() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(PT_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Should have package bundle. Warnings: " + extractWarnings(result));
+
+      Resource firstResource = bundle.getEntry().get(0).getResource();
+      assertInstanceOf(Questionnaire.class, firstResource);
+      assertTrue(((Questionnaire) firstResource).getUrl().contains("PhysicalTherapyExtension"));
+    }
+
+    @Test
+    @Disabled("Order-based PlanDefinition matching tested separately")
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Appointment CPT 97110 resolves questionnaire")
+    void orderResolution_appointmentProducesPackage() {
+      Appointment appointment = new Appointment();
+      appointment.setId("dtr-test-pt-appt");
+      appointment.setStatus(Appointment.AppointmentStatus.PROPOSED);
+      appointment.addServiceType(new CodeableConcept().addCoding(
+          new Coding()
+              .setSystem("http://www.ama-assn.org/go/cpt")
+              .setCode("97110")
+              .setDisplay("Therapeutic exercises")));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(appointment), List.of(), null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Order-based resolution should produce a package for 97110. "
+          + "Warnings: " + extractWarnings(result));
+    }
+  }
+
+  // ============================================================
+  // CARDIOLOGY CONSULTATION
+  // ============================================================
+
+  @Nested
+  @DisplayName("Cardiology Consultation")
+  class CardiologyConsultationTests {
+
+    private static final String CARDIO_CANONICAL =
+        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/CardiologyConsultation";
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Canonical resolution returns complete package")
+    void canonicalResolution_returnsCompletePackage() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(CARDIO_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Should have package bundle. Warnings: " + extractWarnings(result));
+
+      Resource firstResource = bundle.getEntry().get(0).getResource();
+      assertInstanceOf(Questionnaire.class, firstResource);
+      assertTrue(((Questionnaire) firstResource).getUrl().contains("CardiologyConsultation"));
+    }
+
+    @Test
+    @Disabled("Order-based PlanDefinition matching tested separately")
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Appointment SNOMED 394579002 resolves questionnaire")
+    void orderResolution_appointmentProducesPackage() {
+      Appointment appointment = new Appointment();
+      appointment.setId("dtr-test-cardio-appt");
+      appointment.setStatus(Appointment.AppointmentStatus.PROPOSED);
+      appointment.addServiceType(new CodeableConcept().addCoding(
+          new Coding()
+              .setSystem("http://snomed.info/sct")
+              .setCode("394579002")
+              .setDisplay("Cardiology")));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(appointment), List.of(), null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Order-based resolution should produce a package for 394579002. "
+          + "Warnings: " + extractWarnings(result));
+    }
+  }
+
+  // ============================================================
+  // OPIOID PRESCRIBING
+  // ============================================================
+
+  @Nested
+  @DisplayName("Opioid Prescribing")
+  class OpioidPrescribingTests {
+
+    private static final String JUSTIFICATION_CANONICAL =
+        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPrescribingJustification";
+    private static final String PDMP_CANONICAL =
+        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPDMP";
+    private static final String QR_ADAPT_PROFILE =
+        "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
+    private static final String QUESTIONNAIRE_ADAPTIVE_EXT =
+        "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Justification canonical produces adaptive response")
+    void justificationCanonical_producesAdaptiveResponse() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(JUSTIFICATION_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Should produce package. Warnings: " + extractWarnings(result));
+
+      QuestionnaireResponse qr = bundle.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(qr, "Bundle should contain a QuestionnaireResponse");
+
+      assertTrue(qr.getMeta().hasProfile(QR_ADAPT_PROFILE),
+          "Adaptive QR should have dtr-questionnaireresponse-adapt profile");
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("PDMP canonical produces standard pre-populated response")
+    void pdmpCanonical_producesStandardResponse() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(PDMP_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Should produce package. Warnings: " + extractWarnings(result));
+
+      QuestionnaireResponse qr = bundle.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(qr, "Bundle should contain a QuestionnaireResponse");
+
+      assertFalse(qr.getMeta().hasProfile(QR_ADAPT_PROFILE),
+          "Standard QR should not have adaptive profile");
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Adaptive session context is saved to store")
+    void adaptiveSessionCreated_sessionSavedToStore() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(JUSTIFICATION_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle);
+
+      QuestionnaireResponse qr = bundle.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(qr);
+
+      String qrId = qr.getIdElement().getIdPart();
+      assertNotNull(qrId, "Adaptive QR should have an ID");
+      assertTrue(sessionContextStore.exists(qrId),
+          "Session context should be saved for adaptive QR ID: " + qrId);
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Adaptive response has contained Questionnaire with derivedFrom and adaptive ext")
+    void adaptiveContainedQuestionnaire_hasCorrectMetadata() {
+      List<CanonicalType> canonicals = List.of(new CanonicalType(JUSTIFICATION_CANONICAL));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(), canonicals, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle);
+
+      QuestionnaireResponse qr = bundle.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(qr);
+
+      // QR should reference a contained Questionnaire
+      assertTrue(qr.getQuestionnaire().startsWith("#"),
+          "Adaptive QR should reference a contained Questionnaire");
+
+      // Find the contained Questionnaire
+      Questionnaire contained = qr.getContained().stream()
+          .filter(Questionnaire.class::isInstance)
+          .map(Questionnaire.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(contained, "QR should contain a Questionnaire resource");
+
+      // Contained Q should have derivedFrom pointing to the source canonical
+      assertFalse(contained.getDerivedFrom().isEmpty(),
+          "Contained Questionnaire should have derivedFrom");
+      assertTrue(contained.getDerivedFrom().get(0).getValue()
+              .contains("OpioidPrescribingJustification"),
+          "derivedFrom should reference the source adaptive Questionnaire");
+
+      // Contained Q should have questionnaireAdaptive extension
+      assertNotNull(contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT),
+          "Contained Questionnaire should have questionnaireAdaptive extension");
+    }
+
+    @Test
+    @Disabled("Order-based PlanDefinition matching tested separately")
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("MedicationRequest RxNorm 197696 resolves both questionnaires")
+    void orderResolution_medicationRequestResolvesBoth() {
+      MedicationRequest medRequest = new MedicationRequest();
+      medRequest.setId("dtr-test-opioid-mr");
+      medRequest.setStatus(MedicationRequest.MedicationRequestStatus.ACTIVE);
+      medRequest.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
+      medRequest.setMedication(new CodeableConcept().addCoding(
+          new Coding()
+              .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
+              .setCode("197696")
+              .setDisplay("Hydrocodone")));
+      medRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(medRequest), List.of(), null);
+
+      long bundleCount = result.getParameter().stream()
+          .filter(p -> "packagebundle".equals(p.getName()))
+          .count();
+      assertTrue(bundleCount >= 2,
+          "Order should resolve both questionnaires. Warnings: " + extractWarnings(result));
     }
   }
 

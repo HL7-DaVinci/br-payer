@@ -6,6 +6,7 @@
   "name": "PatientInfo",
   "title": "Patient Information Sub-Questionnaire",
   "status": "active",
+  "publisher": "Da Vinci",
   "subjectType": ["Patient"],
   "extension": [
     {
