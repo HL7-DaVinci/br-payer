@@ -15,9 +15,12 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.DataRequirement;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.SupplyRequest;
 import org.hl7.fhir.r4.model.Organization;
@@ -46,6 +49,19 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 public class DtrQuestionnaireResolver {
 
   private static final Logger logger = LoggerFactory.getLogger(DtrQuestionnaireResolver.class);
+
+  /** Resource types that can be queried by patient/subject from the payer's JPA claims store. */
+  private static final Set<String> PATIENT_QUERYABLE_TYPES = Set.of(
+      "Condition", "Observation", "Procedure", "Encounter",
+      "MedicationRequest", "MedicationStatement", "MedicationDispense",
+      "ServiceRequest", "DeviceRequest", "DiagnosticReport",
+      "AllergyIntolerance", "Immunization"
+  );
+  /** Resource types that do not have a "subject" search parameter */
+  private static final Map<String, String> PATIENT_SEARCH_PARAM_BY_TYPE = Map.of(
+      "AllergyIntolerance", "patient",
+      "Immunization", "patient"
+  );
 
   private final DaoRegistry daoRegistry;
   private final PlanDefinitionService planDefinitionService;
@@ -170,8 +186,10 @@ public class DtrQuestionnaireResolver {
       return;
     }
 
-    // Build minimal data bundle
+    // Build base data bundle (Patient, Coverage, orders -- no clinical data yet)
     Bundle dataBundle = buildDataBundle(patient, coverage, validOrders);
+    String subjectRef = resolveSubjectReference(coverage, patient);
+    Set<String> fetchedClinicalTypes = new HashSet<>();
 
     for (Resource order : validOrders) {
       String orderId = order.getIdElement().toUnqualifiedVersionless().getValue();
@@ -199,6 +217,15 @@ public class DtrQuestionnaireResolver {
 
       for (PlanDefinition plan : uniquePlans.values()) {
         try {
+          // Fetch clinical data required by this PlanDefinition's libraries
+          Set<String> requiredTypes = resolveRequiredClinicalTypes(plan);
+          Set<String> newTypes = new HashSet<>(requiredTypes);
+          newTypes.removeAll(fetchedClinicalTypes);
+          if (!newTypes.isEmpty()) {
+            includePatientClinicalData(dataBundle, subjectRef, newTypes);
+            fetchedClinicalTypes.addAll(newTypes);
+          }
+
           RequestGroup requestGroup = planDefinitionService.applyPlanDefinition(
               plan, patientId, dataBundle, null);
 
@@ -379,46 +406,118 @@ public class DtrQuestionnaireResolver {
     for (Resource order : orders) {
       bundle.addEntry().setResource(order);
     }
-
-    // Include patient's clinical data from the payer's claims store.
-    // CQL rules (e.g., PhysicalTherapyRule session counting) need historical
-    // procedure data that the payer holds from adjudicated claims.
-    String procedureSubjectRef = resolveProcedureSubjectReference(coverage, patient);
-    includePatientClinicalData(bundle, procedureSubjectRef);
-
     return bundle;
   }
 
   /**
-   * Queries the payer's JPA store for the patient's clinical data and adds it
-   * to the evaluation bundle. This mirrors CDS Hooks prefetch behavior for DTR.
+   * Reads a PlanDefinition's Library references and extracts the patient-queryable
+   * resource types declared in their dataRequirement entries.
    */
-  private void includePatientClinicalData(Bundle bundle, String patientSubjectRef) {
-    if (patientSubjectRef == null || patientSubjectRef.isBlank()) {
+  private Set<String> resolveRequiredClinicalTypes(PlanDefinition planDefinition) {
+    Set<String> types = new HashSet<>();
+    if (!planDefinition.hasLibrary()) {
+      return types;
+    }
+    for (CanonicalType libRef : planDefinition.getLibrary()) {
+      try {
+        String ref = libRef.getValue();
+        if (ref == null || ref.isBlank()) {
+          continue;
+        }
+
+        // PlanDefinition.library may include a version suffix (e.g., "Library/Foo|1.0.0").
+        // Strip it before resolving by resource ID.
+        String[] canonicalParts = DtrFhirUtil.parseCanonical(ref);
+        if (canonicalParts.length == 0 || canonicalParts[0] == null || canonicalParts[0].isBlank()) {
+          continue;
+        }
+        IdType idType = new IdType(canonicalParts[0]);
+        String idPart = idType.getIdPart();
+        if (idPart == null || idPart.isBlank()) {
+          continue;
+        }
+
+        Library library = (Library) daoRegistry.getResourceDao("Library")
+            .read(new IdType("Library", idPart),
+                new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
+
+        if (library != null && library.hasDataRequirement()) {
+          for (DataRequirement dr : library.getDataRequirement()) {
+            if (dr.hasType()) {
+              String type = dr.getType();
+              if (PATIENT_QUERYABLE_TYPES.contains(type)) {
+                types.add(type);
+              }
+            }
+          }
+        }
+      } catch (Exception e) {
+        logger.debug("Could not resolve Library {} for data requirements: {}",
+            libRef.getValue(), e.getMessage());
+      }
+    }
+    return types;
+  }
+
+  /**
+   * Queries the payer's JPA store for the patient's clinical data and adds it
+   * to the evaluation bundle. Only fetches the resource types declared in the
+   * PlanDefinition's Library dataRequirement entries, skipping resources already
+   * present in the bundle to prevent duplicates.
+   */
+  private void includePatientClinicalData(Bundle bundle, String subjectRef, Set<String> resourceTypes) {
+    if (subjectRef == null || subjectRef.isBlank() || resourceTypes.isEmpty()) {
       return;
     }
 
-    try {
-      var searchParams = new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
-      searchParams.add("subject",
-          new ca.uhn.fhir.rest.param.ReferenceParam(patientSubjectRef));
-      var results = daoRegistry.getResourceDao(org.hl7.fhir.r4.model.Procedure.class)
-          .search(searchParams, new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
-
-      for (var resource : results.getResources(0, results.size())) {
-        bundle.addEntry().setResource((Resource) resource);
+    // Collect IDs already in the bundle to prevent duplicates
+    Set<String> existingIds = new HashSet<>();
+    for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+      if (entry.hasResource()) {
+        String id = entry.getResource().getIdElement().toUnqualifiedVersionless().getValue();
+        if (id != null) {
+          existingIds.add(id);
+        }
       }
+    }
 
-      if (results.size() > 0) {
-        logger.debug("Added {} Procedure resources for subject {} to evaluation bundle",
-            results.size(), patientSubjectRef);
+    for (String resourceType : resourceTypes) {
+      try {
+        String searchParam = patientSearchParam(resourceType);
+        var searchParams = new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
+        searchParams.add(searchParam,
+            new ca.uhn.fhir.rest.param.ReferenceParam(subjectRef));
+        var results = daoRegistry.getResourceDao(resourceType)
+            .search(searchParams, new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
+
+        int added = 0;
+        for (var resource : results.getResources(0, results.size())) {
+          String id = ((Resource) resource).getIdElement().toUnqualifiedVersionless().getValue();
+          if (id == null || !existingIds.contains(id)) {
+            bundle.addEntry().setResource((Resource) resource);
+            if (id != null) {
+              existingIds.add(id);
+            }
+            added++;
+          }
+        }
+
+        if (added > 0) {
+          logger.debug("Added {} {} resources for {} {} to evaluation bundle",
+              added, resourceType, searchParam, subjectRef);
+        }
+      } catch (Exception e) {
+        logger.debug("Could not query {} for patient {} using {}: {}",
+            resourceType, subjectRef, patientSearchParam(resourceType), e.getMessage());
       }
-    } catch (Exception e) {
-      logger.debug("Could not query clinical data for subject {}: {}", patientSubjectRef, e.getMessage());
     }
   }
 
-  private String resolveProcedureSubjectReference(Coverage coverage, Patient patient) {
+  private String patientSearchParam(String resourceType) {
+    return PATIENT_SEARCH_PARAM_BY_TYPE.getOrDefault(resourceType, "subject");
+  }
+
+  private String resolveSubjectReference(Coverage coverage, Patient patient) {
     String beneficiaryRef =
         (coverage != null) ? toVersionlessPatientReference(coverage.getBeneficiary()) : null;
     if (beneficiaryRef != null) {

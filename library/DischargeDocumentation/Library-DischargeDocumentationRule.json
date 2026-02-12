@@ -31,6 +31,10 @@
       "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CoverageExtensions|1.0.0"
     }
   ],
+  "dataRequirement": [
+    { "type": "Coverage" },
+    { "type": "Encounter" }
+  ],
   "content": [
     {
       "contentType": "text/cql",

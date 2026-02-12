@@ -1,6 +1,7 @@
 package org.hl7.davinci.dtr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -9,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,10 +26,10 @@ import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Organization;
-import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.SupplyRequest;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.PlanDefinition;
@@ -74,6 +76,10 @@ class DtrQuestionnaireResolverTest {
   @SuppressWarnings("rawtypes")
   private IFhirResourceDao procedureDao;
 
+  @Mock
+  @SuppressWarnings("rawtypes")
+  private IFhirResourceDao libraryDao;
+
   private DtrQuestionnaireResolver resolver;
 
   @BeforeEach
@@ -83,13 +89,9 @@ class DtrQuestionnaireResolverTest {
 
     lenient().when(daoRegistry.getResourceDao(Patient.class)).thenReturn(patientDao);
     lenient().when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(questionnaireDao);
-    lenient().when(daoRegistry.getResourceDao(Procedure.class)).thenReturn(procedureDao);
+    lenient().when(daoRegistry.getResourceDao("Library")).thenReturn(libraryDao);
     lenient().when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
         .thenReturn(new Patient().setId("Patient/pat-1"));
-    // Create mock before passing to thenReturn to avoid nested stubbing conflict
-    IBundleProvider emptyProcedures = emptyBundle();
-    lenient().when(procedureDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(emptyProcedures);
   }
 
   @Test
@@ -110,10 +112,10 @@ class DtrQuestionnaireResolverTest {
     order.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
     order.setMedication(new Reference("Medication/med-1"));
 
-    PlanDefinition plan = new PlanDefinition();
-    plan.setId("PlanDefinition/pd-med");
+    PlanDefinition plan = planDefinitionWithLibrary("pd-med", "TestMedRule");
     when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
         .thenReturn(List.of(plan));
+    mockLibraryWithDataRequirements("TestMedRule", "MedicationRequest");
 
     String canonical = "http://example.org/Questionnaire/med-check";
     when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
@@ -155,10 +157,10 @@ class DtrQuestionnaireResolverTest {
     order.setStatus(SupplyRequest.SupplyRequestStatus.ACTIVE);
     order.setItem(new Reference("Medication/med-supply-1"));
 
-    PlanDefinition plan = new PlanDefinition();
-    plan.setId("PlanDefinition/pd-supply");
+    PlanDefinition plan = planDefinitionWithLibrary("pd-supply", "TestSupplyRule");
     when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
         .thenReturn(List.of(plan));
+    mockLibraryWithDataRequirements("TestSupplyRule"); // no patient-queryable types
 
     String canonical = "http://example.org/Questionnaire/supply-check";
     when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
@@ -192,10 +194,10 @@ class DtrQuestionnaireResolverTest {
         .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
         .setCode("E0424")));
 
-    PlanDefinition plan = new PlanDefinition();
-    plan.setId("PlanDefinition/pd-1");
+    PlanDefinition plan = planDefinitionWithLibrary("pd-1", "TestRule");
     when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
         .thenReturn(List.of(plan));
+    mockLibraryWithDataRequirements("TestRule"); // no patient-queryable types
 
     String canonicalOne = "http://example.org/Questionnaire/q-one";
     String canonicalTwo = "http://example.org/Questionnaire/q-two";
@@ -221,10 +223,15 @@ class DtrQuestionnaireResolverTest {
   }
 
   @Test
-  @DisplayName("Absolute beneficiary reference is preserved for Procedure subject search")
-  void absoluteBeneficiaryReference_preservedForProcedurePrefetch() {
+  @DisplayName("Absolute beneficiary reference is preserved for clinical data subject search")
+  void absoluteBeneficiaryReference_preservedForClinicalDataFetch() {
     when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
         .thenReturn(new Patient().setId("Patient/pat-abs"));
+
+    when(daoRegistry.getResourceDao("Procedure")).thenReturn(procedureDao);
+    IBundleProvider emptyProcedures = emptyBundle();
+    when(procedureDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(emptyProcedures);
 
     DeviceRequest order = new DeviceRequest();
     order.setId("DeviceRequest/dr-abs");
@@ -232,10 +239,10 @@ class DtrQuestionnaireResolverTest {
         .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
         .setCode("E0424")));
 
-    PlanDefinition plan = new PlanDefinition();
-    plan.setId("PlanDefinition/pd-abs");
+    PlanDefinition plan = planDefinitionWithLibrary("pd-abs", "TestAbsRule");
     when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
         .thenReturn(List.of(plan));
+    mockLibraryWithDataRequirements("TestAbsRule", "Procedure");
 
     String canonical = "http://example.org/Questionnaire/q-abs";
     when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-abs"), any(Bundle.class), isNull()))
@@ -258,6 +265,158 @@ class DtrQuestionnaireResolverTest {
     assertEquals("https://payer.example/fhir", subjectParam.getBaseUrl());
     assertEquals("Patient", subjectParam.getResourceType());
     assertEquals("pat-abs", subjectParam.getIdPart());
+  }
+
+  @Test
+  @DisplayName("Only dataRequirement-declared types trigger clinical data queries")
+  @SuppressWarnings("rawtypes")
+  void dataRequirementTypes_drivesClinicalDataFetch() {
+    IFhirResourceDao conditionDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao("Condition")).thenReturn(conditionDao);
+    when(daoRegistry.getResourceDao("Procedure")).thenReturn(procedureDao);
+
+    IBundleProvider emptyConditions = emptyBundle();
+    when(conditionDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(emptyConditions);
+    IBundleProvider emptyProcedures = emptyBundle();
+    when(procedureDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(emptyProcedures);
+
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-data");
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition plan = planDefinitionWithLibrary("pd-data", "TestDataRule");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(plan));
+    // Library declares Condition and Procedure -- only these should be queried
+    mockLibraryWithDataRequirements("TestDataRule", "Condition", "Procedure", "Coverage");
+
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+        .thenReturn(new RequestGroup());
+
+    resolver.resolve(null, List.of(order), coverageWithContainedPayor());
+
+    // Condition and Procedure are patient-queryable and should be fetched
+    verify(conditionDao).search(any(SearchParameterMap.class), any(SystemRequestDetails.class));
+    verify(procedureDao).search(any(SearchParameterMap.class), any(SystemRequestDetails.class));
+  }
+
+  @Test
+  @DisplayName("Versioned library reference resolves for clinical data requirements")
+  @SuppressWarnings("rawtypes")
+  void versionedLibraryReference_resolvesForClinicalDataFetch() {
+    IFhirResourceDao procedureDaoForVersionedLibrary = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao("Procedure")).thenReturn(procedureDaoForVersionedLibrary);
+
+    IBundleProvider emptyProcedures = emptyBundle();
+    when(procedureDaoForVersionedLibrary.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(emptyProcedures);
+
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-versioned");
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition plan = new PlanDefinition();
+    plan.setId("PlanDefinition/pd-versioned");
+    plan.addLibrary("Library/VersionedRule|1.0.0");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(plan));
+
+    Library versionedLibrary = new Library();
+    versionedLibrary.setId("Library/VersionedRule");
+    versionedLibrary.addDataRequirement().setType("Procedure");
+    when(libraryDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+        .thenAnswer(invocation -> {
+          IdType requestedId = invocation.getArgument(0);
+          if ("VersionedRule".equals(requestedId.getIdPart())) {
+            return versionedLibrary;
+          }
+          throw new RuntimeException("Library not found for id " + requestedId.getValue());
+        });
+
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+        .thenReturn(new RequestGroup());
+
+    resolver.resolve(null, List.of(order), coverageWithContainedPayor());
+
+    ArgumentCaptor<IdType> libraryIdCaptor = ArgumentCaptor.forClass(IdType.class);
+    verify(libraryDao).read(libraryIdCaptor.capture(), any(SystemRequestDetails.class));
+    assertEquals("VersionedRule", libraryIdCaptor.getValue().getIdPart());
+    verify(procedureDaoForVersionedLibrary).search(any(SearchParameterMap.class), any(SystemRequestDetails.class));
+  }
+
+  @Test
+  @DisplayName("AllergyIntolerance and Immunization clinical prefetch uses patient search param")
+  @SuppressWarnings("rawtypes")
+  void allergyAndImmunization_usePatientSearchParam() {
+    IFhirResourceDao allergyDao = mock(IFhirResourceDao.class);
+    IFhirResourceDao immunizationDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao("AllergyIntolerance")).thenReturn(allergyDao);
+    when(daoRegistry.getResourceDao("Immunization")).thenReturn(immunizationDao);
+
+    IBundleProvider emptyAllergies = emptyBundle();
+    when(allergyDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(emptyAllergies);
+    IBundleProvider emptyImmunizations = emptyBundle();
+    when(immunizationDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(emptyImmunizations);
+
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-clinical");
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition plan = planDefinitionWithLibrary("pd-clinical", "ClinicalRule");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(plan));
+    mockLibraryWithDataRequirements("ClinicalRule", "AllergyIntolerance", "Immunization");
+
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+        .thenReturn(new RequestGroup());
+
+    resolver.resolve(null, List.of(order), coverageWithContainedPayor());
+
+    ArgumentCaptor<SearchParameterMap> allergySearchCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
+    verify(allergyDao).search(allergySearchCaptor.capture(), any(SystemRequestDetails.class));
+    SearchParameterMap allergySearch = allergySearchCaptor.getValue();
+    assertTrue(allergySearch.containsKey("patient"));
+    assertFalse(allergySearch.containsKey("subject"));
+
+    ArgumentCaptor<SearchParameterMap> immunizationSearchCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
+    verify(immunizationDao).search(immunizationSearchCaptor.capture(), any(SystemRequestDetails.class));
+    SearchParameterMap immunizationSearch = immunizationSearchCaptor.getValue();
+    assertTrue(immunizationSearch.containsKey("patient"));
+    assertFalse(immunizationSearch.containsKey("subject"));
+  }
+
+  @Test
+  @DisplayName("Libraries without dataRequirement do not trigger clinical data queries")
+  void noDataRequirement_noClinicalDataFetch() {
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-empty");
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition plan = planDefinitionWithLibrary("pd-empty", "EmptyRule");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(plan));
+    // Library with no dataRequirement entries
+    mockLibraryWithDataRequirements("EmptyRule");
+
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+        .thenReturn(new RequestGroup());
+
+    resolver.resolve(null, List.of(order), coverageWithContainedPayor());
+
+    // No resource type DAOs should be queried for clinical data
+    verify(procedureDao, never()).search(any(SearchParameterMap.class), any(SystemRequestDetails.class));
   }
 
   private Coverage coverageWithContainedPayor() {
@@ -310,7 +469,25 @@ class DtrQuestionnaireResolverTest {
   private IBundleProvider emptyBundle() {
     IBundleProvider bundleProvider = mock(IBundleProvider.class);
     lenient().when(bundleProvider.isEmpty()).thenReturn(true);
+    lenient().when(bundleProvider.size()).thenReturn(0);
     lenient().when(bundleProvider.getResources(anyInt(), anyInt())).thenReturn(List.of());
     return bundleProvider;
+  }
+
+  private PlanDefinition planDefinitionWithLibrary(String id, String libraryName) {
+    PlanDefinition plan = new PlanDefinition();
+    plan.setId("PlanDefinition/" + id);
+    plan.addLibrary("Library/" + libraryName);
+    return plan;
+  }
+
+  private void mockLibraryWithDataRequirements(String libraryName, String... types) {
+    Library library = new Library();
+    library.setId("Library/" + libraryName);
+    for (String type : types) {
+      library.addDataRequirement().setType(type);
+    }
+    lenient().when(libraryDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+        .thenReturn(library);
   }
 }
