@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,7 @@ import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Organization;
+import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.SupplyRequest;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.PlanDefinition;
@@ -68,6 +70,10 @@ class DtrQuestionnaireResolverTest {
   @SuppressWarnings("rawtypes")
   private IFhirResourceDao medicationDao;
 
+  @Mock
+  @SuppressWarnings("rawtypes")
+  private IFhirResourceDao procedureDao;
+
   private DtrQuestionnaireResolver resolver;
 
   @BeforeEach
@@ -75,15 +81,19 @@ class DtrQuestionnaireResolverTest {
   void setUp() {
     resolver = new DtrQuestionnaireResolver(daoRegistry, planDefinitionService);
 
-    when(daoRegistry.getResourceDao(Patient.class)).thenReturn(patientDao);
-    when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(questionnaireDao);
-    when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+    lenient().when(daoRegistry.getResourceDao(Patient.class)).thenReturn(patientDao);
+    lenient().when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(questionnaireDao);
+    lenient().when(daoRegistry.getResourceDao(Procedure.class)).thenReturn(procedureDao);
+    lenient().when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
         .thenReturn(new Patient().setId("Patient/pat-1"));
+    // Create mock before passing to thenReturn to avoid nested stubbing conflict
+    IBundleProvider emptyProcedures = emptyBundle();
+    lenient().when(procedureDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(emptyProcedures);
   }
 
   @Test
   @DisplayName("MedicationRequest with medicationReference resolves code for PlanDefinition lookup")
-  @SuppressWarnings("unchecked")
   void medicationReference_isResolvedBeforeCodeLookup() {
     when(daoRegistry.getResourceDao("Medication")).thenReturn(medicationDao);
 
@@ -130,7 +140,6 @@ class DtrQuestionnaireResolverTest {
 
   @Test
   @DisplayName("SupplyRequest with itemReference resolves code for PlanDefinition lookup")
-  @SuppressWarnings("unchecked")
   void supplyRequestItemReference_isResolvedBeforeCodeLookup() {
     when(daoRegistry.getResourceDao("Medication")).thenReturn(medicationDao);
 
@@ -211,10 +220,54 @@ class DtrQuestionnaireResolverTest {
     assertTrue(canonicals.contains(canonicalTwo + "|2.0.0"));
   }
 
+  @Test
+  @DisplayName("Absolute beneficiary reference is preserved for Procedure subject search")
+  void absoluteBeneficiaryReference_preservedForProcedurePrefetch() {
+    when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+        .thenReturn(new Patient().setId("Patient/pat-abs"));
+
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-abs");
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition plan = new PlanDefinition();
+    plan.setId("PlanDefinition/pd-abs");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(plan));
+
+    String canonical = "http://example.org/Questionnaire/q-abs";
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-abs"), any(Bundle.class), isNull()))
+        .thenReturn(requestGroupWithQuestionnaires(canonical));
+
+    Questionnaire questionnaire = questionnaire("q-abs", canonical, "1.0.0");
+    IBundleProvider qProvider = bundleWith(questionnaire);
+    when(questionnaireDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(qProvider);
+
+    resolver.resolve(
+        null, List.of(order), coverageWithContainedPayor("https://payer.example/fhir/Patient/pat-abs"));
+
+    ArgumentCaptor<SearchParameterMap> mapCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
+    verify(procedureDao).search(mapCaptor.capture(), any(SystemRequestDetails.class));
+
+    SearchParameterMap searchMap = mapCaptor.getValue();
+    assertTrue(searchMap.containsKey("subject"));
+    var subjectParam = (ca.uhn.fhir.rest.param.ReferenceParam) searchMap.get("subject").get(0).get(0);
+    assertEquals("https://payer.example/fhir", subjectParam.getBaseUrl());
+    assertEquals("Patient", subjectParam.getResourceType());
+    assertEquals("pat-abs", subjectParam.getIdPart());
+  }
+
   private Coverage coverageWithContainedPayor() {
+    return coverageWithContainedPayor("Patient/pat-1");
+  }
+
+  private Coverage coverageWithContainedPayor(String beneficiaryReference) {
     Coverage coverage = new Coverage();
     coverage.setId("Coverage/cov-1");
-    coverage.setBeneficiary(new Reference("Patient/pat-1"));
+    coverage.setBeneficiary(new Reference(beneficiaryReference));
 
     Organization payor = new Organization();
     payor.setId("payor-org");
@@ -251,6 +304,13 @@ class DtrQuestionnaireResolverTest {
     when(bundleProvider.isEmpty()).thenReturn(false);
     when(bundleProvider.getResources(anyInt(), anyInt()))
         .thenReturn(List.of(resource));
+    return bundleProvider;
+  }
+
+  private IBundleProvider emptyBundle() {
+    IBundleProvider bundleProvider = mock(IBundleProvider.class);
+    lenient().when(bundleProvider.isEmpty()).thenReturn(true);
+    lenient().when(bundleProvider.getResources(anyInt(), anyInt())).thenReturn(List.of());
     return bundleProvider;
   }
 }

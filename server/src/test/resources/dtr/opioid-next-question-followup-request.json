@@ -1,0 +1,338 @@
+{
+  "resourceType": "Parameters",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-next-question-input-parameters"
+    ]
+  },
+  "parameter": [
+    {
+      "name": "questionnaire-response",
+      "resource": {
+        "resourceType": "QuestionnaireResponse",
+        "id": "adaptive-session-001",
+        "meta": {
+          "profile": [
+            "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt"
+          ]
+        },
+        "contained": [
+          {
+            "resourceType": "Questionnaire",
+            "id": "contained-questionnaire",
+            "extension": [
+              {
+                "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive",
+                "valueUrl": "http://localhost:8080/fhir/Questionnaire/$next-question"
+              }
+            ],
+            "derivedFrom": [
+              "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPrescribingJustification|1.0.0"
+            ],
+            "status": "active",
+            "subjectType": ["Patient"],
+            "item": [
+              {
+                "linkId": "1",
+                "text": "Patient Information",
+                "type": "group"
+              },
+              {
+                "linkId": "2",
+                "text": "Pain Assessment",
+                "type": "group",
+                "item": [
+                  {
+                    "linkId": "2.1",
+                    "text": "What is the primary pain diagnosis?",
+                    "type": "string",
+                    "required": true
+                  },
+                  {
+                    "linkId": "2.2",
+                    "text": "Pain severity (0-10 scale)",
+                    "type": "integer",
+                    "required": true
+                  },
+                  {
+                    "linkId": "2.3",
+                    "text": "Duration of pain condition",
+                    "type": "choice",
+                    "required": true,
+                    "answerOption": [
+                      { "valueCoding": { "code": "acute", "display": "Acute (< 3 months)" } },
+                      { "valueCoding": { "code": "subacute", "display": "Subacute (3-6 months)" } },
+                      { "valueCoding": { "code": "chronic", "display": "Chronic (> 6 months)" } }
+                    ]
+                  },
+                  {
+                    "linkId": "2.4",
+                    "text": "Functional impact description",
+                    "type": "text",
+                    "required": true
+                  }
+                ]
+              },
+              {
+                "linkId": "3",
+                "text": "Prior Treatment History",
+                "type": "group",
+                "item": [
+                  {
+                    "linkId": "3.1",
+                    "text": "Non-opioid medications tried",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "linkId": "3.2",
+                    "text": "Non-pharmacologic therapies tried",
+                    "type": "text",
+                    "required": false
+                  },
+                  {
+                    "linkId": "3.3",
+                    "text": "Reason prior treatments were insufficient",
+                    "type": "text",
+                    "required": true
+                  }
+                ]
+              },
+              {
+                "linkId": "4",
+                "text": "Risk Assessment",
+                "type": "group",
+                "item": [
+                  {
+                    "linkId": "4.1",
+                    "text": "Is the patient opioid-naive?",
+                    "type": "boolean",
+                    "required": true
+                  },
+                  {
+                    "linkId": "4.2",
+                    "text": "Opioid Risk Tool (ORT) score",
+                    "type": "integer",
+                    "required": false
+                  },
+                  {
+                    "linkId": "4.3",
+                    "text": "History of substance use disorder",
+                    "type": "boolean",
+                    "required": true
+                  },
+                  {
+                    "linkId": "4.4",
+                    "text": "Is the formulation extended-release?",
+                    "type": "boolean",
+                    "required": true
+                  }
+                ]
+              },
+              {
+                "linkId": "5",
+                "text": "Prescribing Justification",
+                "type": "group",
+                "item": [
+                  {
+                    "linkId": "5.1",
+                    "text": "Medication being prescribed",
+                    "type": "string",
+                    "required": true
+                  },
+                  {
+                    "linkId": "5.2",
+                    "text": "Requested days supply",
+                    "type": "integer",
+                    "required": true
+                  },
+                  {
+                    "linkId": "5.3",
+                    "text": "Clinical justification for opioid therapy",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "linkId": "5.4",
+                    "text": "Treatment goals and expected duration",
+                    "type": "text",
+                    "required": true
+                  },
+                  {
+                    "linkId": "5.5",
+                    "text": "Monitoring plan",
+                    "type": "text",
+                    "required": true
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage",
+            "valueReference": {
+              "reference": "Coverage/coverage-1"
+            }
+          },
+          {
+            "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse",
+            "valueCodeableConcept": {
+              "coding": [
+                {
+                  "system": "http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes",
+                  "code": "withorder",
+                  "display": "Include with order"
+                }
+              ]
+            }
+          },
+          {
+            "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context",
+            "valueReference": {
+              "reference": "MedicationRequest/med-request-oxycodone"
+            }
+          }
+        ],
+        "questionnaire": "#contained-questionnaire",
+        "status": "in-progress",
+        "subject": {
+          "reference": "Patient/example"
+        },
+        "authored": "2026-02-11T10:00:00Z",
+        "item": [
+          {
+            "linkId": "2.1",
+            "text": "What is the primary pain diagnosis?",
+            "answer": [
+              {
+                "valueString": "Chronic low back pain"
+              }
+            ]
+          },
+          {
+            "linkId": "2.2",
+            "text": "Pain severity (0-10 scale)",
+            "answer": [
+              {
+                "valueInteger": 7
+              }
+            ]
+          },
+          {
+            "linkId": "2.3",
+            "text": "Duration of pain condition",
+            "answer": [
+              {
+                "valueCoding": {
+                  "code": "chronic",
+                  "display": "Chronic (> 6 months)"
+                }
+              }
+            ]
+          },
+          {
+            "linkId": "2.4",
+            "text": "Functional impact description",
+            "answer": [
+              {
+                "valueString": "Unable to perform daily activities, difficulty sleeping, limited mobility"
+              }
+            ]
+          },
+          {
+            "linkId": "3.1",
+            "text": "Non-opioid medications tried",
+            "answer": [
+              {
+                "valueString": "Ibuprofen 800mg TID, Acetaminophen 1000mg QID, Gabapentin 300mg TID"
+              }
+            ]
+          },
+          {
+            "linkId": "3.3",
+            "text": "Reason prior treatments were insufficient",
+            "answer": [
+              {
+                "valueString": "Inadequate pain relief with NSAIDs, gabapentin caused dizziness without benefit"
+              }
+            ]
+          },
+          {
+            "linkId": "4.1",
+            "text": "Is the patient opioid-naive?",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "linkId": "4.3",
+            "text": "History of substance use disorder",
+            "answer": [
+              {
+                "valueBoolean": false
+              }
+            ]
+          },
+          {
+            "linkId": "4.4",
+            "text": "Is the formulation extended-release?",
+            "answer": [
+              {
+                "valueBoolean": false
+              }
+            ]
+          },
+          {
+            "linkId": "5.1",
+            "text": "Medication being prescribed",
+            "answer": [
+              {
+                "valueString": "Oxycodone Hydrochloride 5 MG Oral Tablet"
+              }
+            ]
+          },
+          {
+            "linkId": "5.2",
+            "text": "Requested days supply",
+            "answer": [
+              {
+                "valueInteger": 7
+              }
+            ]
+          },
+          {
+            "linkId": "5.3",
+            "text": "Clinical justification for opioid therapy",
+            "answer": [
+              {
+                "valueString": "Failed multiple non-opioid therapies. Severe chronic pain limiting function."
+              }
+            ]
+          },
+          {
+            "linkId": "5.4",
+            "text": "Treatment goals and expected duration",
+            "answer": [
+              {
+                "valueString": "Short-term pain management while pursuing physical therapy. Goal: reduce pain to 4/10 within 2 weeks."
+              }
+            ]
+          },
+          {
+            "linkId": "5.5",
+            "text": "Monitoring plan",
+            "answer": [
+              {
+                "valueString": "Follow-up in 7 days, PDMP check before each refill, urine drug screen at 30 days"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

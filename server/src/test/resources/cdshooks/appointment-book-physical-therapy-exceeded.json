@@ -1,0 +1,693 @@
+{
+  "hookInstance": "c3d4e5f6-a7b8-9012-cdef-234567890123",
+  "fhirServer": "http://localhost:8080/fhir",
+  "hook": "appointment-book",
+  "fhirAuthorization": {
+    "access_token": "exampleAccess",
+    "token_type": "Bearer",
+    "expires_in": 300,
+    "scope": "patient/Patient.read patient/Appointment.read",
+    "subject": "cds-service4"
+  },
+  "context": {
+    "userId": "Practitioner/pt-therapist-001",
+    "patientId": "example-1",
+    "encounterId": "example",
+    "appointments": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "urn:uuid:a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+          "resource": {
+            "resourceType": "Appointment",
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "status": "proposed",
+            "serviceType": [
+              {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "91251008",
+                    "display": "Physical therapy"
+                  }
+                ]
+              }
+            ],
+            "serviceCategory": [
+              {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/service-category",
+                    "code": "17",
+                    "display": "General Practice"
+                  }
+                ]
+              }
+            ],
+            "specialty": [
+              {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "394602003",
+                    "display": "Rehabilitation"
+                  }
+                ]
+              }
+            ],
+            "reasonCode": [
+              {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "161570007",
+                    "display": "H/O: back problem"
+                  }
+                ],
+                "text": "Low back pain rehabilitation"
+              }
+            ],
+            "description": "Physical therapy session for low back pain",
+            "start": "2026-02-20T14:00:00Z",
+            "end": "2026-02-20T14:45:00Z",
+            "participant": [
+              {
+                "actor": {
+                  "reference": "Patient/example-1",
+                  "display": "John Smith"
+                },
+                "required": "required",
+                "status": "accepted"
+              },
+              {
+                "actor": {
+                  "reference": "Practitioner/pt-therapist-001",
+                  "display": "Maria Garcia, PT"
+                },
+                "required": "required",
+                "status": "needs-action"
+              },
+              {
+                "actor": {
+                  "reference": "Location/pt-clinic-main",
+                  "display": "Physical Therapy Clinic - Main"
+                },
+                "required": "required",
+                "status": "accepted"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "prefetch": {
+    "patient": {
+      "resourceType": "Patient",
+      "id": "example-1",
+      "meta": {
+        "profile": [
+          "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+        ]
+      },
+      "identifier": [
+        {
+          "use": "usual",
+          "type": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                "code": "MR"
+              }
+            ]
+          },
+          "system": "http://hospital.smarthealthit.org",
+          "value": "1032702"
+        }
+      ],
+      "name": [
+        {
+          "use": "official",
+          "family": "Smith",
+          "given": [
+            "John",
+            "Michael"
+          ]
+        }
+      ],
+      "gender": "male",
+      "birthDate": "1960-05-15",
+      "address": [
+        {
+          "use": "home",
+          "line": [
+            "123 Main Street"
+          ],
+          "city": "Boston",
+          "state": "MA",
+          "postalCode": "02101"
+        }
+      ]
+    },
+    "coverage": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Coverage/cms-example-1",
+          "resource": {
+            "resourceType": "Coverage",
+            "id": "cms-example-1",
+            "status": "active",
+            "subscriberId": "10A3D58WH456",
+            "beneficiary": {
+              "reference": "Patient/example-1"
+            },
+            "relationship": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/subscriber-relationship",
+                  "code": "self"
+                }
+              ]
+            },
+            "payor": [
+              {
+                "reference": "Organization/cms"
+              }
+            ],
+            "class": [
+              {
+                "type": {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+                      "code": "plan"
+                    }
+                  ]
+                },
+                "value": "Medicare Part B"
+              }
+            ]
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Organization/cms",
+          "resource": {
+            "resourceType": "Organization",
+            "id": "cms",
+            "identifier": [
+              {
+                "system": "urn:oid:2.16.840.1.113883.6.300",
+                "value": "00001"
+              }
+            ],
+            "name": "Centers for Medicare and Medicaid Services"
+          }
+        }
+      ]
+    },
+    "procedures": {
+      "resourceType": "Bundle",
+      "type": "searchset",
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-01",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-01",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-06T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-02",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-02",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97140",
+                  "display": "Manual therapy techniques"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-06T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-03",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-03",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-08T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-04",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-04",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97530",
+                  "display": "Therapeutic activities"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-08T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-05",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-05",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-13T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-06",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-06",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97140",
+                  "display": "Manual therapy techniques"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-13T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-07",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-07",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97112",
+                  "display": "Neuromuscular reeducation"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-15T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-08",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-08",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97530",
+                  "display": "Therapeutic activities"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-15T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-09",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-09",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-20T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-10",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-10",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97116",
+                  "display": "Gait training"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-20T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-11",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-11",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-22T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-12",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-12",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97140",
+                  "display": "Manual therapy techniques"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-22T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-13",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-13",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97530",
+                  "display": "Therapeutic activities"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-27T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-14",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-14",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97112",
+                  "display": "Neuromuscular reeducation"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-27T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-15",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-15",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-29T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-16",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-16",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97535",
+                  "display": "Self-care/home management training"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-01-29T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-17",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-17",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-03T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-18",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-18",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97140",
+                  "display": "Manual therapy techniques"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-03T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-19",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-19",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97116",
+                  "display": "Gait training"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-05T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-20",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-20",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97530",
+                  "display": "Therapeutic activities"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-05T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-21",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-21",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-10T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-22",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-22",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97112",
+                  "display": "Neuromuscular reeducation"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-10T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-23",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-23",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97110",
+                  "display": "Therapeutic exercises"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-12T09:00:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-24",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-24",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97140",
+                  "display": "Manual therapy techniques"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-12T09:30:00Z"
+          }
+        },
+        {
+          "fullUrl": "http://localhost:8080/fhir/Procedure/pt-session-25",
+          "resource": {
+            "resourceType": "Procedure",
+            "id": "pt-session-25",
+            "status": "completed",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.ama-assn.org/go/cpt",
+                  "code": "97530",
+                  "display": "Therapeutic activities"
+                }
+              ]
+            },
+            "subject": { "reference": "Patient/example-1" },
+            "performedDateTime": "2026-02-12T10:00:00Z"
+          }
+        }
+      ]
+    }
+  }
+}

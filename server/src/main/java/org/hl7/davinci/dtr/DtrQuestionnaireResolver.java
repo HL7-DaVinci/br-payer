@@ -379,7 +379,96 @@ public class DtrQuestionnaireResolver {
     for (Resource order : orders) {
       bundle.addEntry().setResource(order);
     }
+
+    // Include patient's clinical data from the payer's claims store.
+    // CQL rules (e.g., PhysicalTherapyRule session counting) need historical
+    // procedure data that the payer holds from adjudicated claims.
+    String procedureSubjectRef = resolveProcedureSubjectReference(coverage, patient);
+    includePatientClinicalData(bundle, procedureSubjectRef);
+
     return bundle;
+  }
+
+  /**
+   * Queries the payer's JPA store for the patient's clinical data and adds it
+   * to the evaluation bundle. This mirrors CDS Hooks prefetch behavior for DTR.
+   */
+  private void includePatientClinicalData(Bundle bundle, String patientSubjectRef) {
+    if (patientSubjectRef == null || patientSubjectRef.isBlank()) {
+      return;
+    }
+
+    try {
+      var searchParams = new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
+      searchParams.add("subject",
+          new ca.uhn.fhir.rest.param.ReferenceParam(patientSubjectRef));
+      var results = daoRegistry.getResourceDao(org.hl7.fhir.r4.model.Procedure.class)
+          .search(searchParams, new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
+
+      for (var resource : results.getResources(0, results.size())) {
+        bundle.addEntry().setResource((Resource) resource);
+      }
+
+      if (results.size() > 0) {
+        logger.debug("Added {} Procedure resources for subject {} to evaluation bundle",
+            results.size(), patientSubjectRef);
+      }
+    } catch (Exception e) {
+      logger.debug("Could not query clinical data for subject {}: {}", patientSubjectRef, e.getMessage());
+    }
+  }
+
+  private String resolveProcedureSubjectReference(Coverage coverage, Patient patient) {
+    String beneficiaryRef =
+        (coverage != null) ? toVersionlessPatientReference(coverage.getBeneficiary()) : null;
+    if (beneficiaryRef != null) {
+      return beneficiaryRef;
+    }
+
+    if (patient == null || !patient.hasIdElement()) {
+      return null;
+    }
+
+    var patientId = patient.getIdElement();
+    String idPart = patientId.getIdPart();
+    if (idPart == null || idPart.isBlank()) {
+      return null;
+    }
+
+    String versionlessRef = patientId.toVersionless().getValue();
+    if (versionlessRef != null && !versionlessRef.isBlank()) {
+      return versionlessRef;
+    }
+
+    return "Patient/" + idPart;
+  }
+
+  private String toVersionlessPatientReference(Reference reference) {
+    if (reference == null || !reference.hasReference()) {
+      return null;
+    }
+
+    String ref = reference.getReference();
+    if (ref == null || ref.isBlank()) {
+      return null;
+    }
+
+    var idType = reference.getReferenceElement();
+    String resourceType = idType.getResourceType();
+    String idPart = idType.getIdPart();
+    if ("Patient".equals(resourceType) && idPart != null && !idPart.isBlank()) {
+      String versionlessRef = idType.toVersionless().getValue();
+      if (versionlessRef != null && !versionlessRef.isBlank()) {
+        return versionlessRef;
+      }
+      return "Patient/" + idPart;
+    }
+
+    if (ref.startsWith("Patient/")) {
+      return new org.hl7.fhir.r4.model.IdType(ref).toVersionless().getValue();
+    }
+
+    return null;
   }
 
   private boolean isExpired(Questionnaire q) {

@@ -1,0 +1,68 @@
+{
+  "resourceType": "Library",
+  "id": "ImagingNetworkDispatchPrepopulation",
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+  "name": "ImagingNetworkDispatchPrepopulation",
+  "version": "1.0.0",
+  "title": "Imaging Network Dispatch DTR Prepopulation",
+  "status": "active",
+  "type": {
+    "coding": [{
+      "system": "http://terminology.hl7.org/CodeSystem/library-type",
+      "code": "logic-library"
+    }]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "DTR Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-dtr/Library/DTRHelpers|1.0.0"
+    }
+  ],
+  "parameter": [
+    {
+      "name": "service_request",
+      "use": "in",
+      "min": 0,
+      "max": "1",
+      "type": "ServiceRequest"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "ServiceRequest"
+    },
+    {
+      "type": "Practitioner"
+    },
+    {
+      "type": "Organization"
+    },
+    {
+      "type": "Condition"
+    },
+    {
+      "type": "Procedure",
+      "codeFilter": [{
+        "path": "code",
+        "code": [
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "70553"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "72148"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "70450"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "71260"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "74177"},
+          {"system": "http://www.ama-assn.org/go/cpt", "code": "72193"}
+        ]
+      }]
+    }
+  ],
+  "content": [{
+    "contentType": "text/cql",
+    "url": "ImagingNetworkDispatchPrepopulation.cql"
+  }]
+}

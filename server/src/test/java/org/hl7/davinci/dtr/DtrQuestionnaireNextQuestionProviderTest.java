@@ -1,20 +1,28 @@
 package org.hl7.davinci.dtr;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import java.lang.reflect.Method;
 
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.annotation.OperationParam;
-import ca.uhn.fhir.rest.server.exceptions.NotImplementedOperationException;
+import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import org.hl7.davinci.providers.DtrQuestionnaireNextQuestionProvider;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 class DtrQuestionnaireNextQuestionProviderTest {
+
+  @Mock
+  private AdaptiveNextQuestionService nextQuestionService;
 
   @Test
   @DisplayName("Operation metadata: correct name, type, and canonical URL")
@@ -55,14 +63,30 @@ class DtrQuestionnaireNextQuestionProviderTest {
   }
 
   @Test
-  @DisplayName("Invocation throws NotImplementedOperationException (501)")
-  void throwsNotImplemented() {
-    DtrQuestionnaireNextQuestionProvider provider = new DtrQuestionnaireNextQuestionProvider();
+  @DisplayName("Null input throws InvalidRequestException")
+  void nullInput_throwsInvalidRequest() {
+    DtrQuestionnaireNextQuestionProvider provider =
+        new DtrQuestionnaireNextQuestionProvider(nextQuestionService);
 
-    NotImplementedOperationException ex = assertThrows(
-        NotImplementedOperationException.class,
-        () -> provider.dtrQuestionnaireNextQuestion(new QuestionnaireResponse()));
-    assertTrue(ex.getMessage().contains("not implemented"));
+    assertThrows(InvalidRequestException.class,
+        () -> provider.dtrQuestionnaireNextQuestion(null));
   }
 
+  @Test
+  @DisplayName("Delegates to AdaptiveNextQuestionService")
+  void delegatesToService() {
+    DtrQuestionnaireNextQuestionProvider provider =
+        new DtrQuestionnaireNextQuestionProvider(nextQuestionService);
+
+    QuestionnaireResponse qr = new QuestionnaireResponse();
+    qr.setId("test-id");
+
+    Parameters expected = new Parameters();
+    when(nextQuestionService.processNextQuestion(qr)).thenReturn(expected);
+
+    Parameters result = provider.dtrQuestionnaireNextQuestion(qr);
+
+    assertSame(expected, result);
+    verify(nextQuestionService).processNextQuestion(qr);
+  }
 }

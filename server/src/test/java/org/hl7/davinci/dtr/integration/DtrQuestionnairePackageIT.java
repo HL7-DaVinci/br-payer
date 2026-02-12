@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.hl7.davinci.dtr.DtrPackageService;
-import org.hl7.davinci.dtr.DtrSessionContextStore;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -15,6 +14,7 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Extension;
@@ -24,6 +24,7 @@ import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
@@ -31,11 +32,13 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.Timeout;
 import org.opencds.cqf.fhir.cr.hapi.config.CrCdsHooksConfig;
 import org.opencds.cqf.fhir.cr.hapi.config.RepositoryConfig;
@@ -102,9 +105,6 @@ class DtrQuestionnairePackageIT {
 
   @Autowired
   private ICdsServiceRegistry cdsServiceRegistry;
-
-  @Autowired
-  private DtrSessionContextStore sessionContextStore;
 
   private Patient testPatient;
   private Organization testOrganization;
@@ -364,7 +364,6 @@ class DtrQuestionnairePackageIT {
   // ============================================================
 
   @Nested
-  @Disabled("Disabled for basic conformance mode: order-based PlanDefinition matching is tested separately.")
   @DisplayName("Order-Based Resolution")
   class OrderResolutionTests {
 
@@ -515,7 +514,6 @@ class DtrQuestionnairePackageIT {
     }
 
     @Test
-    @Disabled("Order-based PlanDefinition matching tested separately")
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     @DisplayName("DeviceRequest E0424 order resolves via PlanDefinition")
     void orderResolution_deviceRequestProducesPackage() {
@@ -621,7 +619,6 @@ class DtrQuestionnairePackageIT {
     }
 
     @Test
-    @Disabled("Order-based PlanDefinition matching tested separately")
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     @DisplayName("MedicationRequest RxNorm 105585 resolves both questionnaires")
     void orderResolution_medicationRequestResolvesBoth() {
@@ -653,12 +650,14 @@ class DtrQuestionnairePackageIT {
 
   @Nested
   @DisplayName("Physical Therapy")
+  @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
   class PhysicalTherapyTests {
 
     private static final String PT_CANONICAL =
         "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PhysicalTherapyExtension";
 
     @Test
+    @Order(1)
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     @DisplayName("Canonical resolution returns complete package")
     void canonicalResolution_returnsCompletePackage() {
@@ -676,10 +675,12 @@ class DtrQuestionnairePackageIT {
     }
 
     @Test
-    @Disabled("Order-based PlanDefinition matching tested separately")
+    @Order(2)
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    @DisplayName("Appointment CPT 97110 resolves questionnaire")
-    void orderResolution_appointmentProducesPackage() {
+    @DisplayName("Below session limit: no questionnaire produced")
+    void orderResolution_belowLimitNoQuestionnaire() {
+      // With zero Procedure resources, Sessions Used = 0 (well below limit of 24),
+      // so PhysicalTherapyRule does not include the questionnaire URL
       Appointment appointment = new Appointment();
       appointment.setId("dtr-test-pt-appt");
       appointment.setStatus(Appointment.AppointmentStatus.PROPOSED);
@@ -693,7 +694,50 @@ class DtrQuestionnairePackageIT {
           testCoverage, List.of(appointment), List.of(), null);
 
       Bundle bundle = extractPackageBundle(result);
-      assertNotNull(bundle, "Order-based resolution should produce a package for 97110. "
+      assertNull(bundle,
+          "Below session limit should not produce a questionnaire package");
+    }
+
+    @Test
+    @Order(3)
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Exceeded session limit: questionnaire produced")
+    void orderResolution_exceededLimitProducesPackage() {
+      // Seed 24 completed PT procedures to meet the plan session limit
+      String[] cptCodes = {"97110", "97140", "97530"};
+      String[] cptDisplays = {"Therapeutic exercises", "Manual therapy", "Therapeutic activities"};
+      for (int i = 0; i < 24; i++) {
+        Procedure proc = new Procedure();
+        proc.setId("dtr-test-pt-proc-" + i);
+        proc.setStatus(Procedure.ProcedureStatus.COMPLETED);
+        proc.setCode(new CodeableConcept().addCoding(
+            new Coding()
+                .setSystem("http://www.ama-assn.org/go/cpt")
+                .setCode(cptCodes[i % 3])
+                .setDisplay(cptDisplays[i % 3])));
+        // Spread dates across Jan-Feb 2026
+        int day = (i % 28) + 1;
+        String month = (i < 14) ? "01" : "02";
+        proc.setPerformed(new DateTimeType("2026-" + month + "-" + String.format("%02d", day)));
+        proc.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
+        daoRegistry.getResourceDao(Procedure.class)
+            .update(proc, new SystemRequestDetails());
+      }
+
+      Appointment appointment = new Appointment();
+      appointment.setId("dtr-test-pt-appt-exceeded");
+      appointment.setStatus(Appointment.AppointmentStatus.PROPOSED);
+      appointment.addServiceType(new CodeableConcept().addCoding(
+          new Coding()
+              .setSystem("http://www.ama-assn.org/go/cpt")
+              .setCode("97110")
+              .setDisplay("Therapeutic exercises")));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(appointment), List.of(), null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Exceeded session limit should produce a package for 97110. "
           + "Warnings: " + extractWarnings(result));
     }
   }
@@ -727,7 +771,6 @@ class DtrQuestionnairePackageIT {
     }
 
     @Test
-    @Disabled("Order-based PlanDefinition matching tested separately")
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     @DisplayName("Appointment SNOMED 394579002 resolves questionnaire")
     void orderResolution_appointmentProducesPackage() {
@@ -814,31 +857,6 @@ class DtrQuestionnairePackageIT {
 
     @Test
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    @DisplayName("Adaptive session context is saved to store")
-    void adaptiveSessionCreated_sessionSavedToStore() {
-      List<CanonicalType> canonicals = List.of(new CanonicalType(JUSTIFICATION_CANONICAL));
-
-      Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
-
-      Bundle bundle = extractPackageBundle(result);
-      assertNotNull(bundle);
-
-      QuestionnaireResponse qr = bundle.getEntry().stream()
-          .map(e -> e.getResource())
-          .filter(QuestionnaireResponse.class::isInstance)
-          .map(QuestionnaireResponse.class::cast)
-          .findFirst().orElse(null);
-      assertNotNull(qr);
-
-      String qrId = qr.getIdElement().getIdPart();
-      assertNotNull(qrId, "Adaptive QR should have an ID");
-      assertTrue(sessionContextStore.exists(qrId),
-          "Session context should be saved for adaptive QR ID: " + qrId);
-    }
-
-    @Test
-    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     @DisplayName("Adaptive response has contained Questionnaire with derivedFrom and adaptive ext")
     void adaptiveContainedQuestionnaire_hasCorrectMetadata() {
       List<CanonicalType> canonicals = List.of(new CanonicalType(JUSTIFICATION_CANONICAL));
@@ -880,7 +898,6 @@ class DtrQuestionnairePackageIT {
     }
 
     @Test
-    @Disabled("Order-based PlanDefinition matching tested separately")
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     @DisplayName("MedicationRequest RxNorm 197696 resolves both questionnaires")
     void orderResolution_medicationRequestResolvesBoth() {

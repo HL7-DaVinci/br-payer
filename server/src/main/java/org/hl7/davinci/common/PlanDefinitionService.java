@@ -27,9 +27,8 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
-import ca.uhn.fhir.rest.param.CompositeAndListParam;
-import ca.uhn.fhir.rest.param.CompositeOrListParam;
-import ca.uhn.fhir.rest.param.CompositeParam;
+import ca.uhn.fhir.rest.param.TokenAndListParam;
+import ca.uhn.fhir.rest.param.TokenOrListParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 
 /**
@@ -59,39 +58,33 @@ public class PlanDefinitionService {
 
     SearchParameterMap searchParams = new SearchParameterMap();
 
-    // Order code search - include both http and https variants for protocol-agnostic matching
-    CompositeAndListParam<TokenParam, TokenParam> orderCodeParam = new CompositeAndListParam<>(TokenParam.class,
-        TokenParam.class);
-    CompositeOrListParam<TokenParam, TokenParam> codeOrList = new CompositeOrListParam<>(TokenParam.class,
-        TokenParam.class);
-    codeOrList.addOr(new CompositeParam<>(
-        new TokenParam("focus"),
-        new TokenParam(code.getSystem(), code.getCode())));
+    // Use context-type + context token params instead of context-type-value composite.
+    // This preserves OR matching while avoiding a known hang in composite OR searches.
+    TokenAndListParam contextTypeParam = new TokenAndListParam();
+    contextTypeParam.addAnd(new TokenOrListParam().addOr(new TokenParam("focus")));
+    contextTypeParam.addAnd(new TokenOrListParam().addOr(new TokenParam("program")));
+    searchParams.add("context-type", contextTypeParam);
 
+    TokenAndListParam contextParam = new TokenAndListParam();
+    TokenOrListParam codeOrList = new TokenOrListParam();
+    codeOrList.addOr(new TokenParam(code.getSystem(), code.getCode()));
     if (code.hasSystem()) {
       String altSystem = FhirUtil.getAlternateProtocolUrl(code.getSystem());
       if (altSystem != null) {
-        codeOrList.addOr(new CompositeParam<>(
-            new TokenParam("focus"),
-            new TokenParam(altSystem, code.getCode())));
+        codeOrList.addOr(new TokenParam(altSystem, code.getCode()));
       }
     }
+    contextParam.addAnd(codeOrList);
 
-    orderCodeParam.addAnd(codeOrList);
-    searchParams.add("context-type-value", orderCodeParam);
-
-    // Payor identifiers search
-    CompositeAndListParam<TokenParam, TokenParam> payorIdentifiersParam = new CompositeAndListParam<>(TokenParam.class,
-        TokenParam.class);
-    CompositeOrListParam<TokenParam, TokenParam> payorOrList = new CompositeOrListParam<>(TokenParam.class,
-        TokenParam.class);
+    // Payor identifiers OR search
+    TokenOrListParam payorOrList = new TokenOrListParam();
     for (Identifier payorId : payorIdentifiers) {
-      payorOrList.addOr(new CompositeParam<>(
-          new TokenParam("program"),
-          new TokenParam(payorId.getSystem(), payorId.getValue())));
+      payorOrList.addOr(new TokenParam(payorId.getSystem(), payorId.getValue()));
     }
-    payorIdentifiersParam.addAnd(payorOrList);
-    searchParams.add("context-type-value", payorIdentifiersParam);
+    contextParam.addAnd(payorOrList);
+    searchParams.add("context", contextParam);
+
+    logger.info("Constructed search parameters: {}", searchParams.toNormalizedQueryString());
 
     IBundleProvider planDefBundle = daoRegistry
         .getResourceDao(PlanDefinition.class)
@@ -131,17 +124,17 @@ public class PlanDefinitionService {
     SearchParameterMap searchParams = new SearchParameterMap();
     searchParams.setCount(1);
 
-    CompositeAndListParam<TokenParam, TokenParam> payorIdentifiersParam = new CompositeAndListParam<>(TokenParam.class,
-        TokenParam.class);
-    CompositeOrListParam<TokenParam, TokenParam> payorOrList = new CompositeOrListParam<>(TokenParam.class,
-        TokenParam.class);
+    TokenAndListParam contextTypeParam = new TokenAndListParam();
+    contextTypeParam.addAnd(new TokenOrListParam().addOr(new TokenParam("program")));
+    searchParams.add("context-type", contextTypeParam);
+
+    TokenAndListParam contextParam = new TokenAndListParam();
+    TokenOrListParam payorOrList = new TokenOrListParam();
     for (Identifier payorId : payorIdentifiers) {
-      payorOrList.addOr(new CompositeParam<>(
-          new TokenParam("program"),
-          new TokenParam(payorId.getSystem(), payorId.getValue())));
+      payorOrList.addOr(new TokenParam(payorId.getSystem(), payorId.getValue()));
     }
-    payorIdentifiersParam.addAnd(payorOrList);
-    searchParams.add("context-type-value", payorIdentifiersParam);
+    contextParam.addAnd(payorOrList);
+    searchParams.add("context", contextParam);
 
     IBundleProvider result = daoRegistry
         .getResourceDao(PlanDefinition.class)

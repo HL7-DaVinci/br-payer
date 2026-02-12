@@ -1,0 +1,381 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "ImagingNetworkDispatch",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImagingNetworkDispatch",
+  "version": "1.0.0",
+  "name": "ImagingNetworkDispatch",
+  "title": "Imaging Services Network Dispatch Questionnaire",
+  "status": "active",
+  "publisher": "Da Vinci",
+  "subjectType": ["Patient"],
+  "date": "2026-02-11",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        {
+          "url": "clinicalTime",
+          "valueCode": "under-5min"
+        },
+        {
+          "url": "totalTime",
+          "valueCode": "under-5min"
+        }
+      ]
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Patient Information",
+      "type": "group",
+      "extension": [{
+        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+      }]
+    },
+    {
+      "linkId": "2",
+      "text": "Clinical Indication",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "2.1",
+          "text": "Clinical indication for imaging",
+          "type": "string",
+          "required": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ClinicalIndication",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ClinicalIndication\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.2",
+          "text": "Relevant diagnoses",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "RelevantDiagnoses",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"RelevantDiagnoses\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.3",
+          "text": "Referring provider",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ReferringProviderName",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ReferringProviderName\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "2.4",
+          "text": "Referring provider NPI",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ReferringProviderNPI",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ReferringProviderNPI\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "3",
+      "text": "Imaging Details",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "3.1",
+          "text": "Imaging procedure type",
+          "type": "string",
+          "required": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ImagingType",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ImagingType\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.2",
+          "text": "CPT code",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "ImagingCPTCode",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"ImagingCPTCode\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.3",
+          "text": "Body site",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "BodySite",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"BodySite\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "3.4",
+          "text": "Contrast required",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "linkId": "4",
+      "text": "Facility Selection",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "4.1",
+          "text": "Imaging facility name",
+          "type": "string",
+          "required": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "FacilityName",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"FacilityName\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.2",
+          "text": "Facility NPI",
+          "type": "string",
+          "required": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "FacilityNPI",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"FacilityNPI\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.3",
+          "text": "Facility address",
+          "type": "string",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "FacilityAddress",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"FacilityAddress\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "4.4",
+          "text": "Rationale for facility selection (if out-of-network)",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "linkId": "5",
+      "text": "Prior Imaging Review",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "5.1",
+          "text": "Number of similar imaging studies in the past 12 months",
+          "type": "integer",
+          "required": false,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "language": "text/cql",
+                "expression": "PriorImagingCount",
+                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/ImagingNetworkDispatchPrepopulation",
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "{\"type\":\"ExpressionRef\",\"name\":\"PriorImagingCount\",\"libraryName\":\"ImagingNetworkDispatchPrepopulation\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "5.2",
+          "text": "Reason current study is needed despite prior imaging",
+          "type": "text",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

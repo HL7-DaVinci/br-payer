@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,6 +23,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -126,6 +128,54 @@ class PlanDefinitionServiceTest {
       List<PlanDefinition> results = planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, "encounter-start");
 
       assertTrue(results.isEmpty());
+    }
+  }
+
+  @Nested
+  @DisplayName("Search parameter construction")
+  class SearchParameterConstructionTests {
+
+    @Test
+    @DisplayName("findPlanDefinitions uses context-type + context token params (no composite context-type-value)")
+    void findPlanDefinitions_usesTokenParams() {
+      when(bundleProvider.size()).thenReturn(0);
+      when(bundleProvider.getResources(0, 0)).thenReturn(List.of());
+
+      planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, "order-sign");
+
+      ArgumentCaptor<SearchParameterMap> mapCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
+      verify(planDefinitionDao).search(mapCaptor.capture(), any(SystemRequestDetails.class));
+
+      SearchParameterMap searchMap = mapCaptor.getValue();
+      assertTrue(searchMap.containsKey("context-type"));
+      assertTrue(searchMap.containsKey("context"));
+      assertFalse(searchMap.containsKey("context-type-value"));
+
+      assertEquals(2, searchMap.get("context-type").size(), "Should require both focus and program context types");
+      assertEquals(2, searchMap.get("context").size(), "Should AND code-match group with payor-match group");
+      assertEquals(2, searchMap.get("context").get(0).size(), "Code OR list should include http/https variants");
+      assertEquals(1, searchMap.get("context").get(1).size(), "Payor OR list should include all identifiers");
+    }
+
+    @Test
+    @DisplayName("isPayorHandled uses program context-type + context token OR list")
+    void isPayorHandled_usesTokenParams() {
+      when(bundleProvider.isEmpty()).thenReturn(false);
+
+      boolean handled = planDefinitionService.isPayorHandled(payorIdentifiers);
+      assertTrue(handled);
+
+      ArgumentCaptor<SearchParameterMap> mapCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
+      verify(planDefinitionDao).search(mapCaptor.capture(), any(SystemRequestDetails.class));
+
+      SearchParameterMap searchMap = mapCaptor.getValue();
+      assertTrue(searchMap.containsKey("context-type"));
+      assertTrue(searchMap.containsKey("context"));
+      assertFalse(searchMap.containsKey("context-type-value"));
+
+      assertEquals(1, searchMap.get("context-type").size(), "Payor-handled check requires program context type only");
+      assertEquals(1, searchMap.get("context").size(), "Payor-handled check should OR over payor identifiers");
+      assertEquals(1, searchMap.get("context").get(0).size(), "Single payor identifier in test fixture");
     }
   }
 

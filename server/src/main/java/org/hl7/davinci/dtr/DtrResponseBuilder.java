@@ -28,6 +28,7 @@ import org.opencds.cqf.fhir.cr.hapi.common.IQuestionnaireProcessorFactory;
 import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
@@ -41,6 +42,7 @@ import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
  * and marks pre-populated answers with information-origin extensions.
  */
 @Component
+@EnableConfigurationProperties(DtrAdaptiveProperties.class)
 public class DtrResponseBuilder {
 
   private static final Logger logger = LoggerFactory.getLogger(DtrResponseBuilder.class);
@@ -149,8 +151,7 @@ public class DtrResponseBuilder {
 
     List<String> warnings = new ArrayList<>();
     QuestionnaireResponse qr = new QuestionnaireResponse();
-
-    // Generate a UUID ID (used as the session key for $next-question)
+    
     String qrId = UUID.randomUUID().toString();
     qr.setId(qrId);
 

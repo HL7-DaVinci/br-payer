@@ -61,7 +61,7 @@ define "Exceeded Session Limit": "Sessions Used" >= "Plan Session Limit"
 
 define "Requires Coverage Determination": "Coverage" is not null
 define "Prior Authorization Required": "Exceeded Session Limit"
-define "Documentation Required": "Near Session Limit" and not "Exceeded Session Limit"
+define "Documentation Required": "Near Session Limit" or "Exceeded Session Limit"
 
 define "Covered":
   if "Exceeded Session Limit" then 'conditional' else 'covered'

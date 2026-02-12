@@ -78,7 +78,7 @@ class DtrResponseBuilderTest {
     when(mockPatientDao.read(any(), any())).thenThrow(new ResourceNotFoundException("Not found"));
 
     builder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
-        new DtrAdaptiveProperties("http://payer.example/fhir/Questionnaire/$next-question", 60));
+        new DtrAdaptiveProperties("http://payer.example/fhir/Questionnaire/$next-question"));
 
     testQ = new Questionnaire();
     testQ.setId("q-1");
@@ -645,7 +645,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Missing adaptive URL produces warning and omits extension")
     void missingUrlWarning() {
       DtrResponseBuilder noUrlBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
-          new DtrAdaptiveProperties("", 60));
+          new DtrAdaptiveProperties(""));
 
       DtrResponseBuilder.PrepopulationResult result =
           noUrlBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());

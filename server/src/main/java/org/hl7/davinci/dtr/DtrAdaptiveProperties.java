@@ -4,15 +4,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "dtr.adaptive")
 public record DtrAdaptiveProperties(
-    String nextQuestionUrl,
-    long sessionTtlMinutes
+    String nextQuestionUrl
 ) {
   public DtrAdaptiveProperties {
     if (nextQuestionUrl == null) {
       nextQuestionUrl = "";
-    }
-    if (sessionTtlMinutes <= 0) {
-      sessionTtlMinutes = 60;
     }
   }
 }
