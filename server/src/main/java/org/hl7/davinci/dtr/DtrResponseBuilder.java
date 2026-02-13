@@ -32,6 +32,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
@@ -69,14 +70,17 @@ public class DtrResponseBuilder {
   private final IQuestionnaireProcessorFactory questionnaireProcessorFactory;
   private final DaoRegistry daoRegistry;
   private final DtrAdaptiveProperties adaptiveProperties;
+  private final AppProperties appProperties;
 
   public DtrResponseBuilder(
       IQuestionnaireProcessorFactory questionnaireProcessorFactory,
       DaoRegistry daoRegistry,
-      DtrAdaptiveProperties adaptiveProperties) {
+      DtrAdaptiveProperties adaptiveProperties,
+      AppProperties appProperties) {
     this.questionnaireProcessorFactory = questionnaireProcessorFactory;
     this.daoRegistry = daoRegistry;
     this.adaptiveProperties = adaptiveProperties;
+    this.appProperties = appProperties;
   }
 
   public record PrepopulationResult(QuestionnaireResponse response, List<String> warnings) {}
@@ -198,17 +202,37 @@ public class DtrResponseBuilder {
 
     // questionnaireAdaptive extension pointing to $next-question endpoint
     // must be carried on the contained Questionnaire for adaptive clients
-    String nextQuestionUrl = adaptiveProperties.nextQuestionUrl();
+    String nextQuestionUrl = resolveNextQuestionUrl();
     if (nextQuestionUrl != null && !nextQuestionUrl.isBlank()) {
       Extension adaptiveExt = new Extension(QUESTIONNAIRE_ADAPTIVE_EXT);
       adaptiveExt.setValue(new UriType(nextQuestionUrl));
       contained.addExtension(adaptiveExt);
     } else {
-      warnings.add("dtr.adaptive.next-question-url is not configured; "
+      warnings.add("Cannot determine next-question URL: neither dtr.adaptive.next-question-url "
+          + "nor hapi.fhir.server_address is configured; "
           + "questionnaireAdaptive extension omitted from contained adaptive Questionnaire");
     }
 
     return new PrepopulationResult(qr, warnings);
+  }
+
+  /**
+   * Resolves the $next-question endpoint URL. Uses the explicit configuration if set,
+   * otherwise derives it from hapi.fhir.server_address.
+   */
+  private String resolveNextQuestionUrl() {
+    String explicit = adaptiveProperties.nextQuestionUrl();
+    if (explicit != null && !explicit.isBlank()) {
+      return explicit;
+    }
+    String serverAddress = appProperties.getServer_address();
+    if (serverAddress != null && !serverAddress.isBlank()) {
+      String base = serverAddress.endsWith("/")
+          ? serverAddress.substring(0, serverAddress.length() - 1)
+          : serverAddress;
+      return base + "/Questionnaire/$next-question";
+    }
+    return null;
   }
 
   private QuestionnaireResponse executePopulate(

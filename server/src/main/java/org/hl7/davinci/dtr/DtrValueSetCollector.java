@@ -63,23 +63,9 @@ public class DtrValueSetCollector {
     // Resolve and optionally expand each ValueSet
     List<ValueSet> valueSets = new ArrayList<>();
     for (String url : valueSetUrls.keySet()) {
-      ValueSet vs = DtrFhirUtil.resolveByCanonical(daoRegistry, ValueSet.class, url);
-
-      // Fall back to validation support chain (DefaultProfileValidationSupport, VSAC, etc.)
-      if (vs == null && validationSupport != null) {
-        String baseUrl = DtrFhirUtil.parseCanonical(url)[0];
-        IBaseResource fetched = validationSupport.fetchValueSet(baseUrl);
-        if (fetched instanceof ValueSet) {
-          vs = (ValueSet) fetched;
-          logger.debug("ValueSet resolved via validation support: {}", url);
-          persistExternalValueSet(vs, warnings);
-        }
-      }
+      ValueSet vs = resolveAndPersist(url, warnings);
 
       if (vs == null) {
-        String warning = "ValueSet not found: " + url;
-        logger.warn(warning);
-        warnings.add(warning);
         continue;
       }
 
@@ -102,6 +88,33 @@ public class DtrValueSetCollector {
     }
 
     return new ValueSetCollection(valueSets, warnings);
+  }
+
+  /**
+   * Resolve a ValueSet by canonical URL: first from JPA, then via the validation support chain
+   * (which includes VSAC). If fetched externally, expands and persists to JPA so subsequent
+   * lookups are local. Returns null if the ValueSet cannot be resolved.
+   */
+  public ValueSet resolveAndPersist(String url, List<String> warnings) {
+    ValueSet vs = DtrFhirUtil.resolveByCanonical(daoRegistry, ValueSet.class, url);
+
+    if (vs == null && validationSupport != null) {
+      String baseUrl = DtrFhirUtil.parseCanonical(url)[0];
+      IBaseResource fetched = validationSupport.fetchValueSet(baseUrl);
+      if (fetched instanceof ValueSet) {
+        vs = (ValueSet) fetched;
+        logger.debug("ValueSet resolved via validation support: {}", url);
+        persistExternalValueSet(vs, warnings);
+      }
+    }
+
+    if (vs == null) {
+      String warning = "ValueSet not found: " + url;
+      logger.warn(warning);
+      warnings.add(warning);
+    }
+
+    return vs;
   }
 
   /**

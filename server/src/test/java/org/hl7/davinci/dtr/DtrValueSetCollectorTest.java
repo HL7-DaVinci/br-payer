@@ -272,6 +272,68 @@ class DtrValueSetCollectorTest {
     assertTrue(result.warnings().stream().anyMatch(w -> w.contains("expansion failed during persist")));
   }
 
+  // --- resolveAndPersist tests ---
+
+  @Test
+  @DisplayName("resolveAndPersist returns existing JPA ValueSet without hitting VSAC")
+  void resolveAndPersist_returnsExistingJpaValueSet() {
+    ValueSet vs = createValueSet("vs-1", "http://cts.nlm.nih.gov/fhir/ValueSet/example", 5);
+
+    IBundleProvider results = mock(IBundleProvider.class);
+    when(results.isEmpty()).thenReturn(false);
+    when(results.getResources(0, 1)).thenReturn(List.of(vs));
+    when(mockVsDao.search(any(), any())).thenReturn(results);
+
+    List<String> warnings = new java.util.ArrayList<>();
+    ValueSet result = collector.resolveAndPersist(
+        "http://cts.nlm.nih.gov/fhir/ValueSet/example", warnings);
+
+    assertNotNull(result);
+    assertEquals("http://cts.nlm.nih.gov/fhir/ValueSet/example", result.getUrl());
+    assertTrue(warnings.isEmpty());
+    // VSAC not consulted
+    verify(mockValidationSupport, never()).fetchValueSet(anyString());
+  }
+
+  @Test
+  @DisplayName("resolveAndPersist fetches from VSAC and persists when not in JPA")
+  void resolveAndPersist_fetchesFromVsacAndPersists() {
+    IBundleProvider emptyResults = mock(IBundleProvider.class);
+    when(emptyResults.isEmpty()).thenReturn(true);
+    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+
+    String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.132";
+    ValueSet vs = createValueSet("vs-vsac", vsUrl, 3);
+    when(mockValidationSupport.fetchValueSet(vsUrl)).thenReturn(vs);
+
+    ValueSet expanded = new ValueSet();
+    expanded.getExpansion().addContains().setSystem("http://example.org/cs").setCode("code-0");
+    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(expanded);
+
+    List<String> warnings = new java.util.ArrayList<>();
+    ValueSet result = collector.resolveAndPersist(vsUrl, warnings);
+
+    assertNotNull(result);
+    assertTrue(result.hasExpansion());
+    verify(mockVsDao).update(eq(vs), any(SystemRequestDetails.class));
+    assertTrue(warnings.isEmpty());
+  }
+
+  @Test
+  @DisplayName("resolveAndPersist returns null and adds warning when not found anywhere")
+  void resolveAndPersist_returnsNullWhenNotFound() {
+    IBundleProvider emptyResults = mock(IBundleProvider.class);
+    when(emptyResults.isEmpty()).thenReturn(true);
+    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+
+    List<String> warnings = new java.util.ArrayList<>();
+    ValueSet result = collector.resolveAndPersist("http://example.org/ValueSet/missing", warnings);
+
+    assertNull(result);
+    assertEquals(1, warnings.size());
+    assertTrue(warnings.get(0).contains("not found"));
+  }
+
   @Test
   @DisplayName("Persistence failure does not prevent collection")
   void persistenceFailure_stillCollects() {

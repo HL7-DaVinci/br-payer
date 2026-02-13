@@ -468,5 +468,9 @@ initial-data:
   - library  # Copied from /library folder in project root as defined in pom and Dockerfile
 
 dtr:
+  valueset-warmup:
+    enabled: true
   adaptive:
-    next-question-url: "http://localhost:8080/fhir/Questionnaire/$next-question"  # Set to payer's $next-question endpoint URL
+    # next-question-url defaults to {hapi.fhir.server_address}/Questionnaire/$next-question
+    # Override to point to a different endpoint:
+    # next-question-url: "https://payer.example/fhir/Questionnaire/$next-question"

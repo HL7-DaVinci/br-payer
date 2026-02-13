@@ -37,6 +37,7 @@ import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
+import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 class DtrResponseBuilderTest {
@@ -61,6 +62,7 @@ class DtrResponseBuilderTest {
   private DaoRegistry mockDaoRegistry;
   @SuppressWarnings("rawtypes")
   private IFhirResourceDao mockPatientDao;
+  private AppProperties mockAppProperties;
   private DtrResponseBuilder builder;
   private Questionnaire testQ;
   private Coverage testCoverage;
@@ -77,8 +79,12 @@ class DtrResponseBuilderTest {
     when(mockDaoRegistry.getResourceDao(Patient.class)).thenReturn(mockPatientDao);
     when(mockPatientDao.read(any(), any())).thenThrow(new ResourceNotFoundException("Not found"));
 
+    mockAppProperties = mock(AppProperties.class);
+    when(mockAppProperties.getServer_address()).thenReturn("http://localhost:8080/fhir");
+
     builder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
-        new DtrAdaptiveProperties("http://payer.example/fhir/Questionnaire/$next-question"));
+        new DtrAdaptiveProperties("http://payer.example/fhir/Questionnaire/$next-question"),
+        mockAppProperties);
 
     testQ = new Questionnaire();
     testQ.setId("q-1");
@@ -642,10 +648,61 @@ class DtrResponseBuilderTest {
     }
 
     @Test
-    @DisplayName("Missing adaptive URL produces warning and omits extension")
-    void missingUrlWarning() {
+    @DisplayName("Fallback derives URL from server_address when explicit URL is blank")
+    void fallbackFromServerAddress() {
+      AppProperties fallbackProps = mock(AppProperties.class);
+      when(fallbackProps.getServer_address()).thenReturn("http://localhost:8080/fhir");
+      DtrResponseBuilder fallbackBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
+          new DtrAdaptiveProperties(""), fallbackProps);
+
+      DtrResponseBuilder.PrepopulationResult result =
+          fallbackBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      Questionnaire contained = (Questionnaire) qr.getContained().get(0);
+      Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
+      assertNotNull(adaptiveExt, "Should derive URL from server_address");
+      assertEquals("http://localhost:8080/fhir/Questionnaire/$next-question",
+          ((UriType) adaptiveExt.getValue()).getValue());
+      assertTrue(result.warnings().isEmpty(), "No warnings when fallback succeeds");
+    }
+
+    @Test
+    @DisplayName("Fallback strips trailing slash from server_address")
+    void fallbackStripsTrailingSlash() {
+      AppProperties slashProps = mock(AppProperties.class);
+      when(slashProps.getServer_address()).thenReturn("http://localhost:8080/fhir/");
+      DtrResponseBuilder slashBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
+          new DtrAdaptiveProperties(""), slashProps);
+
+      DtrResponseBuilder.PrepopulationResult result =
+          slashBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+
+      Questionnaire contained = (Questionnaire) result.response().getContained().get(0);
+      Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
+      assertEquals("http://localhost:8080/fhir/Questionnaire/$next-question",
+          ((UriType) adaptiveExt.getValue()).getValue());
+    }
+
+    @Test
+    @DisplayName("Explicit URL takes precedence over server_address fallback")
+    void explicitUrlTakesPrecedence() {
+      DtrResponseBuilder.PrepopulationResult result =
+          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+
+      Questionnaire contained = (Questionnaire) result.response().getContained().get(0);
+      Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
+      assertEquals("http://payer.example/fhir/Questionnaire/$next-question",
+          ((UriType) adaptiveExt.getValue()).getValue());
+    }
+
+    @Test
+    @DisplayName("Warning when both explicit URL and server_address are unavailable")
+    void missingBothUrlsWarning() {
+      AppProperties emptyProps = mock(AppProperties.class);
+      when(emptyProps.getServer_address()).thenReturn("");
       DtrResponseBuilder noUrlBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
-          new DtrAdaptiveProperties(""));
+          new DtrAdaptiveProperties(""), emptyProps);
 
       DtrResponseBuilder.PrepopulationResult result =
           noUrlBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
@@ -653,9 +710,9 @@ class DtrResponseBuilderTest {
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
       assertNull(contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT),
-          "Extension should be omitted when URL not configured");
+          "Extension should be omitted when neither URL is configured");
       assertFalse(result.warnings().isEmpty());
-      assertTrue(result.warnings().get(0).contains("not configured"));
+      assertTrue(result.warnings().get(0).contains("Cannot determine next-question URL"));
     }
   }
 }
