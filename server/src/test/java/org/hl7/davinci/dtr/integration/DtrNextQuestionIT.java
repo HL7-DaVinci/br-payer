@@ -18,6 +18,7 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
+import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
 import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseStatus;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.StringType;
@@ -175,6 +176,14 @@ class DtrNextQuestionIT {
           "First call should deliver at least 5 groups, got " + firstContained.getItem().size());
       assertEquals(QuestionnaireResponseStatus.INPROGRESS, firstQr.getStatus());
 
+      // Adaptive pre-population should fill patient demographics in group 1 sub-questionnaire
+      QuestionnaireResponseItemComponent firstNameItem = findItemByLinkId(firstQr.getItem(), "1.PBI.2");
+      QuestionnaireResponseItemComponent lastNameItem = findItemByLinkId(firstQr.getItem(), "1.PBI.1");
+      assertNotNull(firstNameItem, "First name item should be pre-populated");
+      assertNotNull(lastNameItem, "Last name item should be pre-populated");
+      assertEquals("Jane", firstNameItem.getAnswerFirstRep().getValue().primitiveValue());
+      assertEquals("Doe", lastNameItem.getAnswerFirstRep().getValue().primitiveValue());
+
       // Step 3: Add answer to 4.1 and call $next-question again
       firstQr.addItem().setLinkId("4.1").addAnswer().setValue(new StringType("Back pain"));
 
@@ -272,5 +281,20 @@ class DtrNextQuestionIT {
         .map(Questionnaire.class::cast)
         .findFirst()
         .orElseThrow(() -> new AssertionError("QR should contain a Questionnaire"));
+  }
+
+  private QuestionnaireResponseItemComponent findItemByLinkId(
+      List<QuestionnaireResponseItemComponent> items, String linkId) {
+    if (items == null) return null;
+    for (QuestionnaireResponseItemComponent item : items) {
+      if (linkId.equals(item.getLinkId())) return item;
+      QuestionnaireResponseItemComponent found = findItemByLinkId(item.getItem(), linkId);
+      if (found != null) return found;
+      for (var answer : item.getAnswer()) {
+        QuestionnaireResponseItemComponent inAnswer = findItemByLinkId(answer.getItem(), linkId);
+        if (inAnswer != null) return inAnswer;
+      }
+    }
+    return null;
   }
 }

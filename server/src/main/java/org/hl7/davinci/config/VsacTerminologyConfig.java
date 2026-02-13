@@ -2,12 +2,17 @@ package org.hl7.davinci.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.support.IValidationSupport;
+import ca.uhn.fhir.context.support.ValidationSupportContext;
+import ca.uhn.fhir.context.support.ValueSetExpansionOptions;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.interceptor.BasicAuthInterceptor;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
+import jakarta.annotation.Nonnull;
 import org.hl7.fhir.common.hapi.validation.support.BaseValidationSupport;
 import org.hl7.fhir.common.hapi.validation.support.ValidationSupportChain;
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.UriType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +59,11 @@ public class VsacTerminologyConfig {
         }
 
         @Override
+        public boolean isValueSetSupported(ValidationSupportContext ctx, String theValueSetUrl) {
+            return theValueSetUrl != null && theValueSetUrl.startsWith(VSAC_VALUESET_PREFIX);
+        }
+
+        @Override
         public IBaseResource fetchValueSet(String theValueSetUrl) {
             if (theValueSetUrl == null || !theValueSetUrl.startsWith(VSAC_VALUESET_PREFIX)) {
                 return null;
@@ -68,6 +78,47 @@ public class VsacTerminologyConfig {
                 return null;
             } catch (Exception e) {
                 logger.error("Failed to fetch ValueSet from VSAC: {}", theValueSetUrl, e);
+                return null;
+            }
+        }
+
+        @Override
+        public ValueSetExpansionOutcome expandValueSet(
+                ValidationSupportContext ctx,
+                ValueSetExpansionOptions options,
+                @Nonnull String theValueSetUrlToExpand) {
+            if (!theValueSetUrlToExpand.startsWith(VSAC_VALUESET_PREFIX)) {
+                return null;
+            }
+            return expandViaVsac(theValueSetUrlToExpand);
+        }
+
+        @Override
+        public ValueSetExpansionOutcome expandValueSet(
+                ValidationSupportContext ctx,
+                ValueSetExpansionOptions options,
+                @Nonnull IBaseResource theValueSetToExpand) {
+            ValueSet vs = (ValueSet) theValueSetToExpand;
+            String url = vs.getUrl();
+            if (url == null || !url.startsWith(VSAC_VALUESET_PREFIX)) {
+                return null;
+            }
+            return expandViaVsac(url);
+        }
+
+        private ValueSetExpansionOutcome expandViaVsac(String url) {
+            try {
+                logger.info("Expanding ValueSet via VSAC: {}", url);
+                ValueSet expanded = client
+                        .operation()
+                        .onType(ValueSet.class)
+                        .named("expand")
+                        .withParameter(Parameters.class, "url", new UriType(url))
+                        .returnResourceType(ValueSet.class)
+                        .execute();
+                return new ValueSetExpansionOutcome(expanded);
+            } catch (Exception e) {
+                logger.error("Failed to expand ValueSet via VSAC: {}", url, e);
                 return null;
             }
         }

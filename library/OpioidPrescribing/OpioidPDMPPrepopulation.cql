@@ -44,9 +44,15 @@ define "Schedule II Opioid Codes":
   { '197696', '1049502', '1049504', '197446', '197447', '1014599', '1014615', '991147', '991149' }
 
 define "PrescribedOpioidHistory":
-  [MedicationRequest] R
-    where R.status.value in { 'completed', 'active' }
-      and exists(
-        (DTR.MedicationRequestCoding(R)) C
-          where C.code.value in "Schedule II Opioid Codes"
+  distinct(
+    [MedicationRequest] R
+      where R.status.value in { 'completed', 'active' }
+        and exists(
+          (DTR.MedicationRequestCoding(R)) C
+            where C.code.value in "Schedule II Opioid Codes"
+        )
+      return Coalesce(
+        First(DTR.MedicationRequestCoding(R)).display.value,
+        First(DTR.MedicationRequestCoding(R)).code.value
       )
+  )

@@ -920,6 +920,11 @@ class DtrQuestionnairePackageIT {
           .count();
       assertTrue(bundleCount >= 2,
           "Order should resolve both questionnaires. Warnings: " + extractWarnings(result));
+
+      assertFalse(
+          extractWarnings(result).contains("cannot be cast to class org.hl7.fhir.r4.model.Type"),
+          "Pre-population should not return resource values for questionnaire item answers. Warnings: "
+              + extractWarnings(result));
     }
   }
 

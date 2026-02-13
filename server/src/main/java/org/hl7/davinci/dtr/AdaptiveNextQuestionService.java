@@ -1,23 +1,36 @@
 package org.hl7.davinci.dtr;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemComponent;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
+import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemAnswerComponent;
+import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
 import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseStatus;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Type;
+import org.opencds.cqf.fhir.cr.hapi.common.IQuestionnaireProcessorFactory;
+import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 
@@ -39,18 +52,27 @@ public class AdaptiveNextQuestionService {
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-next-question-output-parameters";
 
   private static final String OUTPUT_PARAMETER_NAME = "questionnaire-response";
+  private static final String QR_COVERAGE_EXT =
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
+  private static final String QR_CONTEXT_EXT =
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
+  private static final String INFO_ORIGIN_EXT =
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
 
   private final DaoRegistry daoRegistry;
   private final DtrSubQuestionnaireAssembler subQuestionnaireAssembler;
   private final EnableWhenEvaluator enableWhenEvaluator;
+  private final IQuestionnaireProcessorFactory questionnaireProcessorFactory;
 
   public AdaptiveNextQuestionService(
       DaoRegistry daoRegistry,
       DtrSubQuestionnaireAssembler subQuestionnaireAssembler,
-      EnableWhenEvaluator enableWhenEvaluator) {
+      EnableWhenEvaluator enableWhenEvaluator,
+      IQuestionnaireProcessorFactory questionnaireProcessorFactory) {
     this.daoRegistry = daoRegistry;
     this.subQuestionnaireAssembler = subQuestionnaireAssembler;
     this.enableWhenEvaluator = enableWhenEvaluator;
+    this.questionnaireProcessorFactory = questionnaireProcessorFactory;
   }
 
   /**
@@ -121,9 +143,22 @@ public class AdaptiveNextQuestionService {
         qrId, batchItems.size(),
         batchItems.stream().map(QuestionnaireItemComponent::getLinkId).toList());
 
-    // Check for completion
+    // Check for completion: all source groups must be either delivered or disabled
+    Set<String> allDelivered = new HashSet<>(deliveredLinkIds);
+    for (QuestionnaireItemComponent batchItem : batchItems) {
+      allDelivered.add(batchItem.getLinkId());
+    }
+
+    // Opportunistic pre-population for delivered groups in adaptive flow.
+    // This fills defaults (for example patient demographics) without overriding user-entered answers.
+    try {
+      prepopulateDeliveredItems(qr, assembled, allDelivered);
+    } catch (Exception e) {
+      logger.warn("$next-question: pre-population skipped due to error: {}", e.getMessage(), e);
+    }
+
+    // Keep existing completion behavior: only evaluate completion on empty delivery rounds.
     if (batchItems.isEmpty()) {
-      Set<String> allDelivered = new HashSet<>(deliveredLinkIds);
       boolean allGroupsHandled = assembled.getItem().stream()
           .allMatch(g -> allDelivered.contains(g.getLinkId())
               || (g.hasEnableWhen()
@@ -165,6 +200,258 @@ public class AdaptiveNextQuestionService {
         .findFirst()
         .orElseThrow(() -> new InvalidRequestException(
             "QuestionnaireResponse must contain a Questionnaire resource"));
+  }
+
+  private void prepopulateDeliveredItems(
+      QuestionnaireResponse targetQr,
+      Questionnaire assembledSource,
+      Set<String> deliveredGroupLinkIds) {
+
+    if (deliveredGroupLinkIds.isEmpty()) {
+      return;
+    }
+
+    String subjectId = extractSubjectId(targetQr);
+    if (subjectId == null || subjectId.isBlank()) {
+      return;
+    }
+
+    Questionnaire deliveredQ = buildDeliveredQuestionnaire(assembledSource, deliveredGroupLinkIds);
+    if (!deliveredQ.hasItem()) {
+      return;
+    }
+
+    QuestionnaireProcessor processor = questionnaireProcessorFactory.create(new SystemRequestDetails());
+    Bundle dataBundle = buildDataBundleFromQr(targetQr);
+
+    IBaseResource populateResult = processor.populate(
+        deliveredQ, subjectId, List.of(), null, dataBundle, null);
+
+    if (populateResult instanceof QuestionnaireResponse populatedQr) {
+      mergePrepopulatedAnswers(targetQr, populatedQr);
+    }
+  }
+
+  private String extractSubjectId(QuestionnaireResponse qr) {
+    if (!qr.hasSubject() || !qr.getSubject().hasReference()) {
+      return null;
+    }
+
+    String reference = qr.getSubject().getReference();
+    if (reference == null || reference.isBlank()) {
+      return null;
+    }
+
+    IdType refId = new IdType(reference);
+    if (!"Patient".equals(refId.getResourceType()) || refId.getIdPart() == null) {
+      return null;
+    }
+
+    String versionless = refId.toVersionless().getValue();
+    if (versionless != null && !versionless.isBlank()) {
+      return versionless;
+    }
+    return "Patient/" + refId.getIdPart();
+  }
+
+  private Questionnaire buildDeliveredQuestionnaire(
+      Questionnaire assembledSource, Set<String> deliveredGroupLinkIds) {
+    Questionnaire delivered = assembledSource.copy();
+    delivered.setItem(new ArrayList<>());
+
+    for (QuestionnaireItemComponent group : assembledSource.getItem()) {
+      if (deliveredGroupLinkIds.contains(group.getLinkId())) {
+        delivered.addItem(group.copy());
+      }
+    }
+
+    return delivered;
+  }
+
+  private Bundle buildDataBundleFromQr(QuestionnaireResponse qr) {
+    Bundle bundle = new Bundle();
+    bundle.setType(Bundle.BundleType.COLLECTION);
+    Set<String> seen = new HashSet<>();
+
+    for (Extension ext : qr.getExtensionsByUrl(QR_COVERAGE_EXT)) {
+      addResolvedReferenceResource(ext, qr, bundle, seen);
+    }
+    for (Extension ext : qr.getExtensionsByUrl(QR_CONTEXT_EXT)) {
+      addResolvedReferenceResource(ext, qr, bundle, seen);
+    }
+
+    return bundle;
+  }
+
+  private void addResolvedReferenceResource(
+      Extension ext,
+      QuestionnaireResponse qr,
+      Bundle bundle,
+      Set<String> seen) {
+
+    if (!ext.hasValue() || !(ext.getValue() instanceof Reference ref)) {
+      return;
+    }
+
+    Resource resolved = resolveReference(ref, qr);
+    if (resolved == null) {
+      return;
+    }
+
+    String identity = resolved.fhirType() + "/" + resolved.getIdElement().toUnqualifiedVersionless().getValue();
+    if (seen.add(identity)) {
+      bundle.addEntry().setResource(resolved);
+    }
+  }
+
+  private Resource resolveReference(Reference ref, QuestionnaireResponse qr) {
+    if (ref.getResource() instanceof Resource inline) {
+      return inline;
+    }
+    if (!ref.hasReference()) {
+      return null;
+    }
+
+    String reference = ref.getReference();
+    if (reference == null || reference.isBlank()) {
+      return null;
+    }
+
+    if (reference.startsWith("#")) {
+      String id = reference.substring(1);
+      return qr.getContained().stream()
+          .filter(r -> id.equals(r.getIdElement().getIdPart()))
+          .findFirst()
+          .orElse(null);
+    }
+
+    Resource containedMatch = resolveContainedReference(reference, qr);
+    if (containedMatch != null) {
+      return containedMatch;
+    }
+
+    try {
+      IdType refId = new IdType(reference);
+      String resourceType = refId.getResourceType();
+      String idPart = refId.getIdPart();
+      if (resourceType == null || idPart == null) {
+        return null;
+      }
+      return (Resource) daoRegistry.getResourceDao(resourceType)
+          .read(new IdType(resourceType, idPart), new SystemRequestDetails());
+    } catch (Exception e) {
+      logger.debug("$next-question: unable to resolve reference {}: {}", reference, e.getMessage());
+      return null;
+    }
+  }
+
+  private Resource resolveContainedReference(String reference, QuestionnaireResponse qr) {
+    final IdType refId;
+    try {
+      refId = new IdType(reference);
+    } catch (Exception e) {
+      return null;
+    }
+    String resourceType = refId.getResourceType();
+    String idPart = refId.getIdPart();
+    if (idPart == null || idPart.isBlank()) {
+      return null;
+    }
+
+    for (Resource contained : qr.getContained()) {
+      String containedIdPart = contained.getIdElement().getIdPart();
+      if (containedIdPart == null || containedIdPart.isBlank()) {
+        continue;
+      }
+      if (!idPart.equals(containedIdPart)) {
+        continue;
+      }
+      if (resourceType == null || resourceType.isBlank() || resourceType.equals(contained.fhirType())) {
+        return contained;
+      }
+    }
+
+    return null;
+  }
+
+  private void mergePrepopulatedAnswers(
+      QuestionnaireResponse targetQr, QuestionnaireResponse populatedQr) {
+
+    Map<String, QuestionnaireResponseItemComponent> existingItems = new HashMap<>();
+    indexItems(targetQr.getItem(), existingItems);
+    mergeItems(targetQr, populatedQr.getItem(), existingItems);
+  }
+
+  private void indexItems(
+      List<QuestionnaireResponseItemComponent> items,
+      Map<String, QuestionnaireResponseItemComponent> index) {
+
+    for (QuestionnaireResponseItemComponent item : items) {
+      if (item.hasLinkId()) {
+        index.putIfAbsent(item.getLinkId(), item);
+      }
+      if (item.hasItem()) {
+        indexItems(item.getItem(), index);
+      }
+      for (QuestionnaireResponseItemAnswerComponent answer : item.getAnswer()) {
+        if (answer.hasItem()) {
+          indexItems(answer.getItem(), index);
+        }
+      }
+    }
+  }
+
+  private void mergeItems(
+      QuestionnaireResponse targetQr,
+      List<QuestionnaireResponseItemComponent> populatedItems,
+      Map<String, QuestionnaireResponseItemComponent> existingItems) {
+
+    for (QuestionnaireResponseItemComponent populated : populatedItems) {
+      if (populated.hasLinkId() && populated.hasAnswer()) {
+        QuestionnaireResponseItemComponent existing = existingItems.get(populated.getLinkId());
+        if (existing == null) {
+          QuestionnaireResponseItemComponent created = new QuestionnaireResponseItemComponent();
+          created.setLinkId(populated.getLinkId());
+          if (populated.hasText()) {
+            created.setText(populated.getText());
+          }
+          copyAnswers(created, populated.getAnswer());
+          targetQr.addItem(created);
+          existingItems.put(created.getLinkId(), created);
+        } else if (!existing.hasAnswer()) {
+          copyAnswers(existing, populated.getAnswer());
+        }
+      }
+
+      if (populated.hasItem()) {
+        mergeItems(targetQr, populated.getItem(), existingItems);
+      }
+      for (QuestionnaireResponseItemAnswerComponent answer : populated.getAnswer()) {
+        if (answer.hasItem()) {
+          mergeItems(targetQr, answer.getItem(), existingItems);
+        }
+      }
+    }
+  }
+
+  private void copyAnswers(
+      QuestionnaireResponseItemComponent target,
+      List<QuestionnaireResponseItemAnswerComponent> sourceAnswers) {
+
+    for (QuestionnaireResponseItemAnswerComponent sourceAnswer : sourceAnswers) {
+      QuestionnaireResponseItemAnswerComponent copied = sourceAnswer.copy();
+      ensureInformationOrigin(copied);
+      target.addAnswer(copied);
+    }
+  }
+
+  private void ensureInformationOrigin(QuestionnaireResponseItemAnswerComponent answer) {
+    if (answer.getExtensionByUrl(INFO_ORIGIN_EXT) != null) {
+      return;
+    }
+    Extension originExt = new Extension(INFO_ORIGIN_EXT);
+    originExt.addExtension(new Extension("source", new CodeType("auto-server")));
+    answer.addExtension(originExt);
   }
 
   private Parameters buildOutputParameters(QuestionnaireResponse qr) {

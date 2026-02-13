@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ResourcesIndexRouteImport } from './routes/resources/index'
 import { Route as HooksIndexRouteImport } from './routes/hooks/index'
+import { Route as DtrIndexRouteImport } from './routes/dtr/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,33 +29,42 @@ const HooksIndexRoute = HooksIndexRouteImport.update({
   path: '/hooks/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DtrIndexRoute = DtrIndexRouteImport.update({
+  id: '/dtr/',
+  path: '/dtr/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dtr/': typeof DtrIndexRoute
   '/hooks/': typeof HooksIndexRoute
   '/resources/': typeof ResourcesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dtr': typeof DtrIndexRoute
   '/hooks': typeof HooksIndexRoute
   '/resources': typeof ResourcesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dtr/': typeof DtrIndexRoute
   '/hooks/': typeof HooksIndexRoute
   '/resources/': typeof ResourcesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/hooks/' | '/resources/'
+  fullPaths: '/' | '/dtr/' | '/hooks/' | '/resources/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/hooks' | '/resources'
-  id: '__root__' | '/' | '/hooks/' | '/resources/'
+  to: '/' | '/dtr' | '/hooks' | '/resources'
+  id: '__root__' | '/' | '/dtr/' | '/hooks/' | '/resources/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DtrIndexRoute: typeof DtrIndexRoute
   HooksIndexRoute: typeof HooksIndexRoute
   ResourcesIndexRoute: typeof ResourcesIndexRoute
 }
@@ -82,11 +92,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HooksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dtr/': {
+      id: '/dtr/'
+      path: '/dtr'
+      fullPath: '/dtr/'
+      preLoaderRoute: typeof DtrIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DtrIndexRoute: DtrIndexRoute,
   HooksIndexRoute: HooksIndexRoute,
   ResourcesIndexRoute: ResourcesIndexRoute,
 }

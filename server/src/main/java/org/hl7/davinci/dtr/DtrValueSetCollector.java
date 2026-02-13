@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDaoValueSet;
+import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 
 /**
  * Collects ValueSet resources referenced by Questionnaire items and Library data requirements.
@@ -71,6 +72,7 @@ public class DtrValueSetCollector {
         if (fetched instanceof ValueSet) {
           vs = (ValueSet) fetched;
           logger.debug("ValueSet resolved via validation support: {}", url);
+          persistExternalValueSet(vs, warnings);
         }
       }
 
@@ -100,6 +102,40 @@ public class DtrValueSetCollector {
     }
 
     return new ValueSetCollection(valueSets, warnings);
+  }
+
+  /**
+   * Persist an externally-fetched ValueSet (e.g. from VSAC) to the JPA store so downstream
+   * consumers like the CQL engine's RepositoryTerminologyProvider can find it via repository search.
+   * Expands the ValueSet first so the CQL engine can use pre-existing expansion elements.
+   */
+  @SuppressWarnings("unchecked")
+  private void persistExternalValueSet(ValueSet vs, List<String> warnings) {
+    IFhirResourceDaoValueSet<ValueSet> vsDao =
+        (IFhirResourceDaoValueSet<ValueSet>) daoRegistry.getResourceDao(ValueSet.class);
+
+    // Expand before persisting so CQL naive expansion has something to work with
+    if (!vs.hasExpansion()) {
+      try {
+        ValueSet expanded = vsDao.expand(vs, null);
+        if (expanded != null && expanded.hasExpansion()) {
+          vs.setExpansion(expanded.getExpansion());
+        }
+      } catch (Exception e) {
+        String warning = "ValueSet expansion failed during persist for " + vs.getUrl() + ": " + e.getMessage();
+        logger.warn(warning);
+        warnings.add(warning);
+      }
+    }
+
+    try {
+      vsDao.update(vs, new SystemRequestDetails());
+      logger.debug("Persisted external ValueSet to JPA store: {}", vs.getUrl());
+    } catch (Exception e) {
+      String warning = "Failed to persist external ValueSet " + vs.getUrl() + ": " + e.getMessage();
+      logger.warn(warning);
+      warnings.add(warning);
+    }
   }
 
   private void collectFromItems(List<QuestionnaireItemComponent> items, Map<String, String> urls) {

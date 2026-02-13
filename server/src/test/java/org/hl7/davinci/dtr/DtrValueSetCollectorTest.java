@@ -20,6 +20,7 @@ import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDaoValueSet;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
+import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 
 class DtrValueSetCollectorTest {
 
@@ -211,5 +212,94 @@ class DtrValueSetCollectorTest {
 
     // Only one ValueSet despite two references
     assertEquals(1, result.valueSets().size());
+  }
+
+  @Test
+  @DisplayName("External ValueSet is persisted to JPA store with expansion")
+  void externalValueSetPersistedWithExpansion() {
+    // Not in local repository
+    IBundleProvider emptyResults = mock(IBundleProvider.class);
+    when(emptyResults.isEmpty()).thenReturn(true);
+    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+
+    // Available via validation support chain
+    String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.132";
+    ValueSet vs = createValueSet("vs-vsac", vsUrl, 5);
+    when(mockValidationSupport.fetchValueSet(vsUrl)).thenReturn(vs);
+
+    // Expansion succeeds
+    ValueSet expanded = new ValueSet();
+    expanded.getExpansion().addContains().setSystem("http://example.org/cs").setCode("code-0");
+    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(expanded);
+
+    Questionnaire q = new Questionnaire();
+    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE).setAnswerValueSet(vsUrl);
+
+    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
+
+    assertEquals(1, result.valueSets().size());
+    // Verify expansion was set on the ValueSet
+    assertTrue(result.valueSets().get(0).hasExpansion());
+    // Verify persisted to JPA store
+    verify(mockVsDao).update(eq(vs), any(SystemRequestDetails.class));
+  }
+
+  @Test
+  @DisplayName("Expansion failure during persist does not prevent collection")
+  void expansionFailureDuringPersist_stillCollects() {
+    IBundleProvider emptyResults = mock(IBundleProvider.class);
+    when(emptyResults.isEmpty()).thenReturn(true);
+    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+
+    String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/example";
+    ValueSet vs = createValueSet("vs-vsac", vsUrl, 5);
+    when(mockValidationSupport.fetchValueSet(vsUrl)).thenReturn(vs);
+
+    // Expansion fails
+    when(mockVsDao.expand(any(ValueSet.class), any()))
+        .thenThrow(new RuntimeException("Terminology server unavailable"));
+
+    Questionnaire q = new Questionnaire();
+    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE).setAnswerValueSet(vsUrl);
+
+    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
+
+    // ValueSet still collected despite expansion failure
+    assertEquals(1, result.valueSets().size());
+    // Persist still attempted (without expansion)
+    verify(mockVsDao).update(eq(vs), any(SystemRequestDetails.class));
+    // Warning recorded for expansion failure
+    assertTrue(result.warnings().stream().anyMatch(w -> w.contains("expansion failed during persist")));
+  }
+
+  @Test
+  @DisplayName("Persistence failure does not prevent collection")
+  void persistenceFailure_stillCollects() {
+    IBundleProvider emptyResults = mock(IBundleProvider.class);
+    when(emptyResults.isEmpty()).thenReturn(true);
+    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+
+    String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/example2";
+    ValueSet vs = createValueSet("vs-vsac", vsUrl, 5);
+    when(mockValidationSupport.fetchValueSet(vsUrl)).thenReturn(vs);
+
+    // Expansion succeeds
+    ValueSet expanded = new ValueSet();
+    expanded.getExpansion().addContains().setSystem("http://example.org/cs").setCode("code-0");
+    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(expanded);
+
+    // Persist fails
+    doThrow(new RuntimeException("Database error"))
+        .when(mockVsDao).update(any(ValueSet.class), any(SystemRequestDetails.class));
+
+    Questionnaire q = new Questionnaire();
+    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE).setAnswerValueSet(vsUrl);
+
+    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
+
+    // ValueSet still collected despite persistence failure
+    assertEquals(1, result.valueSets().size());
+    // Warning recorded for persistence failure
+    assertTrue(result.warnings().stream().anyMatch(w -> w.contains("Failed to persist")));
   }
 }

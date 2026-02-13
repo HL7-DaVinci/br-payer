@@ -1,5 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { FileJson, FlameIcon, LayoutDashboard, Webhook } from "lucide-react";
+import {
+  FileJson,
+  FlameIcon,
+  Form,
+  LayoutDashboard,
+  Webhook,
+} from "lucide-react";
 import type * as React from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -35,6 +41,11 @@ const data = {
           title: "CDS Hooks",
           url: "/hooks",
           icon: Webhook,
+        },
+        {
+          title: "DTR",
+          url: "/dtr",
+          icon: Form,
         },
       ],
     },

@@ -6,14 +6,21 @@ import static org.mockito.Mockito.*;
 
 import java.util.List;
 
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemComponent;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemOperator;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
+import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
 import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseStatus;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -21,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.opencds.cqf.fhir.cr.hapi.common.IQuestionnaireProcessorFactory;
+import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
@@ -35,6 +44,8 @@ class AdaptiveNextQuestionServiceTest {
   @Mock private DtrSubQuestionnaireAssembler subQAssembler;
   @Mock private IFhirResourceDao<Questionnaire> questionnaireDao;
   @Mock private IBundleProvider bundleProvider;
+  @Mock private IQuestionnaireProcessorFactory questionnaireProcessorFactory;
+  @Mock private QuestionnaireProcessor questionnaireProcessor;
 
   private EnableWhenEvaluator enableWhenEvaluator;
   private AdaptiveNextQuestionService service;
@@ -48,7 +59,7 @@ class AdaptiveNextQuestionServiceTest {
   void setUp() {
     enableWhenEvaluator = new EnableWhenEvaluator();
     service = new AdaptiveNextQuestionService(
-        daoRegistry, subQAssembler, enableWhenEvaluator);
+        daoRegistry, subQAssembler, enableWhenEvaluator, questionnaireProcessorFactory);
   }
 
   // ============================================================
@@ -192,6 +203,144 @@ class AdaptiveNextQuestionServiceTest {
 
       assertEquals(QuestionnaireResponseStatus.INPROGRESS, outputQr.getStatus());
       assertEquals(1, resultContained.getItem().size());
+    }
+  }
+
+  // ============================================================
+  // PRE-POPULATION
+  // ============================================================
+
+  @Nested
+  @DisplayName("Adaptive pre-population")
+  class AdaptivePrepopulation {
+
+    @Test
+    @DisplayName("First call adds pre-populated answers for delivered items")
+    void firstCall_populatesDeliveredItems() {
+      Questionnaire sourceQ = new Questionnaire();
+      sourceQ.setUrl("http://example.org/Questionnaire/Test");
+      sourceQ.setVersion("1.0.0");
+      QuestionnaireItemComponent group = sourceQ.addItem()
+          .setLinkId("1")
+          .setText("Patient Information")
+          .setType(Questionnaire.QuestionnaireItemType.GROUP);
+      group.addItem()
+          .setLinkId("1.PBI.2")
+          .setText("First Name")
+          .setType(Questionnaire.QuestionnaireItemType.STRING);
+
+      QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
+      qr.setSubject(new Reference("Patient/example"));
+
+      QuestionnaireResponse populated = new QuestionnaireResponse();
+      populated.addItem()
+          .setLinkId("1.PBI.2")
+          .addAnswer()
+          .setValue(new StringType("Jane"));
+
+      stubDao(sourceQ);
+      when(questionnaireProcessorFactory.create(any())).thenReturn(questionnaireProcessor);
+      when(questionnaireProcessor.populate(
+          any(IBaseResource.class), any(), any(), any(), any(), any()))
+          .thenReturn(populated);
+
+      Parameters result = service.processNextQuestion(qr);
+      QuestionnaireResponse outputQr = (QuestionnaireResponse) result.getParameter()
+          .get(0).getResource();
+
+      QuestionnaireResponseItemComponent firstName =
+          findItemByLinkId(outputQr.getItem(), "1.PBI.2");
+      assertNotNull(firstName, "Pre-populated first name should be present");
+      assertTrue(firstName.hasAnswer());
+      assertEquals("Jane", ((StringType) firstName.getAnswerFirstRep().getValue()).getValue());
+    }
+
+    @Test
+    @DisplayName("Pre-population does not override existing answers")
+    void prepopulation_doesNotOverrideExistingAnswers() {
+      Questionnaire sourceQ = new Questionnaire();
+      sourceQ.setUrl("http://example.org/Questionnaire/Test");
+      sourceQ.setVersion("1.0.0");
+      QuestionnaireItemComponent group = sourceQ.addItem()
+          .setLinkId("1")
+          .setText("Patient Information")
+          .setType(Questionnaire.QuestionnaireItemType.GROUP);
+      group.addItem()
+          .setLinkId("1.PBI.2")
+          .setText("First Name")
+          .setType(Questionnaire.QuestionnaireItemType.STRING);
+
+      QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
+      qr.setSubject(new Reference("Patient/example"));
+      qr.addItem()
+          .setLinkId("1.PBI.2")
+          .addAnswer()
+          .setValue(new StringType("Custom"));
+
+      QuestionnaireResponse populated = new QuestionnaireResponse();
+      populated.addItem()
+          .setLinkId("1.PBI.2")
+          .addAnswer()
+          .setValue(new StringType("Jane"));
+
+      stubDao(sourceQ);
+      when(questionnaireProcessorFactory.create(any())).thenReturn(questionnaireProcessor);
+      when(questionnaireProcessor.populate(
+          any(IBaseResource.class), any(), any(), any(), any(), any()))
+          .thenReturn(populated);
+
+      Parameters result = service.processNextQuestion(qr);
+      QuestionnaireResponse outputQr = (QuestionnaireResponse) result.getParameter()
+          .get(0).getResource();
+
+      QuestionnaireResponseItemComponent firstName =
+          findItemByLinkId(outputQr.getItem(), "1.PBI.2");
+      assertNotNull(firstName);
+      assertEquals("Custom", ((StringType) firstName.getAnswerFirstRep().getValue()).getValue());
+    }
+
+    @Test
+    @DisplayName("Pre-population includes transient qr-context resources from contained QR")
+    void prepopulation_includesTransientContainedContextResources() {
+      Questionnaire sourceQ = new Questionnaire();
+      sourceQ.setUrl("http://example.org/Questionnaire/Test");
+      sourceQ.setVersion("1.0.0");
+      sourceQ.addItem()
+          .setLinkId("1")
+          .setText("Group 1")
+          .setType(Questionnaire.QuestionnaireItemType.GROUP);
+
+      QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
+      qr.setSubject(new Reference("Patient/example"));
+
+      MedicationRequest transientOrder = new MedicationRequest();
+      transientOrder.setId("med-rx-1");
+      qr.addContained(transientOrder);
+
+      Extension contextExt = new Extension(
+          "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context");
+      contextExt.setValue(new Reference("MedicationRequest/med-rx-1"));
+      qr.addExtension(contextExt);
+
+      stubDao(sourceQ);
+      when(questionnaireProcessorFactory.create(any())).thenReturn(questionnaireProcessor);
+      when(questionnaireProcessor.populate(
+          any(IBaseResource.class), any(), any(), any(), any(), any()))
+          .thenReturn(new QuestionnaireResponse());
+
+      service.processNextQuestion(qr);
+
+      var bundleCaptor = org.mockito.ArgumentCaptor.forClass(Bundle.class);
+      verify(questionnaireProcessor).populate(
+          any(IBaseResource.class), any(), any(), any(), bundleCaptor.capture(), any());
+
+      boolean hasTransientOrder = bundleCaptor.getValue().getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .anyMatch(resource -> resource instanceof MedicationRequest
+              && "med-rx-1".equals(resource.getIdElement().getIdPart()));
+
+      assertTrue(hasTransientOrder,
+          "Data bundle should include transient qr-context resource from contained QR");
     }
   }
 
@@ -380,5 +529,20 @@ class AdaptiveNextQuestionServiceTest {
         .map(Questionnaire.class::cast)
         .findFirst()
         .orElseThrow();
+  }
+
+  private QuestionnaireResponseItemComponent findItemByLinkId(
+      List<QuestionnaireResponseItemComponent> items, String linkId) {
+    if (items == null) return null;
+    for (QuestionnaireResponseItemComponent item : items) {
+      if (linkId.equals(item.getLinkId())) return item;
+      QuestionnaireResponseItemComponent found = findItemByLinkId(item.getItem(), linkId);
+      if (found != null) return found;
+      for (var answer : item.getAnswer()) {
+        QuestionnaireResponseItemComponent inAnswer = findItemByLinkId(answer.getItem(), linkId);
+        if (inAnswer != null) return inAnswer;
+      }
+    }
+    return null;
   }
 }
