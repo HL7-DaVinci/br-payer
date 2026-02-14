@@ -1,4 +1,5 @@
 {
+  "_comment": "This bundle contains 25 Procedure resources representing physical therapy sessions for Patient/example. This can be posted to the server to test the physical therapy sessions scenario.",
   "resourceType": "Bundle",
   "type": "transaction",
   "entry": [

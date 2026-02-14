@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { Parameters } from "fhir/r4";
-import { ChevronDown, Loader2, Server, Settings } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  Loader2,
+  Server,
+  Settings,
+} from "lucide-react";
 import { useCallback, useId, useMemo, useState } from "react";
 import { DtrAdaptivePanel } from "@/components/dtr/dtr-adaptive-panel";
 import { DtrQuestionnaireRenderer } from "@/components/dtr/dtr-questionnaire-renderer";
@@ -27,9 +33,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { type DtrError, useQuestionnairePackage } from "@/hooks/use-dtr-api";
+import { useDtrScenarios } from "@/hooks/use-dtr-scenarios";
 import { useServerStatus } from "@/hooks/use-fhir-api";
 import { useFhirServer, useServerSelection } from "@/hooks/use-fhir-server";
-import { DTR_SCENARIOS } from "@/lib/dtr-scenarios";
 import type {
   DtrPackageResponse,
   DtrRequestVariant,
@@ -117,6 +123,13 @@ function DtrPage() {
   );
 
   const { isConnected, latency } = useServerStatus(serverUrl);
+
+  // Dynamic scenarios from the server
+  const {
+    data: scenarios = [],
+    isLoading: scenariosLoading,
+    error: scenariosError,
+  } = useDtrScenarios(serverUrl);
 
   // Workflow state
   const [step, setStep] = useState<DtrWorkflowStep>("configure");
@@ -314,13 +327,29 @@ function DtrPage() {
           <div className="grid grid-cols-12 gap-0 h-full">
             {/* Left: Scenario List */}
             <div className="col-span-4 border-r overflow-y-auto p-4">
-              <DtrScenarioList
-                scenarios={DTR_SCENARIOS}
-                selectedScenario={selectedScenario}
-                selectedVariant={selectedVariant}
-                onSelectScenario={handleSelectScenario}
-                onSelectVariant={handleSelectVariant}
-              />
+              {scenariosLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-sm text-muted-foreground">
+                    Loading scenarios...
+                  </span>
+                </div>
+              )}
+              {scenariosError && (
+                <div className="flex items-center gap-2 p-4 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>Failed to load scenarios. Is the server running?</span>
+                </div>
+              )}
+              {!scenariosLoading && !scenariosError && (
+                <DtrScenarioList
+                  scenarios={scenarios}
+                  selectedScenario={selectedScenario}
+                  selectedVariant={selectedVariant}
+                  onSelectScenario={handleSelectScenario}
+                  onSelectVariant={handleSelectVariant}
+                />
+              )}
             </div>
 
             {/* Right: Request Editor */}

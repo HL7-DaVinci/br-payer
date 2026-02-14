@@ -498,6 +498,28 @@
                 </configuration>
             </plugin>
 
+            <!-- Generate DTR test request JSON files from library resources -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <?m2e execute onConfiguration,onIncremental?>
+                        <id>generate-test-requests</id>
+                        <phase>process-classes</phase>
+                        <goals><goal>java</goal></goals>
+                        <configuration>
+                            <mainClass>org.hl7.davinci.scenarios.TestRequestFileGenerator</mainClass>
+                            <arguments>
+                                <argument>${project.basedir}/../library</argument>
+                                <argument>${project.build.directory}/test-requests</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- The configuration here tells the WAR plugin to include the FHIR Tester overlay. You can omit it if you are not using that feature. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

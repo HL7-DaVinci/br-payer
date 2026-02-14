@@ -71,7 +71,8 @@ class OrderDispatchServiceTest {
     @Test
     @DisplayName("Should throw 400 when hook name doesn't match")
     void testWrongHookName_Returns400() throws IOException {
-      CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-2.json");
+      CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest(
+          "order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       CdsHooksException.BadRequestException exception = assertThrows(
           CdsHooksException.BadRequestException.class,

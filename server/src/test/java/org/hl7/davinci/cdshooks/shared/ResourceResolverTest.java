@@ -34,7 +34,7 @@ class ResourceResolverTest {
     @Test
     @DisplayName("Should extract Patient from direct prefetch")
     void testExtractPatient_FromDirectPrefetch() throws IOException {
-      CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
+      CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest("order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
@@ -45,7 +45,7 @@ class ResourceResolverTest {
     @Test
     @DisplayName("Should extract Coverage from Bundle prefetch")
     void testExtractCoverage_FromBundlePrefetch() throws IOException {
-      CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
+      CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest("order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
@@ -55,12 +55,12 @@ class ResourceResolverTest {
     @Test
     @DisplayName("Should extract orders from draftOrders context")
     void testExtractOrders_FromDraftOrders() throws IOException {
-      CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
+      CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest("order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
       assertFalse(context.getOrders().isEmpty(), "Orders should be extracted from draftOrders");
-      // order-sign-1.json has a DeviceRequest
+      // Generated order-sign fixture has a DeviceRequest
       assertTrue(
           context.getOrders().stream().anyMatch(r -> r instanceof DeviceRequest),
           "Should contain DeviceRequest");
@@ -69,21 +69,20 @@ class ResourceResolverTest {
     @Test
     @DisplayName("Should extract appointments from context")
     void testExtractAppointments_FromContext() throws IOException {
-      CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("appointment-book-cardiology.json");
+      CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest("appointment-book", "cardiology-consultation-appointment-book.json");
 
       ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
       assertFalse(context.getAppointments().isEmpty(), "Appointments should be extracted");
-      // The ID may include the full URN from the Bundle fullUrl
-      String idPart = context.getAppointments().get(0).getIdElement().getIdPart();
-      assertTrue(idPart.contains("b2c3d4e5-f6a7-8901-bcde-f23456789012"), "Appointment ID should contain expected value");
+      assertNotNull(context.getAppointments().get(0).getIdElement().getIdPart(),
+          "Appointment should have an ID");
     }
 
     @Test
     @DisplayName("Should extract Organizations from coverage Bundle")
     void testExtractOrganizations_FromCoverageBundle() throws IOException {
-      // appointment-book-cardiology.json includes Organization in coverage bundle
-      CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("appointment-book-cardiology.json");
+      // Generated appointment-book fixture includes Organization in coverage bundle
+      CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest("appointment-book", "cardiology-consultation-appointment-book.json");
 
       ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
@@ -94,15 +93,12 @@ class ResourceResolverTest {
     @DisplayName("Should extract Practitioners from prefetch bundle")
     void testExtractPractitioners_FromPrefetch() throws IOException {
       // Note: extractAllResources only extracts practitioners from specific prefetch keys
-      // (user, performer), not from generic bundles like deviceRequestBundle.
-      // Practitioners in deviceRequestBundle are resolved on-demand when needed.
-      CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
+      // (user, performer), not from generic bundles.
+      CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest("order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
 
-      // order-sign-1.json has Practitioner in deviceRequestBundle, but extractAllResources
-      // doesn't scan generic prefetch bundles for all resource types
-      // This is by design - practitioners are resolved on-demand when processing orders
+      // Practitioners are resolved on-demand when processing orders, not from generic prefetch
       assertNotNull(context, "Context should be created");
     }
 

@@ -80,8 +80,8 @@ class AppointmentBookServiceTest {
     @Test
     @DisplayName("Should throw 400 when hook name doesn't match")
     void testWrongHookName_Returns400() throws IOException {
-      CdsServiceRequestJson request = CdsHooksTestUtils.loadRequest("order-sign-1.json");
-      // order-sign-1.json has hook: "order-sign"
+      CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest(
+          "order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       CdsHooksException.BadRequestException exception = assertThrows(
           CdsHooksException.BadRequestException.class,

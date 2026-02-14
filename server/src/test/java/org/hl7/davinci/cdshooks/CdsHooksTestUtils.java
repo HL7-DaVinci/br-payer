@@ -17,6 +17,8 @@ import org.springframework.core.io.DefaultResourceLoader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -47,6 +49,15 @@ public class CdsHooksTestUtils {
     try (InputStream is = resourceLoader.getResource(path).getInputStream()) {
       return IOUtils.toString(is, StandardCharsets.UTF_8);
     }
+  }
+
+  /**
+   * Load a generated CRD fixture from target/test-requests/crd/.
+   * Files are organized by hook name subdirectory.
+   */
+  public static String loadGeneratedFixture(String hookName, String filename) throws IOException {
+    Path path = Path.of("target/test-requests/crd", hookName, filename);
+    return Files.readString(path);
   }
 
   /**
@@ -140,6 +151,13 @@ public class CdsHooksTestUtils {
    */
   public static CdsServiceRequestJson loadRequest(String filename) throws IOException {
     return parseRequest(loadFixture(filename));
+  }
+
+  /**
+   * Load and parse a generated CRD fixture into a CdsServiceRequestJson.
+   */
+  public static CdsServiceRequestJson loadGeneratedRequest(String hookName, String filename) throws IOException {
+    return parseRequest(loadGeneratedFixture(hookName, filename));
   }
 
   /**

@@ -47,8 +47,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * - Coverage-information extension generation
  * - Card generation and formatting
  * 
- * Tests use actual sample requests from src/test/resources/cdshooks/
- * and real PlanDefinitions loaded from library/ directory.
+ * Happy-path tests use generated fixtures from target/test-requests/crd/
+ * (produced by TestRequestFileGenerator at build time).
+ * Error/validation and edge-case tests use hand-crafted fixtures from
+ * src/test/resources/cdshooks/.
  * 
  * CRD Specification Compliance:
  * - Primary hooks (order-sign, appointment-book) SHALL return coverage-info
@@ -252,9 +254,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Valid order-sign request returns 200 with response")
     void testOrderSign_ValidRequest_Returns200() throws IOException {
-      // Services confirmed ready in @BeforeAll
-
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       JsonObject response = postToCdsService("order-sign-crd", requestBody);
 
@@ -265,9 +266,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Primary hook SHALL return coverage-information")
     void testOrderSign_ReturnsCoverageInfo() throws IOException {
-      // Services confirmed ready in @BeforeAll
-
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       JsonObject response = postToCdsService("order-sign-crd", requestBody);
 
@@ -304,9 +304,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Coverage-info extension has required fields per CRD spec")
     void testOrderSign_CoverageInfoHasRequiredFields() throws IOException {
-      // Services confirmed ready in @BeforeAll
-
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       JsonObject response = postToCdsService("order-sign-crd", requestBody);
 
@@ -358,7 +357,7 @@ class CrdCdsHooksIT implements IServerSupport {
       // Services confirmed ready in @BeforeAll
 
       // order-sign-3.json has 2 DeviceRequests
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-3.json");
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-multiple.json");
 
       JsonObject response = postToCdsService("order-sign-crd", requestBody);
 
@@ -381,7 +380,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Valid order-select request returns 200")
     void testOrderSelect_ValidRequest_Returns200() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-select-1.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-select", "hospital-beds-and-accessories-order-select.json");
 
       JsonObject response = postToCdsService("order-select-crd", requestBody);
 
@@ -392,7 +392,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Order-select only processes selected orders")
     void testOrderSelect_OnlyProcessesSelections() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-select-1.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-select", "hospital-beds-and-accessories-order-select.json");
 
       JsonObject response = postToCdsService("order-select-crd", requestBody);
 
@@ -403,7 +404,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Secondary hook MAY return coverage-info but not required")
     void testOrderSelect_CoverageInfoOptional() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-select-1.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-select", "hospital-beds-and-accessories-order-select.json");
 
       JsonObject response = postToCdsService("order-select-crd", requestBody);
 
@@ -425,7 +427,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Valid appointment-book cardiology request returns 200")
     void testAppointmentBook_Cardiology_Returns200() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("appointment-book-cardiology.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "appointment-book", "cardiology-consultation-appointment-book.json");
 
       JsonObject response = postToCdsService("appointment-book-crd", requestBody);
 
@@ -446,7 +449,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Primary hook SHALL return coverage-info")
     void testAppointmentBook_ReturnsCoverageInfo() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("appointment-book-cardiology.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "appointment-book", "cardiology-consultation-appointment-book.json");
 
       JsonObject response = postToCdsService("appointment-book-crd", requestBody);
 
@@ -491,7 +495,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Valid order-dispatch imaging request returns 200")
     void testOrderDispatch_Imaging_Returns200() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-imaging-innetwork.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-dispatch", "imaging-network-dispatch-order-dispatch.json");
 
       JsonObject response = postToCdsService("order-dispatch-crd", requestBody);
 
@@ -502,7 +507,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Valid order-dispatch DME request returns 200")
     void testOrderDispatch_Dme_Returns200() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-dme-outnetwork.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-dispatch", "home-oxygen-dispatch-order-dispatch.json");
 
       JsonObject response = postToCdsService("order-dispatch-crd", requestBody);
 
@@ -513,7 +519,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Primary hook SHALL return coverage-information")
     void testOrderDispatch_ReturnsCoverageInfo() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-imaging-innetwork.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-dispatch", "imaging-network-dispatch-order-dispatch.json");
 
       JsonObject response = postToCdsService("order-dispatch-crd", requestBody);
 
@@ -549,7 +556,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Coverage-info extension has required fields per CRD spec")
     void testOrderDispatch_CoverageInfoHasRequiredFields() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-dispatch-imaging-innetwork.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-dispatch", "imaging-network-dispatch-order-dispatch.json");
 
       JsonObject response = postToCdsService("order-dispatch-crd", requestBody);
 
@@ -603,7 +611,9 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Wrong hook name returns 400")
     void testOrderDispatch_WrongHookName_Returns400() throws IOException {
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+      // Send an order-sign request to the order-dispatch endpoint
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       int statusCode = postAndGetStatusCode("order-dispatch-crd", requestBody);
 
@@ -624,7 +634,7 @@ class CrdCdsHooksIT implements IServerSupport {
     void testMissingPatient_Returns412() throws IOException {
       // Services confirmed ready in @BeforeAll
 
-      String requestBody = CdsHooksTestUtils.loadFixture("test-missing-patient.json");
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-missing-patient.json");
 
       int statusCode = postAndGetStatusCode("order-sign-crd", requestBody);
 
@@ -644,10 +654,9 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Wrong hook name returns 400")
     void testWrongHookName_Returns400() throws IOException {
-      // Services confirmed ready in @BeforeAll
-
       // Send order-select request to order-sign endpoint
-      String requestBody = CdsHooksTestUtils.loadFixture("order-select-1.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-select", "hospital-beds-and-accessories-order-select.json");
 
       int statusCode = postAndGetStatusCode("order-sign-crd", requestBody);
 
@@ -666,9 +675,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Cards have required fields per CDS Hooks spec")
     void testCards_HaveRequiredFields() throws IOException {
-      // Services confirmed ready in @BeforeAll
-
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       JsonObject response = postToCdsService("order-sign-crd", requestBody);
 
@@ -695,9 +703,8 @@ class CrdCdsHooksIT implements IServerSupport {
     @Test
     @DisplayName("Cards have source.topic per CRD requirement")
     void testCards_HaveSourceTopic() throws IOException {
-      // Services confirmed ready in @BeforeAll
-
-      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-2.json");
+      String requestBody = CdsHooksTestUtils.loadGeneratedFixture(
+          "order-sign", "hospital-beds-and-accessories-order-sign.json");
 
       JsonObject response = postToCdsService("order-sign-crd", requestBody);
 

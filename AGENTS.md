@@ -79,12 +79,16 @@ nx run frontend:copy-to-server
 - **Structure**:
   - `src/main/java/ca/uhn/fhir/` - HAPI starter code (do NOT modify)
   - `src/main/java/org/hl7/davinci/` - Custom implementation code (all custom code goes here)
+    - `api/` - REST controllers for non-FHIR APIs (`/api/dtr/`, `/api/crd/`)
     - `cdshooks/services/` - CDS Hook service implementations
     - `cdshooks/shared/` - Shared CDS Hooks utilities
-    - `providers/` - Custom FHIR resource providers
-    - `cql/` - CQL-related utilities
+    - `common/` - Shared utilities (`PlanDefinitionService`, `FhirCodeExtractor`, `FhirUtil`)
     - `config/` - Spring configuration
-    - `datainitializer/` - Seed data loading
+    - `cql/` - CQL file resolution and ELM compilation
+    - `datainitializer/` - Startup resource loading and CQL compilation
+    - `dtr/` - DTR questionnaire pipeline (resolver, assemblers, response builder, session store)
+    - `providers/` - Custom FHIR resource providers
+    - `scenarios/` - Test scenario generation from library PlanDefinitions (see below)
 
 ### 2. Frontend (`frontend`)
 - **Path**: `frontend/`
@@ -117,6 +121,59 @@ nx run frontend:copy-to-server
 
 ---
 
+## Test Scenario Generation
+
+Test request fixtures for both DTR and CRD are auto-generated from library PlanDefinition metadata rather than hand-maintained as JSON files.
+
+### How It Works
+
+1. **`LibraryScenarioScanner`** scans the `library/` directory for PlanDefinition + Questionnaire pairs, extracting `ScenarioMetadata` (focus codes, hook triggers, order types, questionnaire URLs)
+2. **`DtrRequestBuilder`** and **`CrdRequestBuilder`** transform metadata into valid request JSON (FHIR Parameters for DTR, CDS Hooks JSON for CRD)
+3. **`TestRequestFileGenerator`** runs at build time (`process-test-classes` phase via Maven exec plugin) and writes generated files to `target/test-requests/`
+
+### Build Output
+
+```
+target/test-requests/
+  dtr/
+    home-oxygen-therapy-canonical-request.json
+    home-oxygen-therapy-order-request.json
+    ...
+  crd/
+    order-sign/
+      home-oxygen-therapy-order-sign.json
+      ...
+    order-select/
+      ...
+    appointment-book/
+      ...
+    order-dispatch/
+      ...
+```
+
+### Runtime API
+
+Spring services (`DtrScenarioService`, `CrdScenarioService`) expose the same generated content via REST endpoints. These scan the FHIR database at request time, so they reflect the current server state.
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/dtr/scenarios` | List all DTR test scenarios |
+| `GET /api/dtr/scenarios/{id}` | Single DTR scenario with request variants |
+| `GET /api/dtr/scenarios/{id}/requests/{type}` | Raw FHIR Parameters JSON for a DTR variant |
+| `GET /api/crd/scenarios` | List all CRD test scenarios |
+| `GET /api/crd/scenarios/{id}` | Single CRD scenario with hook variants |
+| `GET /api/crd/scenarios/{id}/hooks/{hookName}` | Raw CDS Hooks request JSON for a hook variant |
+
+### Adding New Scenarios
+
+Adding a new PlanDefinition + Questionnaire to `library/` automatically generates DTR and CRD test fixtures at build time and makes them available via the REST API. No manual fixture authoring needed.
+
+### Hand-Crafted Fixtures
+
+Some test fixtures remain hand-crafted in `src/test/resources/cdshooks/` because they test edge cases not derivable from PlanDefinition metadata: error/validation scenarios, multi-order requests, encounter-based hooks, and visit-limit exceeded cases.
+
+---
+
 ## Implementation Guide References
 
 This server implements the Da Vinci Burden Reduction implementation guides. Always consult these when implementing features:
@@ -138,9 +195,12 @@ This server implements the Da Vinci Burden Reduction implementation guides. Alwa
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| Hook Services | `server/src/main/java/org/hl7/davinci/cdshooks/services/` | Individual hook implementations (OrderSelectService, OrderSignService) |
+| Hook Services | `server/src/main/java/org/hl7/davinci/cdshooks/services/` | Individual hook implementations (OrderSelectService, OrderSignService, etc.) |
 | Shared Logic | `server/src/main/java/org/hl7/davinci/cdshooks/shared/` | Base classes, resource resolution, coverage info handling |
 | Configuration | `server/src/main/java/org/hl7/davinci/cdshooks/CdsHooksConfig.java` | Spring configuration for CDS hooks |
+| CRD Scenarios | `server/src/main/java/org/hl7/davinci/cdshooks/CrdScenarioService.java` | Generates CRD test scenarios from PlanDefinition metadata |
+| CRD Request Builder | `server/src/main/java/org/hl7/davinci/scenarios/CrdRequestBuilder.java` | Builds CDS Hooks request JSON from ScenarioMetadata |
+| CRD REST API | `server/src/main/java/org/hl7/davinci/api/CrdScenarioController.java` | REST endpoints under `/api/crd/` |
 
 ### Adding a New CDS Hook
 
