@@ -1,7 +1,6 @@
 package org.hl7.davinci.dtr;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +13,7 @@ import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemComponent;
@@ -33,6 +33,7 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
+import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 /**
  * Implements the $next-question operation for adaptive questionnaires.
@@ -222,7 +223,7 @@ public class AdaptiveNextQuestionService {
     }
 
     QuestionnaireProcessor processor = questionnaireProcessorFactory.create(new SystemRequestDetails());
-    Bundle dataBundle = buildDataBundleFromQr(targetQr);
+    Bundle dataBundle = buildDataBundleFromQr(targetQr, subjectId);
 
     IBaseResource populateResult = processor.populate(
         deliveredQ, subjectId, List.of(), null, dataBundle, null);
@@ -268,10 +269,12 @@ public class AdaptiveNextQuestionService {
     return delivered;
   }
 
-  private Bundle buildDataBundleFromQr(QuestionnaireResponse qr) {
+  private Bundle buildDataBundleFromQr(QuestionnaireResponse qr, String subjectId) {
     Bundle bundle = new Bundle();
     bundle.setType(Bundle.BundleType.COLLECTION);
     Set<String> seen = new HashSet<>();
+
+    addSubjectPatientContext(subjectId, bundle, seen);
 
     for (Extension ext : qr.getExtensionsByUrl(QR_COVERAGE_EXT)) {
       addResolvedReferenceResource(ext, qr, bundle, seen);
@@ -298,9 +301,57 @@ public class AdaptiveNextQuestionService {
       return;
     }
 
-    String identity = resolved.fhirType() + "/" + resolved.getIdElement().toUnqualifiedVersionless().getValue();
+    addResource(bundle, seen, resolved);
+  }
+
+  private void addSubjectPatientContext(String subjectId, Bundle bundle, Set<String> seen) {
+    if (subjectId == null || subjectId.isBlank()) {
+      return;
+    }
+
+    IdType patientRef = new IdType(subjectId);
+    String patientIdPart = patientRef.getIdPart();
+    if (patientIdPart == null || patientIdPart.isBlank()) {
+      return;
+    }
+
+    String baseUrl = patientRef.getBaseUrl();
+    boolean isAbsolute = baseUrl != null && !baseUrl.isBlank();
+    if (isAbsolute || !patientExistsInRepository(patientIdPart)) {
+      Patient stub = new Patient();
+      // Keep absolute subject IDs to avoid resolving to same-ID local patient resources.
+      stub.setId(isAbsolute ? patientRef.toVersionless().getValue() : patientIdPart);
+      addResource(bundle, seen, stub);
+    }
+  }
+
+  private boolean patientExistsInRepository(String patientIdPart) {
+    try {
+      daoRegistry.getResourceDao(Patient.class)
+          .read(new IdType("Patient", patientIdPart), new SystemRequestDetails());
+      return true;
+    } catch (ResourceNotFoundException e) {
+      return false;
+    } catch (Exception e) {
+      logger.debug("$next-question: unable to verify patient {} existence: {}", patientIdPart, e.getMessage());
+      return false;
+    }
+  }
+
+  private void addResource(Bundle bundle, Set<String> seen, Resource resource) {
+    String identity = resource.getIdElement().toVersionless().getValue();
+    if (identity == null || identity.isBlank()) {
+      String idPart = resource.getIdElement().getIdPart();
+      identity = idPart == null || idPart.isBlank() ? null : resource.fhirType() + "/" + idPart;
+    }
+
+    if (identity == null || identity.isBlank()) {
+      bundle.addEntry().setResource(resource);
+      return;
+    }
+
     if (seen.add(identity)) {
-      bundle.addEntry().setResource(resolved);
+      bundle.addEntry().setResource(resource);
     }
   }
 
@@ -377,59 +428,68 @@ public class AdaptiveNextQuestionService {
   private void mergePrepopulatedAnswers(
       QuestionnaireResponse targetQr, QuestionnaireResponse populatedQr) {
 
-    Map<String, QuestionnaireResponseItemComponent> existingItems = new HashMap<>();
-    indexItems(targetQr.getItem(), existingItems);
-    mergeItems(targetQr, populatedQr.getItem(), existingItems);
+    mergeItems(targetQr.getItem(), populatedQr.getItem());
   }
 
-  private void indexItems(
-      List<QuestionnaireResponseItemComponent> items,
-      Map<String, QuestionnaireResponseItemComponent> index) {
+  private void mergeItems(
+      List<QuestionnaireResponseItemComponent> targetItems,
+      List<QuestionnaireResponseItemComponent> populatedItems) {
 
-    for (QuestionnaireResponseItemComponent item : items) {
-      if (item.hasLinkId()) {
-        index.putIfAbsent(item.getLinkId(), item);
+    for (QuestionnaireResponseItemComponent populated : populatedItems) {
+      if (!populated.hasLinkId()) {
+        continue;
       }
-      if (item.hasItem()) {
-        indexItems(item.getItem(), index);
-      }
-      for (QuestionnaireResponseItemAnswerComponent answer : item.getAnswer()) {
-        if (answer.hasItem()) {
-          indexItems(answer.getItem(), index);
+
+      QuestionnaireResponseItemComponent targetItem =
+          findSiblingByLinkId(targetItems, populated.getLinkId());
+
+      if (targetItem == null && (populated.hasAnswer() || populated.hasItem())) {
+        targetItem = new QuestionnaireResponseItemComponent().setLinkId(populated.getLinkId());
+        if (populated.hasText()) {
+          targetItem.setText(populated.getText());
         }
+        targetItems.add(targetItem);
+      }
+
+      if (targetItem == null) {
+        continue;
+      }
+
+      boolean copiedAnswers = false;
+      if (populated.hasAnswer() && !targetItem.hasAnswer()) {
+        copyAnswers(targetItem, populated.getAnswer());
+        copiedAnswers = true;
+      }
+
+      if (populated.hasItem()) {
+        mergeItems(targetItem.getItem(), populated.getItem());
+      }
+
+      if (!copiedAnswers && populated.hasAnswer() && targetItem.hasAnswer()) {
+        mergeAnswerItems(targetItem.getAnswer(), populated.getAnswer());
       }
     }
   }
 
-  private void mergeItems(
-      QuestionnaireResponse targetQr,
-      List<QuestionnaireResponseItemComponent> populatedItems,
-      Map<String, QuestionnaireResponseItemComponent> existingItems) {
-
-    for (QuestionnaireResponseItemComponent populated : populatedItems) {
-      if (populated.hasLinkId() && populated.hasAnswer()) {
-        QuestionnaireResponseItemComponent existing = existingItems.get(populated.getLinkId());
-        if (existing == null) {
-          QuestionnaireResponseItemComponent created = new QuestionnaireResponseItemComponent();
-          created.setLinkId(populated.getLinkId());
-          if (populated.hasText()) {
-            created.setText(populated.getText());
-          }
-          copyAnswers(created, populated.getAnswer());
-          targetQr.addItem(created);
-          existingItems.put(created.getLinkId(), created);
-        } else if (!existing.hasAnswer()) {
-          copyAnswers(existing, populated.getAnswer());
-        }
+  private QuestionnaireResponseItemComponent findSiblingByLinkId(
+      List<QuestionnaireResponseItemComponent> items, String linkId) {
+    for (QuestionnaireResponseItemComponent item : items) {
+      if (linkId.equals(item.getLinkId())) {
+        return item;
       }
+    }
+    return null;
+  }
 
-      if (populated.hasItem()) {
-        mergeItems(targetQr, populated.getItem(), existingItems);
-      }
-      for (QuestionnaireResponseItemAnswerComponent answer : populated.getAnswer()) {
-        if (answer.hasItem()) {
-          mergeItems(targetQr, answer.getItem(), existingItems);
-        }
+  private void mergeAnswerItems(
+      List<QuestionnaireResponseItemAnswerComponent> targetAnswers,
+      List<QuestionnaireResponseItemAnswerComponent> populatedAnswers) {
+
+    int mergeCount = Math.min(targetAnswers.size(), populatedAnswers.size());
+    for (int i = 0; i < mergeCount; i++) {
+      QuestionnaireResponseItemAnswerComponent populatedAnswer = populatedAnswers.get(i);
+      if (populatedAnswer.hasItem()) {
+        mergeItems(targetAnswers.get(i).getItem(), populatedAnswer.getItem());
       }
     }
   }

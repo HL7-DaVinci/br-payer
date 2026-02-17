@@ -13,6 +13,7 @@ import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemComponent;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemOperator;
@@ -341,6 +342,91 @@ class AdaptiveNextQuestionServiceTest {
 
       assertTrue(hasTransientOrder,
           "Data bundle should include transient qr-context resource from contained QR");
+    }
+
+    @Test
+    @DisplayName("Pre-population preserves nested item structure when merging answers")
+    void prepopulation_preservesNestedItemStructure() {
+      Questionnaire sourceQ = new Questionnaire();
+      sourceQ.setUrl("http://example.org/Questionnaire/Test");
+      sourceQ.setVersion("1.0.0");
+      QuestionnaireItemComponent group = sourceQ.addItem()
+          .setLinkId("1")
+          .setText("Patient Information")
+          .setType(Questionnaire.QuestionnaireItemType.GROUP);
+      group.addItem()
+          .setLinkId("1.PBI.2")
+          .setText("First Name")
+          .setType(Questionnaire.QuestionnaireItemType.STRING);
+
+      QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
+      qr.setSubject(new Reference("Patient/example"));
+
+      QuestionnaireResponse populated = new QuestionnaireResponse();
+      QuestionnaireResponseItemComponent populatedGroup = populated.addItem()
+          .setLinkId("1")
+          .setText("Patient Information");
+      populatedGroup.addItem()
+          .setLinkId("1.PBI.2")
+          .addAnswer()
+          .setValue(new StringType("Jane"));
+
+      stubDao(sourceQ);
+      when(questionnaireProcessorFactory.create(any())).thenReturn(questionnaireProcessor);
+      when(questionnaireProcessor.populate(
+          any(IBaseResource.class), any(), any(), any(), any(), any()))
+          .thenReturn(populated);
+
+      Parameters result = service.processNextQuestion(qr);
+      QuestionnaireResponse outputQr = (QuestionnaireResponse) result.getParameter()
+          .get(0).getResource();
+
+      QuestionnaireResponseItemComponent rootGroup = outputQr.getItem().stream()
+          .filter(item -> "1".equals(item.getLinkId()))
+          .findFirst()
+          .orElse(null);
+      assertNotNull(rootGroup, "Parent group item should be present in the response");
+
+      QuestionnaireResponseItemComponent nestedFirstName = rootGroup.getItem().stream()
+          .filter(item -> "1.PBI.2".equals(item.getLinkId()))
+          .findFirst()
+          .orElse(null);
+      assertNotNull(nestedFirstName, "Nested pre-populated item should remain under its parent");
+      assertEquals("Jane", ((StringType) nestedFirstName.getAnswerFirstRep().getValue()).getValue());
+
+      boolean firstNameAtRoot = outputQr.getItem().stream()
+          .anyMatch(item -> "1.PBI.2".equals(item.getLinkId()));
+      assertFalse(firstNameAtRoot,
+          "Nested pre-populated item should not be appended at the QuestionnaireResponse root");
+    }
+
+    @Test
+    @DisplayName("Pre-population includes subject patient for absolute subject references")
+    void prepopulation_includesSubjectPatientForAbsoluteSubject() {
+      Questionnaire sourceQ = buildSimpleQuestionnaire();
+      QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
+      String absoluteSubject = "http://ehr.example/fhir/Patient/ext-123";
+      qr.setSubject(new Reference(absoluteSubject));
+
+      stubDao(sourceQ);
+      when(questionnaireProcessorFactory.create(any())).thenReturn(questionnaireProcessor);
+      when(questionnaireProcessor.populate(
+          any(IBaseResource.class), any(), any(), any(), any(), any()))
+          .thenReturn(new QuestionnaireResponse());
+
+      service.processNextQuestion(qr);
+
+      var bundleCaptor = org.mockito.ArgumentCaptor.forClass(Bundle.class);
+      verify(questionnaireProcessor).populate(
+          any(IBaseResource.class), any(), any(), any(), bundleCaptor.capture(), any());
+
+      boolean hasSubjectPatient = bundleCaptor.getValue().getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .anyMatch(resource -> resource instanceof Patient
+              && absoluteSubject.equals(resource.getIdElement().toVersionless().getValue()));
+
+      assertTrue(hasSubjectPatient,
+          "Data bundle should include a subject Patient stub for absolute subject references");
     }
   }
 

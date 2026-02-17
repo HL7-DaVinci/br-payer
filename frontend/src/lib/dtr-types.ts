@@ -1,13 +1,17 @@
 import type {
   Bundle,
+  Coverage,
   OperationOutcome,
   Parameters,
+  ParametersParameter,
   Questionnaire,
   QuestionnaireResponse,
   Resource,
 } from "fhir/r4";
 
 export type DtrWorkflowStep = "configure" | "response" | "questionnaire";
+
+export type DtrMode = "scenarios" | "manual";
 
 export interface DtrScenario {
   id: string;
@@ -38,4 +42,61 @@ export interface ParsedPackageBundle {
   valueSets: Resource[];
   isAdaptive: boolean;
   rawBundle: Bundle;
+}
+
+// =============================================================================
+// Manual Mode Parameters Builder
+// =============================================================================
+
+const DTR_PACKAGE_INPUT_PROFILE =
+  "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-qpackage-input-parameters";
+
+/**
+ * Assemble a FHIR Parameters resource for $questionnaire-package.
+ * Follows the DTR IG input parameters profile.
+ */
+export function buildDtrParameters(
+  coverage: Coverage,
+  canonicalUrls: string[],
+  orders: Resource[],
+): Parameters {
+  const parameter: ParametersParameter[] = [
+    { name: "coverage", resource: coverage },
+  ];
+
+  for (const url of canonicalUrls) {
+    parameter.push({ name: "questionnaire", valueCanonical: url });
+  }
+
+  for (const order of orders) {
+    parameter.push({ name: "order", resource: order });
+  }
+
+  return {
+    resourceType: "Parameters",
+    meta: { profile: [DTR_PACKAGE_INPUT_PROFILE] },
+    parameter,
+  };
+}
+
+/**
+ * Validate that minimum parameters are met for $questionnaire-package.
+ * Requires coverage and at least one of questionnaire or order.
+ */
+export function validateDtrParameters(
+  coverage: Coverage | null,
+  canonicalUrls: string[],
+  orders: Resource[],
+): {
+  isValid: boolean;
+  hasCoverage: boolean;
+  hasQuestionnaireOrOrder: boolean;
+} {
+  const hasCoverage = coverage !== null;
+  const hasQuestionnaireOrOrder = canonicalUrls.length > 0 || orders.length > 0;
+  return {
+    isValid: hasCoverage && hasQuestionnaireOrOrder,
+    hasCoverage,
+    hasQuestionnaireOrOrder,
+  };
 }
