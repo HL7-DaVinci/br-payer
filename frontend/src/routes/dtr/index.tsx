@@ -7,7 +7,14 @@ import {
   Server,
   Settings,
 } from "lucide-react";
-import { useCallback, useId, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DtrAdaptivePanel } from "@/components/dtr/dtr-adaptive-panel";
 import { DtrQuestionnaireRenderer } from "@/components/dtr/dtr-questionnaire-renderer";
 import { DtrRequestEditor } from "@/components/dtr/dtr-request-editor";
@@ -157,6 +164,22 @@ function DtrPage() {
   const { viewerData, openViewer, closeViewer } = useJsonViewer();
 
   const fhirServerId = useId();
+  const previousServerUrlRef = useRef(serverUrl);
+
+  useEffect(() => {
+    if (previousServerUrlRef.current === serverUrl) {
+      return;
+    }
+
+    previousServerUrlRef.current = serverUrl;
+    setSelectedScenario(null);
+    setSelectedVariant(null);
+    setRequestJson("");
+    setResponseData(null);
+    setSelectedBundle(null);
+    resetPackage();
+    setStep("configure");
+  }, [serverUrl, resetPackage]);
 
   // Scenario selection
   const handleSelectScenario = useCallback(

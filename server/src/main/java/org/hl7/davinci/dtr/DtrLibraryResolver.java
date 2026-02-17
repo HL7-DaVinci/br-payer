@@ -33,6 +33,7 @@ public class DtrLibraryResolver {
 
   private static final String CQF_LIBRARY_EXT_URL =
       "http://hl7.org/fhir/StructureDefinition/cqf-library";
+  private static final String CQL_CONTENT_TYPE = "text/cql";
   private static final String ELM_CONTENT_TYPE = "application/elm+json";
 
   private final DaoRegistry daoRegistry;
@@ -73,7 +74,7 @@ public class DtrLibraryResolver {
         library.setUrl(versionSpecific);
       }
 
-      // Ensure content.data is populated (not content.url per spec-99)
+      // Ensure CQL/ELM content uses inline data, not URL references (spec-99)
       ensureInlineContent(library, warnings);
     }
 
@@ -125,8 +126,7 @@ public class DtrLibraryResolver {
       }
     }
 
-    // Validate/compile ELM content
-    validateElm(library, warnings);
+    ensureElm(library, warnings);
 
     resolved.put(key, library);
 
@@ -142,29 +142,33 @@ public class DtrLibraryResolver {
     }
   }
 
-  private void validateElm(Library library, List<String> warnings) {
+  private void ensureElm(Library library, List<String> warnings) {
     boolean hasElm = library.getContent().stream()
         .anyMatch(c -> ELM_CONTENT_TYPE.equals(c.getContentType()) && c.hasData());
+    if (hasElm) {
+      return;
+    }
 
-    if (!hasElm) {
-      // Attempt on-demand compilation
-      try {
-        boolean compiled = elmCompiler.compileAndAttachElm(library, librarySourceProvider);
-        if (!compiled) {
-          String warning = "Library " + library.getId() + " has no CQL content to compile ELM from";
-          logger.warn(warning);
-          warnings.add(warning);
-        }
-      } catch (ElmCompilationException e) {
-        String warning = "ELM compilation failed for Library " + library.getId() + ": " + e.getMessage();
-        logger.warn(warning);
-        warnings.add(warning);
-      }
+    boolean hasInlineCql = library.getContent().stream()
+        .anyMatch(c -> CQL_CONTENT_TYPE.equals(c.getContentType()) && c.hasData());
+    if (!hasInlineCql) {
+      return;
+    }
+
+    try {
+      elmCompiler.compileAndAttachElm(library, librarySourceProvider);
+    } catch (ElmCompilationException e) {
+      String warning = "ELM compilation failed for Library " + library.getId() + ": " + e.getMessage();
+      logger.warn(warning);
+      warnings.add(warning);
     }
   }
 
   private void ensureInlineContent(Library library, List<String> warnings) {
     for (Attachment content : library.getContent()) {
+      if (!isCqlOrElmContent(content)) {
+        continue;
+      }
       if (content.hasUrl() && !content.hasData()) {
         String warning = "Library " + library.getId()
             + " has content with URL reference instead of inline data (spec-99)";
@@ -172,5 +176,10 @@ public class DtrLibraryResolver {
         warnings.add(warning);
       }
     }
+  }
+
+  private boolean isCqlOrElmContent(Attachment content) {
+    String type = content.getContentType();
+    return CQL_CONTENT_TYPE.equals(type) || ELM_CONTENT_TYPE.equals(type);
   }
 }

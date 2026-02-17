@@ -120,7 +120,7 @@ define "FacilityNPI":
 define "FacilityAddress":
   if "PerformingOrganization" is not null and exists("PerformingOrganization".address) then
     Coalesce(
-      Combine(First("PerformingOrganization".address).line L return L.value, ', ') + ', ' +
+      Combine(First("PerformingOrganization".address).line.value, ', ') + ', ' +
       Coalesce(First("PerformingOrganization".address).city.value, '') + ', ' +
       Coalesce(First("PerformingOrganization".address).state.value, '') + ' ' +
       Coalesce(First("PerformingOrganization".address).postalCode.value, ''),

@@ -4,14 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
-import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DateTimeType;
-import org.hl7.fhir.r4.model.DeviceRequest;
-import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Reference;
@@ -40,18 +35,21 @@ public class DtrRequestBuilder {
       List<DtrVariant> variants = new ArrayList<>();
       boolean hasFocusCodes = !meta.focusCodes().isEmpty();
       boolean hasOrderType = meta.orderType() != null;
+      boolean hasMultipleQuestionnaires = meta.questionnaireUrls().size() > 1;
 
       // Canonical variant for each questionnaire URL
       for (String url : meta.questionnaireUrls()) {
         String qKebab = questionnaireIdFromUrl(url);
         variants.add(new DtrVariant(
-            qKebab + "-canonical", "Canonical", "canonical",
+            qKebab + "-canonical",
+            buildQuestionnaireVariantLabel("Canonical", url, hasMultipleQuestionnaires),
+            "canonical",
             buildCanonicalParams(url, sharedCoverage)));
       }
 
       // Order and combined variants when focus codes and order type are available
       if (hasFocusCodes && hasOrderType) {
-        Resource orderResource = buildOrderResource(
+        Resource orderResource = ScenarioResourceUtil.buildOrderResource(
             meta.focusCodes().get(0), meta.orderType(), meta.id());
 
         if (orderResource != null) {
@@ -62,13 +60,15 @@ public class DtrRequestBuilder {
           for (String url : meta.questionnaireUrls()) {
             String qKebab = questionnaireIdFromUrl(url);
             variants.add(new DtrVariant(
-                qKebab + "-combined", "Combined", "combined",
+                qKebab + "-combined",
+                buildQuestionnaireVariantLabel("Combined", url, hasMultipleQuestionnaires),
+                "combined",
                 buildCombinedParams(url, orderResource, sharedCoverage)));
           }
         }
       }
 
-      String description = buildDescription(meta);
+      String description = ScenarioResourceUtil.buildDescription(meta);
 
       result.add(new DtrScenario(
           meta.id(),
@@ -114,48 +114,6 @@ public class DtrRequestBuilder {
     return coverage;
   }
 
-  // ===== Order resource construction =====
-
-  public static Resource buildOrderResource(Coding firstCode, String orderType, String scenarioId) {
-    Coding codeCopy = firstCode.copy();
-
-    switch (orderType) {
-      case "DeviceRequest" -> {
-        DeviceRequest dr = new DeviceRequest();
-        dr.setId(scenarioId + "-device-request");
-        dr.setStatus(DeviceRequest.DeviceRequestStatus.DRAFT);
-        dr.setIntent(DeviceRequest.RequestIntent.ORIGINALORDER);
-        dr.setCode(new CodeableConcept().addCoding(codeCopy));
-        dr.setSubject(new Reference("Patient/example"));
-        dr.addInsurance(new Reference("Coverage/coverage-1"));
-        return dr;
-      }
-      case "MedicationRequest" -> {
-        MedicationRequest mr = new MedicationRequest();
-        mr.setId(scenarioId + "-medication-request");
-        mr.setStatus(MedicationRequest.MedicationRequestStatus.ACTIVE);
-        mr.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
-        mr.setMedication(new CodeableConcept().addCoding(codeCopy));
-        mr.setSubject(new Reference("Patient/example"));
-        mr.addInsurance(new Reference("Coverage/coverage-1"));
-        return mr;
-      }
-      case "Appointment" -> {
-        Appointment appt = new Appointment();
-        appt.setId(scenarioId + "-appointment");
-        appt.setStatus(Appointment.AppointmentStatus.PROPOSED);
-        appt.addServiceType(new CodeableConcept().addCoding(codeCopy));
-        appt.addParticipant()
-            .setActor(new Reference("Patient/example"))
-            .setStatus(Appointment.ParticipationStatus.ACCEPTED);
-        return appt;
-      }
-      default -> {
-        return null;
-      }
-    }
-  }
-
   // ===== Parameters construction =====
 
   static Parameters buildCanonicalParams(String canonical, Coverage coverage) {
@@ -192,32 +150,31 @@ public class DtrRequestBuilder {
     return LibraryScenarioScanner.toKebabCase(name);
   }
 
-  // ===== Description generation =====
+  static String buildQuestionnaireVariantLabel(
+      String baseLabel, String questionnaireUrl, boolean includeQuestionnaireName) {
+    if (!includeQuestionnaireName) {
+      return baseLabel;
+    }
+    return baseLabel + " (" + questionnaireNameFromUrl(questionnaireUrl) + ")";
+  }
 
-  static String buildDescription(ScenarioMetadata meta) {
-    if (meta.description() != null) {
-      return meta.description();
+  static String questionnaireNameFromUrl(String url) {
+    if (url == null || url.isBlank()) {
+      return "Questionnaire";
     }
 
-    StringBuilder sb = new StringBuilder();
-    if (!meta.focusCodes().isEmpty()) {
-      Coding first = meta.focusCodes().get(0);
-      if (first.hasDisplay()) {
-        sb.append(first.getDisplay());
-      }
-      if (first.hasCode()) {
-        sb.append(" (").append(first.getCode()).append(")");
-      }
-      sb.append(". ");
+    String canonical = url;
+    int versionDelimiter = canonical.indexOf('|');
+    if (versionDelimiter >= 0) {
+      canonical = canonical.substring(0, versionDelimiter);
     }
 
-    if (meta.isAdaptive()) {
-      sb.append("Adaptive questionnaire using $next-question.");
-    } else if (meta.orderType() != null) {
-      sb.append(meta.orderType()).append("-based questionnaire resolution.");
+    int lastSlash = canonical.lastIndexOf('/');
+    if (lastSlash >= 0 && lastSlash + 1 < canonical.length()) {
+      return canonical.substring(lastSlash + 1);
     }
 
-    return sb.toString().trim();
+    return canonical;
   }
 
   // ===== DTOs =====

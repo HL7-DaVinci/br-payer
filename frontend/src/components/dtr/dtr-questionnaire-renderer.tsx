@@ -60,7 +60,7 @@ export function DtrQuestionnaireRenderer({
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleViewCurrentQr}>
             <Code className="h-4 w-4 mr-1" />
-            View QR
+            View QuestionnaireResponse
           </Button>
           <Button
             variant="outline"

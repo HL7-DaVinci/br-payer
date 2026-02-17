@@ -75,7 +75,7 @@ public class CrdRequestBuilder {
       }
 
       if (!variants.isEmpty()) {
-        String description = DtrRequestBuilder.buildDescription(meta);
+        String description = ScenarioResourceUtil.buildDescription(meta);
         result.add(new CrdScenario(meta.id(), meta.name(), description, variants));
       }
     }
@@ -111,7 +111,7 @@ public class CrdRequestBuilder {
     if ("ServiceRequest".equals(resourceType)) {
       return buildServiceRequest(code, scenarioId);
     }
-    return DtrRequestBuilder.buildOrderResource(code, resourceType, scenarioId);
+    return ScenarioResourceUtil.buildOrderResource(code, resourceType, scenarioId);
   }
 
   private static ServiceRequest buildServiceRequest(Coding code, String scenarioId) {

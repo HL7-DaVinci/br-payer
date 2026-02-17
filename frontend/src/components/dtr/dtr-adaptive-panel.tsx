@@ -269,7 +269,7 @@ export function DtrAdaptivePanel({
             disabled={!currentQr}
           >
             <Code className="h-4 w-4 mr-1" />
-            View QR
+            View QuestionnaireResponse
           </Button>
           <Button variant="outline" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-1" />
