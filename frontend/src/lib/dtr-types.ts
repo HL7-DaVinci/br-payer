@@ -1,6 +1,7 @@
 import type {
   Bundle,
   Coverage,
+  FhirResource,
   OperationOutcome,
   Parameters,
   ParametersParameter,
@@ -58,7 +59,7 @@ const DTR_PACKAGE_INPUT_PROFILE =
 export function buildDtrParameters(
   coverage: Coverage,
   canonicalUrls: string[],
-  orders: Resource[],
+  orders: FhirResource[],
 ): Parameters {
   const parameter: ParametersParameter[] = [
     { name: "coverage", resource: coverage },
@@ -86,7 +87,7 @@ export function buildDtrParameters(
 export function validateDtrParameters(
   coverage: Coverage | null,
   canonicalUrls: string[],
-  orders: Resource[],
+  orders: FhirResource[],
 ): {
   isValid: boolean;
   hasCoverage: boolean;

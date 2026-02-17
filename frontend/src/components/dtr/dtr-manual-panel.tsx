@@ -1,4 +1,4 @@
-import type { Coverage, Resource } from "fhir/r4";
+import type { Coverage, FhirResource } from "fhir/r4";
 import { AlertCircle, CheckCircle2, Code, Loader2, Play } from "lucide-react";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { buildDtrParameters, validateDtrParameters } from "@/lib/dtr-types";
 interface DtrManualPanelProps {
   coverage: Coverage | null;
   canonicalUrls: string[];
-  orders: Resource[];
+  orders: FhirResource[];
   onExecute: (parameters: ReturnType<typeof buildDtrParameters>) => void;
   onPreview: (parameters: ReturnType<typeof buildDtrParameters>) => void;
   isExecuting: boolean;

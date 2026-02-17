@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { Coverage, Parameters, Resource } from "fhir/r4";
+import type { Coverage, FhirResource, Parameters } from "fhir/r4";
 import {
   AlertCircle,
   ChevronDown,
@@ -173,7 +173,7 @@ function DtrPage() {
   // Manual mode state
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [canonicalUrls, setCanonicalUrls] = useState<string[]>([]);
-  const [orders, setOrders] = useState<Resource[]>([]);
+  const [orders, setOrders] = useState<FhirResource[]>([]);
 
   // API mutation
   const {

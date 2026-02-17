@@ -1,4 +1,4 @@
-import type { Resource } from "fhir/r4";
+import type { FhirResource } from "fhir/r4";
 import {
   ClipboardList,
   Eye,
@@ -48,12 +48,12 @@ const ORDER_RESOURCE_TYPES = [
 
 interface DtrOrderPickerProps {
   sourceServerUrl: string;
-  orders: Resource[];
-  onOrdersChange: (orders: Resource[]) => void;
+  orders: FhirResource[];
+  onOrdersChange: (orders: FhirResource[]) => void;
 }
 
-function getOrderLabel(resource: Resource): string {
-  const r = resource as Record<string, unknown>;
+function getOrderLabel(resource: FhirResource): string {
+  const r = resource as unknown as Record<string, unknown>;
   if (typeof r.code === "object" && r.code !== null) {
     const code = r.code as {
       coding?: Array<{ display?: string }>;
@@ -113,7 +113,7 @@ export function DtrOrderPicker({
     if (!searchResults?.entry) return [];
     const allResources = searchResults.entry
       .map((e) => e.resource)
-      .filter((r): r is Resource => !!r && r.resourceType === selectedType);
+      .filter((r): r is FhirResource => !!r && r.resourceType === selectedType);
     const filter = searchText.trim().toLowerCase();
     if (!filter) return allResources;
     return allResources.filter((r) => {
@@ -131,7 +131,7 @@ export function DtrOrderPicker({
   const { viewerData, openViewer, closeViewer } = useJsonViewer();
 
   const handleAddFromSearch = useCallback(
-    (resource: Resource) => {
+    (resource: FhirResource) => {
       onOrdersChange([...orders, resource]);
       setShowSearch(false);
       setSearchText("");
@@ -143,7 +143,7 @@ export function DtrOrderPicker({
     (templateIndex: string) => {
       const template = templates[Number(templateIndex)];
       if (template) {
-        const resource = template.create();
+        const resource = template.create() as FhirResource;
         onOrdersChange([...orders, resource]);
       }
     },
