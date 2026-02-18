@@ -37,11 +37,12 @@ import org.springframework.stereotype.Component;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 
 /**
- * Resolves Questionnaire resources for the DTR $questionnaire-package operation.
+ * Resolves Questionnaire resources for the DTR $questionnaire-package
+ * operation.
  * Supports two resolution paths:
  * <ul>
- *   <li>Questionnaire: Direct questionnaire canonical URL lookup</li>
- *   <li>Order-based: Resolution via PlanDefinition evaluation</li>
+ * <li>Questionnaire: Direct questionnaire canonical URL lookup</li>
+ * <li>Order-based: Resolution via PlanDefinition evaluation</li>
  * </ul>
  * When both paths produce results, they are merged with deduplication.
  */
@@ -50,18 +51,19 @@ public class DtrQuestionnaireResolver {
 
   private static final Logger logger = LoggerFactory.getLogger(DtrQuestionnaireResolver.class);
 
-  /** Resource types that can be queried by patient/subject from the payer's JPA claims store. */
+  /**
+   * Resource types that can be queried by patient/subject from the payer's JPA
+   * claims store.
+   */
   private static final Set<String> PATIENT_QUERYABLE_TYPES = Set.of(
       "Condition", "Observation", "Procedure", "Encounter",
       "MedicationRequest", "MedicationStatement", "MedicationDispense",
       "ServiceRequest", "DeviceRequest", "DiagnosticReport",
-      "AllergyIntolerance", "Immunization"
-  );
+      "AllergyIntolerance", "Immunization");
   /** Resource types that do not have a "subject" search parameter */
   private static final Map<String, String> PATIENT_SEARCH_PARAM_BY_TYPE = Map.of(
       "AllergyIntolerance", "patient",
-      "Immunization", "patient"
-  );
+      "Immunization", "patient");
 
   private final DaoRegistry daoRegistry;
   private final PlanDefinitionService planDefinitionService;
@@ -71,9 +73,12 @@ public class DtrQuestionnaireResolver {
     this.planDefinitionService = planDefinitionService;
   }
 
-  public enum ResolutionPath { QUESTIONNAIRE, ORDER, BOTH }
+  public enum ResolutionPath {
+    QUESTIONNAIRE, ORDER, BOTH
+  }
 
-  public record ResolutionResult(List<ResolvedQuestionnaire> questionnaires, List<String> warnings) {}
+  public record ResolutionResult(List<ResolvedQuestionnaire> questionnaires, List<String> warnings) {
+  }
 
   /** Provenance metadata per resolved questionnaire */
   public record ResolvedQuestionnaire(
@@ -81,8 +86,7 @@ public class DtrQuestionnaireResolver {
       Questionnaire resource,
       ResolutionPath path,
       List<String> sourceOrderIds,
-      String warning
-  ) {
+      String warning) {
     /** Create a copy with merged path and source order IDs */
     ResolvedQuestionnaire mergeWith(ResolvedQuestionnaire other) {
       ResolutionPath mergedPath = (this.path != other.path) ? ResolutionPath.BOTH : this.path;
@@ -102,8 +106,10 @@ public class DtrQuestionnaireResolver {
   /**
    * Resolve questionnaires from canonicals and/or orders.
    *
-   * @param canonicals  explicit questionnaire canonical URLs (questionnaire parameter), may be null
-   * @param validOrders order resources for PlanDefinition evaluation (order-based resolution), may be null/empty
+   * @param canonicals  explicit questionnaire canonical URLs (questionnaire
+   *                    parameter), may be null
+   * @param validOrders order resources for PlanDefinition evaluation (order-based
+   *                    resolution), may be null/empty
    * @param coverage    the Coverage resource
    * @return deduplicated list with provenance metadata
    */
@@ -150,8 +156,10 @@ public class DtrQuestionnaireResolver {
       Set<String> questionnaireKeys = new HashSet<>();
       Set<String> orderKeys = new HashSet<>();
       for (ResolvedQuestionnaire rq : results.values()) {
-        if (rq.path == ResolutionPath.QUESTIONNAIRE) questionnaireKeys.add(rq.canonical);
-        else if (rq.path == ResolutionPath.ORDER) orderKeys.add(rq.canonical);
+        if (rq.path == ResolutionPath.QUESTIONNAIRE)
+          questionnaireKeys.add(rq.canonical);
+        else if (rq.path == ResolutionPath.ORDER)
+          orderKeys.add(rq.canonical);
         // BOTH means overlap exists
       }
       boolean anyOverlap = results.values().stream()
@@ -252,7 +260,8 @@ public class DtrQuestionnaireResolver {
 
                 // Check expiry for order-based resolution
                 if (isExpired(q) && !results.containsKey(canonicalValue)) {
-                  // Order-based: expired questionnaires are excluded unless questionnaire parameter already included them
+                  // Order-based: expired questionnaires are excluded unless questionnaire
+                  // parameter already included them
                   String key = DtrFhirUtil.toVersionSpecific(q.getUrl(), q.getVersion());
                   if (!results.containsKey(key)) {
                     logger.info("Excluding expired questionnaire from order-based resolution: {}", canonicalValue);
@@ -296,9 +305,11 @@ public class DtrQuestionnaireResolver {
     String idPart = new org.hl7.fhir.r4.model.IdType(patientRef).getIdPart();
     try {
       return daoRegistry.getResourceDao(Patient.class)
-          .read(new org.hl7.fhir.r4.model.IdType("Patient", idPart), new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
+          .read(new org.hl7.fhir.r4.model.IdType("Patient", idPart),
+              new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
     } catch (Exception e) {
-      // DTR requests originate from the EHR; the patient may not exist on the payer server.
+      // DTR requests originate from the EHR; the patient may not exist on the payer
+      // server.
       // Create a stub so PlanDefinition evaluation has a subject context.
       logger.debug("Patient {} not in repository, using stub for PlanDefinition evaluation", idPart);
       Patient stub = new Patient();
@@ -410,7 +421,8 @@ public class DtrQuestionnaireResolver {
   }
 
   /**
-   * Reads a PlanDefinition's Library references and extracts the patient-queryable
+   * Reads a PlanDefinition's Library references and extracts the
+   * patient-queryable
    * resource types declared in their dataRequirement entries.
    */
   private Set<String> resolveRequiredClinicalTypes(PlanDefinition planDefinition) {
@@ -425,7 +437,8 @@ public class DtrQuestionnaireResolver {
           continue;
         }
 
-        // PlanDefinition.library may include a version suffix (e.g., "Library/Foo|1.0.0").
+        // PlanDefinition.library may include a version suffix (e.g.,
+        // "Library/Foo|1.0.0").
         // Strip it before resolving by resource ID.
         String[] canonicalParts = DtrFhirUtil.parseCanonical(ref);
         if (canonicalParts.length == 0 || canonicalParts[0] == null || canonicalParts[0].isBlank()) {
@@ -518,8 +531,7 @@ public class DtrQuestionnaireResolver {
   }
 
   private String resolveSubjectReference(Coverage coverage, Patient patient) {
-    String beneficiaryRef =
-        (coverage != null) ? toVersionlessPatientReference(coverage.getBeneficiary()) : null;
+    String beneficiaryRef = (coverage != null) ? toVersionlessPatientReference(coverage.getBeneficiary()) : null;
     if (beneficiaryRef != null) {
       return beneficiaryRef;
     }
@@ -589,7 +601,6 @@ public class DtrQuestionnaireResolver {
 
   /**
    * Extracts all coverage-information extensions from RequestGroup actions.
-   * DTR only needs the raw questionnaire canonicals — no CDS enrichment (date, assertion ID, URL normalization).
    */
   private List<Extension> extractCoverageInfoExtensions(RequestGroup requestGroup) {
     List<Extension> coverageInfoExts = new ArrayList<>();

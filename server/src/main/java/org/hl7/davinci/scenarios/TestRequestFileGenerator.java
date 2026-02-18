@@ -10,11 +10,13 @@ import org.hl7.davinci.scenarios.CrdRequestBuilder.CrdScenario;
 import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrScenario;
 import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrVariant;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
+import org.hl7.davinci.scenarios.PasRequestBuilder.PasScenario;
+import org.hl7.davinci.scenarios.PasRequestBuilder.PasVariant;
 
 import ca.uhn.fhir.context.FhirContext;
 
 /**
- * Build-time generator that produces DTR and CRD test request files from
+ * Build-time generator that produces DTR, CRD, and PAS test request files from
  * library PlanDefinition and Questionnaire resources.
  *
  * <p>Usage: java TestRequestFileGenerator &lt;libraryDir&gt; &lt;outputDir&gt;
@@ -33,6 +35,10 @@ import ca.uhn.fhir.context.FhirContext;
  *         ...
  *       order-select/
  *         ...
+ *     pas/
+ *       _index.md
+ *       home-oxygen-therapy-initial.json
+ *       ...
  * </pre>
  */
 public class TestRequestFileGenerator {
@@ -68,6 +74,12 @@ public class TestRequestFileGenerator {
 
     // Write CRD files
     writeCrdFiles(crdScenarios, outputDir.resolve("crd"));
+
+    // Build PAS request Bundles
+    List<PasScenario> pasScenarios = PasRequestBuilder.build(metadata);
+
+    // Write PAS files
+    writePasFiles(ctx, pasScenarios, outputDir.resolve("pas"));
   }
 
   private static void writeDtrFiles(FhirContext ctx, List<DtrScenario> scenarios,
@@ -140,5 +152,42 @@ public class TestRequestFileGenerator {
 
     Files.writeString(crdDir.resolve("_index.md"), index.toString());
     System.out.println("Generated " + fileCount + " CRD request files in " + crdDir);
+  }
+
+  private static void writePasFiles(FhirContext ctx, List<PasScenario> scenarios,
+      Path pasDir) throws IOException {
+    Files.createDirectories(pasDir);
+
+    StringBuilder index = new StringBuilder();
+    index.append("# PAS Test Requests\n\n");
+    index.append("Generated from library PlanDefinition resources.\n");
+    index.append("POST `$submit` variants to `Claim/$submit`; `$inquire` variants to `Claim/$inquire`.\n\n");
+
+    int fileCount = 0;
+    for (PasScenario scenario : scenarios) {
+      index.append("## ").append(scenario.name()).append("\n\n");
+      index.append(scenario.description()).append("\n\n");
+      index.append("| Variant | Operation | Payload Type | File |\n");
+      index.append("|---------|-----------|--------------|------|\n");
+
+      for (PasVariant variant : scenario.variants()) {
+        String filename = variant.id() + ".json";
+        String json = ctx.newJsonParser()
+            .setPrettyPrint(true)
+            .encodeResourceToString(variant.bundle());
+
+        Files.writeString(pasDir.resolve(filename), json);
+        index.append("| ").append(variant.label())
+            .append(" | ").append(variant.operation())
+            .append(" | ").append(variant.payloadType())
+            .append(" | [").append(filename).append("](").append(filename).append(")")
+            .append(" |\n");
+        fileCount++;
+      }
+      index.append("\n");
+    }
+
+    Files.writeString(pasDir.resolve("_index.md"), index.toString());
+    System.out.println("Generated " + fileCount + " PAS request files in " + pasDir);
   }
 }

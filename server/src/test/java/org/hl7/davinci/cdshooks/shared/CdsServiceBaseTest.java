@@ -280,7 +280,6 @@ class CdsServiceBaseTest {
   @DisplayName("Card Consolidation")
   class CardConsolidation {
 
-    // CardConverter is now a separate class — these tests use the real instance
     private final CardConverter realCardConverter = new CardConverter();
 
     @Test

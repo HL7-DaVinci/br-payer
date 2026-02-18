@@ -42,20 +42,13 @@ import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 class DtrResponseBuilderTest {
 
-  private static final String QR_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse";
-  private static final String QR_ADAPT_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
-  private static final String QR_COVERAGE_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
-  private static final String INTENDED_USE_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse";
-  private static final String QR_CONTEXT_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
-  private static final String INFO_ORIGIN_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
-  private static final String QUESTIONNAIRE_ADAPTIVE_EXT =
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
+  private static final String QR_PROFILE = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse";
+  private static final String QR_ADAPT_PROFILE = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
+  private static final String QR_COVERAGE_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
+  private static final String INTENDED_USE_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse";
+  private static final String QR_CONTEXT_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
+  private static final String INFO_ORIGIN_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
+  private static final String QUESTIONNAIRE_ADAPTIVE_EXT = "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
 
   private IQuestionnaireProcessorFactory mockFactory;
   private QuestionnaireProcessor mockProcessor;
@@ -103,7 +96,8 @@ class DtrResponseBuilderTest {
   }
 
   /**
-   * Stubs the 6-arg populate() overload: populate(IBaseResource, String, List, IBaseExtension, IBaseBundle, LibraryEngine)
+   * Stubs the 6-arg populate() overload: populate(IBaseResource, String, List,
+   * IBaseExtension, IBaseBundle, LibraryEngine)
    */
   private void stubPopulateReturnsNull() {
     when(mockProcessor.populate(
@@ -123,13 +117,19 @@ class DtrResponseBuilderTest {
         .thenReturn(qr);
   }
 
+  /**
+   * Builds a simple QuestionnaireResponse with two populated items (one with a
+   * nested item) and one empty item, for testing information-origin extension
+   * population and recursion.
+   * 
+   * @return
+   */
   private QuestionnaireResponse buildPopulatedQr() {
     QuestionnaireResponse qr = new QuestionnaireResponse();
     QuestionnaireResponseItemComponent item = qr.addItem().setLinkId("1");
     item.addAnswer().setValue(new StringType("pre-populated value"));
     QuestionnaireResponseItemComponent nested = item.addItem().setLinkId("1.1");
     nested.addAnswer().setValue(new StringType("nested value"));
-    // Item without answer — should NOT get information-origin
     qr.addItem().setLinkId("2");
     return qr;
   }
@@ -146,8 +146,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("QR has correct profile, status, and version-specific questionnaire canonical")
     void basicQrFields() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
@@ -159,8 +159,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("Subject set from Coverage beneficiary")
     void subjectFromCoverage() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertNotNull(qr.getSubject());
@@ -170,8 +170,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("qr-coverage extension present with Coverage reference")
     void qrCoverageExtension() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Extension covExt = qr.getExtensionByUrl(QR_COVERAGE_EXT);
@@ -184,8 +184,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("intendedUse extension uses CRD temp CodeSystem with withorder code and display")
     void intendedUseExtension() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Extension intendedUse = qr.getExtensionByUrl(INTENDED_USE_EXT);
@@ -208,8 +208,8 @@ class DtrResponseBuilderTest {
       order2.setId("sr-1");
       List<Resource> orders = List.of(order1, order2);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), orders, List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), orders, List.of());
       QuestionnaireResponse qr = result.response();
 
       List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
@@ -236,13 +236,12 @@ class DtrResponseBuilderTest {
       List<String> sourceOrderIds = new ArrayList<>();
       sourceOrderIds.add("DeviceRequest/dr-1");
 
-      DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-          new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-              "http://example.org/Questionnaire/test|1.0", testQ,
-              DtrQuestionnaireResolver.ResolutionPath.ORDER, sourceOrderIds, null);
+      DtrQuestionnaireResolver.ResolvedQuestionnaire provenance = new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+          "http://example.org/Questionnaire/test|1.0", testQ,
+          DtrQuestionnaireResolver.ResolutionPath.ORDER, sourceOrderIds, null);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, provenance, orders, List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage, provenance, orders,
+          List.of());
       QuestionnaireResponse qr = result.response();
 
       List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
@@ -264,13 +263,12 @@ class DtrResponseBuilderTest {
       List<String> sourceOrderIds = new ArrayList<>();
       sourceOrderIds.add("DeviceRequest/dr-1");
 
-      DtrQuestionnaireResolver.ResolvedQuestionnaire provenance =
-          new DtrQuestionnaireResolver.ResolvedQuestionnaire(
-              "http://example.org/Questionnaire/test|1.0", testQ,
-              DtrQuestionnaireResolver.ResolutionPath.BOTH, sourceOrderIds, null);
+      DtrQuestionnaireResolver.ResolvedQuestionnaire provenance = new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+          "http://example.org/Questionnaire/test|1.0", testQ,
+          DtrQuestionnaireResolver.ResolutionPath.BOTH, sourceOrderIds, null);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, provenance, orders, List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage, provenance, orders,
+          List.of());
       QuestionnaireResponse qr = result.response();
 
       List<Extension> contextExts = qr.getExtensionsByUrl(QR_CONTEXT_EXT);
@@ -288,8 +286,8 @@ class DtrResponseBuilderTest {
       QuestionnaireResponse populatedQr = buildPopulatedQr();
       stubPopulateReturns(populatedQr);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       // Item answer should have information-origin
@@ -322,14 +320,13 @@ class DtrResponseBuilderTest {
     void populateSuccess_informationOrigin_answerItemRecursion() {
       QuestionnaireResponse populatedQr = new QuestionnaireResponse();
       QuestionnaireResponseItemComponent parent = populatedQr.addItem().setLinkId("1");
-      QuestionnaireResponseItemAnswerComponent parentAnswer =
-          parent.addAnswer().setValue(new StringType("parent"));
+      QuestionnaireResponseItemAnswerComponent parentAnswer = parent.addAnswer().setValue(new StringType("parent"));
       QuestionnaireResponseItemComponent nestedUnderAnswer = parentAnswer.addItem().setLinkId("1.1");
       nestedUnderAnswer.addAnswer().setValue(new StringType("nested"));
       stubPopulateReturns(populatedQr);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       QuestionnaireResponseItemComponent item1 = qr.getItem().get(0);
@@ -430,8 +427,8 @@ class DtrResponseBuilderTest {
       QuestionnaireResponse populatedQr = buildPopulatedQr();
       stubPopulateReturns(populatedQr);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
@@ -444,8 +441,8 @@ class DtrResponseBuilderTest {
     void populateReturnsNull_fallbackToEmpty() {
       stubPopulateReturnsNull();
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
@@ -458,8 +455,8 @@ class DtrResponseBuilderTest {
     void populateThrows_fallbackWithWarning() {
       stubPopulateThrows(new RuntimeException("CQL engine error"));
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
@@ -479,8 +476,8 @@ class DtrResponseBuilderTest {
       populatedQr.addContained(oo);
       stubPopulateReturns(populatedQr);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          questionnaireProvenance(), List.of(), List.of());
 
       assertFalse(result.warnings().isEmpty());
       assertTrue(result.warnings().stream()
@@ -557,8 +554,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("Adaptive QR has dtr-questionnaireresponse-adapt profile")
     void adaptiveProfile() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertTrue(qr.getMeta().hasProfile(QR_ADAPT_PROFILE));
@@ -569,8 +566,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("Adaptive QR has a generated UUID ID")
     void generatedUuid() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertNotNull(qr.getIdElement().getIdPart());
@@ -581,8 +578,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("Adaptive QR contains a contained Questionnaire with no items")
     void containedQuestionnaire() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertEquals(1, qr.getContained().size());
@@ -594,8 +591,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("Contained Questionnaire has derivedFrom pointing to adaptive Q canonical")
     void containedDerivedFrom() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
@@ -607,8 +604,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("Contained Questionnaire has questionnaireAdaptive extension with configured URL")
     void questionnaireAdaptiveExtension() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
@@ -625,8 +622,8 @@ class DtrResponseBuilderTest {
       DeviceRequest order = new DeviceRequest();
       order.setId("dr-1");
 
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of(order));
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of(order));
       QuestionnaireResponse qr = result.response();
 
       assertNotNull(qr.getExtensionByUrl(QR_COVERAGE_EXT), "Should have qr-coverage");
@@ -637,8 +634,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("Adaptive QR has correct status, questionnaire, and subject")
     void basicFields() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertEquals(QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS, qr.getStatus());
@@ -655,8 +652,8 @@ class DtrResponseBuilderTest {
       DtrResponseBuilder fallbackBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
           new DtrAdaptiveProperties(""), fallbackProps);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          fallbackBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = fallbackBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
@@ -675,8 +672,8 @@ class DtrResponseBuilderTest {
       DtrResponseBuilder slashBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
           new DtrAdaptiveProperties(""), slashProps);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          slashBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = slashBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
 
       Questionnaire contained = (Questionnaire) result.response().getContained().get(0);
       Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
@@ -687,8 +684,8 @@ class DtrResponseBuilderTest {
     @Test
     @DisplayName("Explicit URL takes precedence over server_address fallback")
     void explicitUrlTakesPrecedence() {
-      DtrResponseBuilder.PrepopulationResult result =
-          builder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
 
       Questionnaire contained = (Questionnaire) result.response().getContained().get(0);
       Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
@@ -704,8 +701,8 @@ class DtrResponseBuilderTest {
       DtrResponseBuilder noUrlBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
           new DtrAdaptiveProperties(""), emptyProps);
 
-      DtrResponseBuilder.PrepopulationResult result =
-          noUrlBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage, adaptiveProvenance(), List.of());
+      DtrResponseBuilder.PrepopulationResult result = noUrlBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);

@@ -48,24 +48,15 @@ public class DtrResponseBuilder {
 
   private static final Logger logger = LoggerFactory.getLogger(DtrResponseBuilder.class);
 
-  private static final String QR_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse";
-  private static final String QR_ADAPT_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
-  private static final String Q_ADAPT_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt";
-  private static final String QR_COVERAGE_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
-  private static final String INTENDED_USE_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse";
-  private static final String QR_CONTEXT_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
-  private static final String CRD_COVERAGE_INFO_SYSTEM =
-      "http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes";
-  private static final String INFO_ORIGIN_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
-  private static final String QUESTIONNAIRE_ADAPTIVE_EXT =
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
+  private static final String QR_PROFILE = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse";
+  private static final String QR_ADAPT_PROFILE = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
+  private static final String Q_ADAPT_PROFILE = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt";
+  private static final String QR_COVERAGE_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
+  private static final String INTENDED_USE_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse";
+  private static final String QR_CONTEXT_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
+  private static final String CRD_COVERAGE_INFO_SYSTEM = "http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes";
+  private static final String INFO_ORIGIN_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
+  private static final String QUESTIONNAIRE_ADAPTIVE_EXT = "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
 
   private final IQuestionnaireProcessorFactory questionnaireProcessorFactory;
   private final DaoRegistry daoRegistry;
@@ -83,11 +74,14 @@ public class DtrResponseBuilder {
     this.appProperties = appProperties;
   }
 
-  public record PrepopulationResult(QuestionnaireResponse response, List<String> warnings) {}
+  public record PrepopulationResult(QuestionnaireResponse response, List<String> warnings) {
+  }
 
   /**
-   * A Questionnaire is adaptive if it carries the required questionnaireAdaptive extension
-   * (1..1 per dtr-questionnaire-adapt profile) or declares the adaptive profile in meta (unreliable but a fallback).
+   * A Questionnaire is adaptive if it carries the required questionnaireAdaptive
+   * extension
+   * (1..1 per dtr-questionnaire-adapt profile) or declares the adaptive profile
+   * in meta (unreliable but a fallback).
    */
   public static boolean isAdaptiveQuestionnaire(Questionnaire q) {
     if (q.hasExtension(QUESTIONNAIRE_ADAPTIVE_EXT)) {
@@ -97,7 +91,8 @@ public class DtrResponseBuilder {
   }
 
   /**
-   * Build a QuestionnaireResponse with DTR extensions and server-side CQL pre-population.
+   * Build a QuestionnaireResponse with DTR extensions and server-side CQL
+   * pre-population.
    * Falls back to an empty QR if pre-population fails.
    *
    * @param questionnaire the resolved Questionnaire
@@ -155,7 +150,7 @@ public class DtrResponseBuilder {
 
     List<String> warnings = new ArrayList<>();
     QuestionnaireResponse qr = new QuestionnaireResponse();
-    
+
     String qrId = UUID.randomUUID().toString();
     qr.setId(qrId);
 
@@ -217,7 +212,8 @@ public class DtrResponseBuilder {
   }
 
   /**
-   * Resolves the $next-question endpoint URL. Uses the explicit configuration if set,
+   * Resolves the $next-question endpoint URL. Uses the explicit configuration if
+   * set,
    * otherwise derives it from hapi.fhir.server_address.
    */
   private String resolveNextQuestionUrl() {
@@ -245,9 +241,12 @@ public class DtrResponseBuilder {
     String subjectId = extractPatientId(coverage);
     Bundle dataBundle = buildDataBundle(coverage, allOrders, subjectId);
 
-    // populate() evaluates CQL initialExpression/calculatedExpression on questionnaire items.
-    // Order resources in the data bundle are available to CQL retrieve operations (e.g. [DeviceRequest]).
-    // CQL parameter declarations (e.g. "parameter device_request DeviceRequest") require
+    // populate() evaluates CQL initialExpression/calculatedExpression on
+    // questionnaire items.
+    // Order resources in the data bundle are available to CQL retrieve operations
+    // (e.g. [DeviceRequest]).
+    // CQL parameter declarations (e.g. "parameter device_request DeviceRequest")
+    // require
     // launchContext extensions on the Questionnaire — a future enhancement.
     var result = processor.populate(questionnaire, subjectId, List.of(), null, dataBundle, null);
 
@@ -345,7 +344,8 @@ public class DtrResponseBuilder {
         boolean isAbsolute = baseUrl != null && !baseUrl.isBlank();
         if (isAbsolute || !patientExistsInRepository(patientIdPart)) {
           Patient stub = new Patient();
-          // Keep absolute subject IDs to avoid accidentally resolving a same-ID local patient.
+          // Keep absolute subject IDs to avoid accidentally resolving a same-ID local
+          // patient.
           stub.setId(isAbsolute ? patientRef.toVersionless().getValue() : patientIdPart);
           bundle.addEntry().setResource(stub);
         }
@@ -392,7 +392,8 @@ public class DtrResponseBuilder {
   }
 
   /**
-   * Extracts OperationOutcome warnings embedded by cqf-fhir-cr in the QR's contained resources.
+   * Extracts OperationOutcome warnings embedded by cqf-fhir-cr in the QR's
+   * contained resources.
    */
   private void extractPopulateWarnings(QuestionnaireResponse qr, List<String> warnings) {
     for (Resource contained : qr.getContained()) {
