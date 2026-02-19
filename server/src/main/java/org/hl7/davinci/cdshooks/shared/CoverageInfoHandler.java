@@ -1,12 +1,11 @@
 package org.hl7.davinci.cdshooks.shared;
 
-import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 
+import org.hl7.davinci.common.CoverageInfoUtil;
+import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.r4.model.Appointment;
-import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DateType;
@@ -50,72 +49,12 @@ public class CoverageInfoHandler {
    * @return the complete extension ready to add to the order, or null if not found
    */
   public Extension extractCoverageExtension(RequestGroup requestGroup, Coverage coverage) {
-    if (requestGroup == null) {
-      return null;
-    }
-
-    List<RequestGroup.RequestGroupActionComponent> actions = requestGroup.getAction();
-    if (actions == null || actions.isEmpty()) {
-      return null;
-    }
-
-    for (RequestGroup.RequestGroupActionComponent action : actions) {
-      // Skip null actions (can happen when PlanDefinition action conditions are false)
-      if (action == null) {
-        continue;
-      }
-      Extension coverageExt = action.getExtensionByUrl(COVERAGE_INFO_EXT_URL);
-      if (coverageExt == null) {
-        continue;
-      }
-
+    Extension result = CoverageInfoUtil.extractCoverageExtension(
+        requestGroup, coverage, appProperties.getServer_address());
+    if (result != null) {
       logger.info("Coverage info extension found from CQL");
-
-      String fhirBase = appProperties.getServer_address();
-      if (fhirBase != null && fhirBase.endsWith("/")) {
-        fhirBase = fhirBase.substring(0, fhirBase.length() - 1);
-      }
-
-      Extension result = coverageExt.copy();
-
-      // Add coverage reference if not present (required)
-      if (!result.hasExtension("coverage") && coverage != null) {
-        result.addExtension("coverage", new Reference(coverage.getIdElement().toUnqualifiedVersionless()));
-      }
-
-      // Add date if not present (required)
-      if (!result.hasExtension("date")) {
-        result.addExtension("date", new DateType(LocalDate.now().toString()));
-      }
-
-      // Add coverage-assertion-id if not present (required)
-      if (!result.hasExtension("coverage-assertion-id")) {
-        result.addExtension("coverage-assertion-id", new StringType("CRD-" + UUID.randomUUID().toString()));
-      }
-
-      // Questionnaire values are canonical and should be full URLs if not a fragment
-      // or an already defined URL
-      List<Extension> questionnaireExt = result.getExtensionsByUrl("questionnaire");
-      for (Extension qExt : questionnaireExt) {
-        if (qExt.getValue() instanceof CanonicalType strVal) {
-          String val = strVal.getValue();
-          if (fhirBase != null && !val.startsWith("#") && !val.startsWith("http://") && !val.startsWith("https://")) {
-            String fullUrl = fhirBase;
-            if (val.startsWith("Questionnaire/")) {
-              fullUrl += "/" + val;
-            } else {
-              fullUrl += "/Questionnaire/" + val;
-            }
-            strVal.setValue(fullUrl);
-            logger.info("Normalized questionnaire value to full URL: {}", fullUrl);
-          }
-        }
-      }
-
-      return result;
     }
-
-    return null;
+    return result;
   }
 
   /**

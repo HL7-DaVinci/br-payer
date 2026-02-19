@@ -8,13 +8,14 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
+import org.hl7.davinci.common.BundleResourceUtil;
+import org.hl7.davinci.common.PayorIdentifierUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
@@ -283,23 +284,13 @@ public abstract class CdsServiceBase {
    * Extracts payor identifiers from the coverage in the context.
    */
   protected List<Identifier> extractPayorIdentifiers(ResolvedResources context) {
-    List<Identifier> payorIdentifiers = new ArrayList<>();
-
     Coverage coverage = context.getCoverage();
     if (coverage == null) {
       logger.warn("No Coverage in context");
-      return payorIdentifiers;
+      return List.of();
     }
 
-    for (Organization org : ResourceResolver.findPayorOrganizations(coverage, context.getOrganizations())) {
-      for (Identifier identifier : org.getIdentifier()) {
-        if (identifier.hasSystem() && identifier.hasValue()) {
-          payorIdentifiers.add(identifier); 
-        }
-      }
-    }
-
-    return payorIdentifiers;
+    return PayorIdentifierUtil.extractFromCoverageAndOrganizations(coverage, context.getOrganizations());
   }
 
   /**
@@ -377,13 +368,7 @@ public abstract class CdsServiceBase {
   }
 
   protected void addResourceToBundle(Bundle bundle, Set<String> seenIds, Resource resource) {
-    if (resource == null) {
-      return;
-    }
-    String id = resource.hasIdElement() ? resource.getIdElement().toUnqualifiedVersionless().getValue() : null;
-    if (id == null || seenIds.add(id)) {
-      bundle.addEntry().setResource(resource);
-    }
+    BundleResourceUtil.addByUnqualifiedVersionlessIdentity(bundle, seenIds, resource);
   }
 
   protected void addResourcesToBundle(Bundle bundle, Set<String> seenIds, List<? extends Resource> resources) {

@@ -130,6 +130,44 @@ class PasSubmitServiceTest {
     assertThrows(IllegalArgumentException.class, () -> service.submit(new Bundle()));
   }
 
+  @Test
+  void submit_payorReferencedByBundleFullUrl_extractsPayorIdentifier() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+
+    Coverage coverage = new Coverage();
+    coverage.setId("Coverage/1");
+    coverage.addPayor(new Reference("urn:uuid:payor-org-1"));
+    requestBundle.addEntry().setResource(coverage);
+
+    Organization payor = new Organization();
+    payor.setId("Organization/not-used-for-lookup");
+    payor.addIdentifier()
+        .setSystem("http://example.org/payer-id")
+        .setValue("payer-123");
+    requestBundle.addEntry()
+        .setFullUrl("urn:uuid:payor-org-1")
+        .setResource(payor);
+
+    ClaimResponse cr = new ClaimResponse();
+    Bundle responseBundle = new Bundle();
+    responseBundle.setType(Bundle.BundleType.COLLECTION);
+    responseBundle.addEntry().setResource(cr);
+
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A1, "Certified", false));
+    when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
+
+    service.submit(requestBundle);
+
+    verify(evaluator).evaluate(any(), argThat(ids ->
+            ids.size() == 1
+                && "http://example.org/payer-id".equals(ids.get(0).getSystem())
+                && "payer-123".equals(ids.get(0).getValue())),
+        same(coverage), any(), same(requestBundle));
+  }
+
   private Bundle buildMinimalBundle() {
     Claim claim = new Claim();
     claim.setUse(Claim.Use.PREAUTHORIZATION);

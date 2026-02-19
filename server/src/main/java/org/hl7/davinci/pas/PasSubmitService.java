@@ -4,7 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.hl7.davinci.cdshooks.shared.ResourceResolver;
+import org.hl7.davinci.common.PayorIdentifierUtil;
+import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.davinci.pas.PasCoverageEvaluator.CoverageDecision;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
@@ -12,7 +13,6 @@ import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
 import org.springframework.stereotype.Service;
 
@@ -135,16 +135,6 @@ public class PasSubmitService {
    * Extracts payor Organization identifiers from the bundle via Coverage.payor references.
    */
   private List<Identifier> extractPayorIdentifiers(Bundle bundle, Coverage coverage) {
-    if (coverage == null || !coverage.hasPayor()) return List.of();
-
-    for (Reference payorRef : coverage.getPayor()) {
-      String ref = payorRef.getReference();
-      if (ref == null) continue;
-      Organization organization = ResourceResolver.findInBundle(ref, Organization.class, bundle);
-      if (organization != null) {
-        return organization.getIdentifier();
-      }
-    }
-    return List.of();
+    return PayorIdentifierUtil.extractFirstFromCoverageAndBundle(coverage, bundle);
   }
 }

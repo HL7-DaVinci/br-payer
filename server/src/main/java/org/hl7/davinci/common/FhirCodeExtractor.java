@@ -2,6 +2,7 @@ package org.hl7.davinci.common;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.CodeableConcept;
@@ -13,6 +14,7 @@ import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.NutritionOrder;
+import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.Substance;
@@ -144,6 +146,40 @@ public final class FhirCodeExtractor {
     }
 
     return codes;
+  }
+
+  /**
+   * Resolves the referenced item for MedicationRequest/SupplyRequest orders.
+   * Handles inline resources and empty references before calling the resolver.
+   */
+  public static Resource resolveReferencedItem(Resource order, Function<Reference, Resource> resolver) {
+    Reference itemRef = extractReferencedItem(order);
+    if (itemRef == null) {
+      return null;
+    }
+
+    if (itemRef.getResource() instanceof Resource inlineResource) {
+      return inlineResource;
+    }
+
+    if (!itemRef.hasReference() || resolver == null) {
+      return null;
+    }
+
+    return resolver.apply(itemRef);
+  }
+
+  /**
+   * Returns the item reference used by order resources that support referenced items.
+   */
+  public static Reference extractReferencedItem(Resource order) {
+    if (order instanceof MedicationRequest medRequest && medRequest.hasMedicationReference()) {
+      return medRequest.getMedicationReference();
+    }
+    if (order instanceof SupplyRequest supplyRequest && supplyRequest.hasItemReference()) {
+      return supplyRequest.getItemReference();
+    }
+    return null;
   }
 
   private static void addCodesFromResolvedResource(List<Coding> codes, Resource resolved) {

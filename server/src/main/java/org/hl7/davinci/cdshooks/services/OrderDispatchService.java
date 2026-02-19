@@ -6,7 +6,7 @@ import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.cdshooks.shared.CdsServiceBase;
 import org.hl7.davinci.cdshooks.shared.CrdServiceExtension;
 import org.hl7.davinci.cdshooks.shared.ResolvedResources;
-import org.hl7.davinci.cdshooks.shared.ResourceResolver;
+import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.r4.model.Resource;
 
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;

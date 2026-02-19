@@ -4,6 +4,7 @@ import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestContextJson;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
+import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

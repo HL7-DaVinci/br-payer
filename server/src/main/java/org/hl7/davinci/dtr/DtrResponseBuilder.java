@@ -5,6 +5,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -13,8 +14,8 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Extension;
-import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Questionnaire;
@@ -303,29 +304,10 @@ public class DtrResponseBuilder {
   }
 
   private String extractPatientId(Coverage coverage) {
-    if (coverage.hasBeneficiary() && coverage.getBeneficiary().hasReference()) {
-      Reference beneficiary = coverage.getBeneficiary();
-      String ref = beneficiary.getReference();
-      if (ref == null || ref.isBlank()) {
-        return null;
-      }
-
-      IIdType beneficiaryRef = beneficiary.getReferenceElement();
-      String resourceType = beneficiaryRef.getResourceType();
-      String idPart = beneficiaryRef.getIdPart();
-      if ("Patient".equals(resourceType) && idPart != null && !idPart.isBlank()) {
-        String versionlessRef = beneficiaryRef.toVersionless().getValue();
-        if (versionlessRef != null && !versionlessRef.isBlank()) {
-          return versionlessRef;
-        }
-        return "Patient/" + idPart;
-      }
-
-      if (ref.startsWith("Patient/")) {
-        return new IdType(ref).toVersionless().getValue();
-      }
+    if (coverage == null || !coverage.hasBeneficiary()) {
+      return null;
     }
-    return null;
+    return ResourceResolver.toVersionlessTypedReference(coverage.getBeneficiary(), "Patient");
   }
 
   private Bundle buildDataBundle(Coverage coverage, List<Resource> allOrders, String patientId) {
@@ -445,11 +427,11 @@ public class DtrResponseBuilder {
       return new Reference();
     }
 
-    String idPart = resource.getIdElement().getIdPart();
-    if (idPart == null || idPart.isBlank()) {
-      return new Reference(resource.getIdElement().toUnqualifiedVersionless());
+    String relativeRef = ResourceResolver.toRelativeReference(resource);
+    if (relativeRef != null) {
+      return new Reference(relativeRef);
     }
 
-    return new Reference(resource.fhirType() + "/" + idPart);
+    return new Reference(resource.getIdElement().toUnqualifiedVersionless());
   }
 }

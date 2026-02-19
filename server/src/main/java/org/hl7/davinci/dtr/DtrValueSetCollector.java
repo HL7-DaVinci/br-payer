@@ -122,7 +122,6 @@ public class DtrValueSetCollector {
    * consumers like the CQL engine's RepositoryTerminologyProvider can find it via repository search.
    * Expands the ValueSet first so the CQL engine can use pre-existing expansion elements.
    */
-  @SuppressWarnings("unchecked")
   private void persistExternalValueSet(ValueSet vs, List<String> warnings) {
     IFhirResourceDaoValueSet<ValueSet> vsDao =
         (IFhirResourceDaoValueSet<ValueSet>) daoRegistry.getResourceDao(ValueSet.class);

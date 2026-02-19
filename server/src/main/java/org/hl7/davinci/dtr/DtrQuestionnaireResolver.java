@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hl7.davinci.common.CoverageInfoUtil;
 import org.hl7.davinci.common.FhirCodeExtractor;
-import org.hl7.davinci.common.FhirUtil;
+import org.hl7.davinci.common.PayorIdentifierUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
+import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Coding;
@@ -21,14 +23,12 @@ import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Library;
-import org.hl7.fhir.r4.model.MedicationRequest;
-import org.hl7.fhir.r4.model.SupplyRequest;
 import org.hl7.fhir.r4.model.Organization;
-import org.hl7.fhir.r4.model.RequestGroup;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.RequestGroup;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -332,32 +332,28 @@ public class DtrQuestionnaireResolver {
 
       // Handle contained references (e.g., "#payor-org")
       if (ref.startsWith("#")) {
-        String containedId = ref.substring(1);
-        for (Resource contained : coverage.getContained()) {
-          if (contained instanceof Organization org
-              && containedId.equals(contained.getIdElement().getIdPart())) {
-            for (Identifier id : org.getIdentifier()) {
-              if (id.hasSystem() && id.hasValue()) {
-                identifiers.add(id);
-              }
-            }
-          }
+        Organization org = ResourceResolver.findInContained(ref.substring(1), Organization.class, coverage);
+        if (org != null) {
+          PayorIdentifierUtil.addValidIdentifiers(identifiers, org);
         }
         continue;
       }
 
       // Handle external references
       try {
-        String idPart = new org.hl7.fhir.r4.model.IdType(ref).getIdPart();
+        String idPart = ResourceResolver.normalizeReferenceId(ref, "Organization");
+        if (idPart == null || idPart.isBlank() || idPart.equals(ref)) {
+          // Fall back for id-only references.
+          idPart = new org.hl7.fhir.r4.model.IdType(ref).getIdPart();
+        }
+        if (idPart == null || idPart.isBlank()) {
+          continue;
+        }
         Organization org = daoRegistry.getResourceDao(Organization.class)
             .read(new org.hl7.fhir.r4.model.IdType("Organization", idPart),
                 new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
         if (org != null) {
-          for (Identifier id : org.getIdentifier()) {
-            if (id.hasSystem() && id.hasValue()) {
-              identifiers.add(id);
-            }
-          }
+          PayorIdentifierUtil.addValidIdentifiers(identifiers, org);
         }
       } catch (Exception e) {
         logger.warn("Could not resolve payor organization {}: {}", ref, e.getMessage());
@@ -367,46 +363,29 @@ public class DtrQuestionnaireResolver {
   }
 
   private Resource resolveItemReference(Resource order) {
-    Reference itemRef = null;
-    if (order instanceof MedicationRequest medRequest && medRequest.hasMedicationReference()) {
-      itemRef = medRequest.getMedicationReference();
-    } else if (order instanceof SupplyRequest supplyRequest && supplyRequest.hasItemReference()) {
-      itemRef = supplyRequest.getItemReference();
-    }
+    return FhirCodeExtractor.resolveReferencedItem(order, itemRef -> {
+      String reference = itemRef.getReference();
 
-    if (itemRef == null) {
-      return null;
-    }
+      if (reference.startsWith("#") && order instanceof DomainResource domainResource) {
+        return ResourceResolver.findInContained(reference.substring(1), Resource.class, domainResource);
+      }
 
-    if (itemRef.getResource() instanceof Resource inlineResource) {
-      return inlineResource;
-    }
-
-    if (!itemRef.hasReference()) {
-      return null;
-    }
-
-    String reference = itemRef.getReference();
-
-    if (reference.startsWith("#") && order instanceof DomainResource domainResource) {
-      return FhirUtil.findInContained(reference.substring(1), Resource.class, domainResource);
-    }
-
-    try {
-      org.hl7.fhir.r4.model.IdType idType = new org.hl7.fhir.r4.model.IdType(reference);
-      String resourceType = idType.getResourceType();
-      String idPart = idType.getIdPart();
-      if (resourceType == null || idPart == null) {
+      try {
+        String resourceType = ResourceResolver.getReferenceResourceType(reference);
+        String idPart =
+            resourceType != null ? ResourceResolver.normalizeReferenceId(reference, resourceType) : null;
+        if (resourceType == null || idPart == null || idPart.isBlank() || idPart.equals(reference)) {
+          return null;
+        }
+        return (Resource) daoRegistry.getResourceDao(resourceType)
+            .read(new org.hl7.fhir.r4.model.IdType(resourceType, idPart),
+                new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
+      } catch (Exception e) {
+        logger.debug("Could not resolve item reference {} for order {}: {}", reference,
+            order.getIdElement().toUnqualifiedVersionless().getValue(), e.getMessage());
         return null;
       }
-      return (Resource) daoRegistry.getResourceDao(resourceType)
-          .read(new org.hl7.fhir.r4.model.IdType(resourceType, idPart),
-              new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
-    } catch (Exception e) {
-      logger.debug("Could not resolve item reference {} for order {}: {}", reference,
-          order.getIdElement().toUnqualifiedVersionless().getValue(), e.getMessage());
-      return null;
-    }
+    });
   }
 
   private Bundle buildDataBundle(Patient patient, Coverage coverage, List<Resource> orders) {
@@ -555,31 +534,7 @@ public class DtrQuestionnaireResolver {
   }
 
   private String toVersionlessPatientReference(Reference reference) {
-    if (reference == null || !reference.hasReference()) {
-      return null;
-    }
-
-    String ref = reference.getReference();
-    if (ref == null || ref.isBlank()) {
-      return null;
-    }
-
-    var idType = reference.getReferenceElement();
-    String resourceType = idType.getResourceType();
-    String idPart = idType.getIdPart();
-    if ("Patient".equals(resourceType) && idPart != null && !idPart.isBlank()) {
-      String versionlessRef = idType.toVersionless().getValue();
-      if (versionlessRef != null && !versionlessRef.isBlank()) {
-        return versionlessRef;
-      }
-      return "Patient/" + idPart;
-    }
-
-    if (ref.startsWith("Patient/")) {
-      return new org.hl7.fhir.r4.model.IdType(ref).toVersionless().getValue();
-    }
-
-    return null;
+    return ResourceResolver.toVersionlessTypedReference(reference, "Patient");
   }
 
   private boolean isExpired(Questionnaire q) {
@@ -603,19 +558,6 @@ public class DtrQuestionnaireResolver {
    * Extracts all coverage-information extensions from RequestGroup actions.
    */
   private List<Extension> extractCoverageInfoExtensions(RequestGroup requestGroup) {
-    List<Extension> coverageInfoExts = new ArrayList<>();
-    if (requestGroup == null || !requestGroup.hasAction()) {
-      return coverageInfoExts;
-    }
-    for (RequestGroup.RequestGroupActionComponent action : requestGroup.getAction()) {
-      if (action == null) {
-        continue;
-      }
-      Extension ext = action.getExtensionByUrl(FhirUtil.COVERAGE_INFO_EXT_URL);
-      if (ext != null) {
-        coverageInfoExts.add(ext);
-      }
-    }
-    return coverageInfoExts;
+    return CoverageInfoUtil.extractCoverageInfoExtensions(requestGroup);
   }
 }

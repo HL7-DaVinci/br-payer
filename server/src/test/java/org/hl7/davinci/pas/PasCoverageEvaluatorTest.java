@@ -11,7 +11,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 
-import org.hl7.davinci.cdshooks.shared.CoverageInfoHandler;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.davinci.pas.PasCoverageEvaluator.CoverageDecision;
 import org.hl7.fhir.r4.model.Bundle;
@@ -28,14 +27,12 @@ import org.junit.jupiter.api.Test;
 class PasCoverageEvaluatorTest {
 
   private PlanDefinitionService planDefinitionService;
-  private CoverageInfoHandler coverageInfoHandler;
   private PasCoverageEvaluator evaluator;
 
   @BeforeEach
   void setUp() {
     planDefinitionService = mock(PlanDefinitionService.class);
-    coverageInfoHandler = mock(CoverageInfoHandler.class);
-    evaluator = new PasCoverageEvaluator(planDefinitionService, coverageInfoHandler);
+    evaluator = new PasCoverageEvaluator(planDefinitionService);
   }
 
   // ===== mapCoverageInfoToReviewAction tests =====
@@ -105,15 +102,13 @@ class PasCoverageEvaluatorTest {
     @Test
     void evaluate_singlePlan_notCovered_returnsA2() {
       PlanDefinition plan = new PlanDefinition();
-      RequestGroup rg = new RequestGroup();
       Extension coverageExt = buildCoverageInfoExt("not-covered", null, null);
+      RequestGroup rg = buildRequestGroupWithCoverageExt(coverageExt);
 
       when(planDefinitionService.findPlanDefinitions(eq(orderCode), any(), isNull()))
           .thenReturn(List.of(plan));
       when(planDefinitionService.applyPlanDefinition(eq(plan), eq(patientId), eq(dataBundle), isNull()))
           .thenReturn(rg);
-      when(coverageInfoHandler.extractCoverageExtension(rg, coverage))
-          .thenReturn(coverageExt);
 
       CoverageDecision decision = evaluator.evaluate(
           orderCode, List.of(), coverage, patientId, dataBundle);
@@ -126,8 +121,10 @@ class PasCoverageEvaluatorTest {
     void evaluate_multiplePlans_mostRestrictiveWins() {
       PlanDefinition plan1 = new PlanDefinition();
       PlanDefinition plan2 = new PlanDefinition();
-      RequestGroup rg1 = new RequestGroup();
-      RequestGroup rg2 = new RequestGroup();
+      RequestGroup rg1 = buildRequestGroupWithCoverageExt(
+          buildCoverageInfoExt("covered", "auth-needed", "no-doc"));
+      RequestGroup rg2 = buildRequestGroupWithCoverageExt(
+          buildCoverageInfoExt("conditional", null, null));
 
       // plan1 -> A1 (Certified), plan2 -> A4 (Pended) -- A4 is more restrictive
       when(planDefinitionService.findPlanDefinitions(eq(orderCode), any(), isNull()))
@@ -136,10 +133,6 @@ class PasCoverageEvaluatorTest {
           .thenReturn(rg1);
       when(planDefinitionService.applyPlanDefinition(eq(plan2), eq(patientId), eq(dataBundle), isNull()))
           .thenReturn(rg2);
-      when(coverageInfoHandler.extractCoverageExtension(rg1, coverage))
-          .thenReturn(buildCoverageInfoExt("covered", "auth-needed", "no-doc"));
-      when(coverageInfoHandler.extractCoverageExtension(rg2, coverage))
-          .thenReturn(buildCoverageInfoExt("conditional", null, null));
 
       CoverageDecision decision = evaluator.evaluate(
           orderCode, List.of(), coverage, patientId, dataBundle);
@@ -157,8 +150,6 @@ class PasCoverageEvaluatorTest {
           .thenReturn(List.of(plan));
       when(planDefinitionService.applyPlanDefinition(eq(plan), eq(patientId), eq(dataBundle), isNull()))
           .thenReturn(rg);
-      when(coverageInfoHandler.extractCoverageExtension(rg, coverage))
-          .thenReturn(null);
 
       CoverageDecision decision = evaluator.evaluate(
           orderCode, List.of(), coverage, patientId, dataBundle);
@@ -188,5 +179,11 @@ class PasCoverageEvaluatorTest {
     if (paNeeded != null) ext.addExtension("pa-needed", new CodeType(paNeeded));
     if (docNeeded != null) ext.addExtension("doc-needed", new CodeType(docNeeded));
     return ext;
+  }
+
+  private static RequestGroup buildRequestGroupWithCoverageExt(Extension coverageExt) {
+    RequestGroup rg = new RequestGroup();
+    rg.addAction().addExtension(coverageExt);
+    return rg;
   }
 }

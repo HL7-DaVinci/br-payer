@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hl7.davinci.common.BundleResourceUtil;
+import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -234,25 +236,10 @@ public class AdaptiveNextQuestionService {
   }
 
   private String extractSubjectId(QuestionnaireResponse qr) {
-    if (!qr.hasSubject() || !qr.getSubject().hasReference()) {
+    if (!qr.hasSubject()) {
       return null;
     }
-
-    String reference = qr.getSubject().getReference();
-    if (reference == null || reference.isBlank()) {
-      return null;
-    }
-
-    IdType refId = new IdType(reference);
-    if (!"Patient".equals(refId.getResourceType()) || refId.getIdPart() == null) {
-      return null;
-    }
-
-    String versionless = refId.toVersionless().getValue();
-    if (versionless != null && !versionless.isBlank()) {
-      return versionless;
-    }
-    return "Patient/" + refId.getIdPart();
+    return ResourceResolver.toVersionlessTypedReference(qr.getSubject(), "Patient");
   }
 
   private Questionnaire buildDeliveredQuestionnaire(
@@ -339,20 +326,7 @@ public class AdaptiveNextQuestionService {
   }
 
   private void addResource(Bundle bundle, Set<String> seen, Resource resource) {
-    String identity = resource.getIdElement().toVersionless().getValue();
-    if (identity == null || identity.isBlank()) {
-      String idPart = resource.getIdElement().getIdPart();
-      identity = idPart == null || idPart.isBlank() ? null : resource.fhirType() + "/" + idPart;
-    }
-
-    if (identity == null || identity.isBlank()) {
-      bundle.addEntry().setResource(resource);
-      return;
-    }
-
-    if (seen.add(identity)) {
-      bundle.addEntry().setResource(resource);
-    }
+    BundleResourceUtil.addByVersionlessIdentity(bundle, seen, resource);
   }
 
   private Resource resolveReference(Reference ref, QuestionnaireResponse qr) {
@@ -369,23 +343,20 @@ public class AdaptiveNextQuestionService {
     }
 
     if (reference.startsWith("#")) {
-      String id = reference.substring(1);
-      return qr.getContained().stream()
-          .filter(r -> id.equals(r.getIdElement().getIdPart()))
-          .findFirst()
-          .orElse(null);
+      return ResourceResolver.findInContained(reference.substring(1), Resource.class, qr);
     }
 
-    Resource containedMatch = resolveContainedReference(reference, qr);
-    if (containedMatch != null) {
-      return containedMatch;
+    for (Resource contained : qr.getContained()) {
+      if (ResourceResolver.referencesMatchResource(reference, contained)) {
+        return contained;
+      }
     }
 
     try {
-      IdType refId = new IdType(reference);
-      String resourceType = refId.getResourceType();
-      String idPart = refId.getIdPart();
-      if (resourceType == null || idPart == null) {
+      String resourceType = ResourceResolver.getReferenceResourceType(reference);
+      String idPart =
+          resourceType != null ? ResourceResolver.normalizeReferenceId(reference, resourceType) : null;
+      if (resourceType == null || idPart == null || idPart.isBlank() || idPart.equals(reference)) {
         return null;
       }
       return (Resource) daoRegistry.getResourceDao(resourceType)
@@ -394,35 +365,6 @@ public class AdaptiveNextQuestionService {
       logger.debug("$next-question: unable to resolve reference {}: {}", reference, e.getMessage());
       return null;
     }
-  }
-
-  private Resource resolveContainedReference(String reference, QuestionnaireResponse qr) {
-    final IdType refId;
-    try {
-      refId = new IdType(reference);
-    } catch (Exception e) {
-      return null;
-    }
-    String resourceType = refId.getResourceType();
-    String idPart = refId.getIdPart();
-    if (idPart == null || idPart.isBlank()) {
-      return null;
-    }
-
-    for (Resource contained : qr.getContained()) {
-      String containedIdPart = contained.getIdElement().getIdPart();
-      if (containedIdPart == null || containedIdPart.isBlank()) {
-        continue;
-      }
-      if (!idPart.equals(containedIdPart)) {
-        continue;
-      }
-      if (resourceType == null || resourceType.isBlank() || resourceType.equals(contained.fhirType())) {
-        return contained;
-      }
-    }
-
-    return null;
   }
 
   private void mergePrepopulatedAnswers(

@@ -1,9 +1,8 @@
-package org.hl7.davinci.cdshooks.shared;
+package org.hl7.davinci.common;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.hl7.davinci.common.FhirUtil;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
@@ -209,6 +208,41 @@ public class ResourceResolver {
     }
 
     return reference;
+  }
+
+  /**
+   * Normalizes a typed reference to its versionless form (preserving base URL if present).
+   * Returns null when the reference is missing, mismatched, or malformed.
+   */
+  public static String toVersionlessTypedReference(Reference reference, String expectedType) {
+    if (reference == null || !reference.hasReference()) {
+      return null;
+    }
+    return toVersionlessTypedReference(reference.getReference(), expectedType);
+  }
+
+  /**
+   * Normalizes a typed reference string to its versionless form
+   * (for example "http://x/Patient/123/_history/1" -> "http://x/Patient/123").
+   * Returns null when the reference is missing, mismatched, or malformed.
+   */
+  public static String toVersionlessTypedReference(String reference, String expectedType) {
+    if (reference == null || reference.isBlank() || expectedType == null || expectedType.isBlank()) {
+      return null;
+    }
+
+    String idPart = normalizeReferenceId(reference, expectedType);
+    if (idPart == null || idPart.isBlank() || idPart.equals(reference)) {
+      return null;
+    }
+
+    IdType idType = new IdType(reference);
+    String versionless = idType.toVersionless().getValue();
+    if (versionless != null && !versionless.isBlank()) {
+      return versionless;
+    }
+
+    return expectedType + "/" + idPart;
   }
 
   /**

@@ -166,6 +166,16 @@ class PasRequestBuilderTest {
   }
 
   @Test
+  void buildInquiryBundle_claimUsesInquiryProfile() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildInquiryBundle(meta, meta.focusCodes().get(0), seed);
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+
+    assertTrue(claim.getMeta().hasProfile(PasExtensions.PROFILE_PAS_CLAIM_INQUIRY));
+    assertFalse(claim.getMeta().hasProfile(PasExtensions.PROFILE_PAS_CLAIM));
+  }
+
+  @Test
   void buildUpdateBundle_itemHasInfoChangedExtension() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
     Bundle bundle = PasRequestBuilder.buildUpdateBundle(meta, meta.focusCodes().get(0), seed);

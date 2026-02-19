@@ -2,10 +2,9 @@ package org.hl7.davinci.pas;
 
 import java.util.List;
 
-import org.hl7.davinci.cdshooks.shared.CoverageInfoHandler;
+import org.hl7.davinci.common.CoverageInfoUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Extension;
@@ -23,12 +22,9 @@ import org.springframework.stereotype.Component;
 public class PasCoverageEvaluator {
 
   private final PlanDefinitionService planDefinitionService;
-  private final CoverageInfoHandler coverageInfoHandler;
 
-  public PasCoverageEvaluator(PlanDefinitionService planDefinitionService,
-      CoverageInfoHandler coverageInfoHandler) {
+  public PasCoverageEvaluator(PlanDefinitionService planDefinitionService) {
     this.planDefinitionService = planDefinitionService;
-    this.coverageInfoHandler = coverageInfoHandler;
   }
 
   /**
@@ -70,7 +66,7 @@ public class PasCoverageEvaluator {
     for (PlanDefinition plan : plans) {
       RequestGroup requestGroup = planDefinitionService.applyPlanDefinition(
           plan, patientId, dataBundle, null);
-      Extension coverageExt = coverageInfoHandler.extractCoverageExtension(requestGroup, coverage);
+      Extension coverageExt = CoverageInfoUtil.extractCoverageExtension(requestGroup, coverage, null);
       if (coverageExt == null) {
         continue;
       }
@@ -108,8 +104,8 @@ public class PasCoverageEvaluator {
    * Package-private to allow direct testing of mapping logic.
    */
   CoverageDecision mapCoverageInfoToReviewAction(Extension coverageInfoExt) {
-    String covered = extractSubExtensionCode(coverageInfoExt, "covered");
-    String paNeeded = extractSubExtensionCode(coverageInfoExt, "pa-needed");
+    String covered = CoverageInfoUtil.subExtensionCode(coverageInfoExt, "covered");
+    String paNeeded = CoverageInfoUtil.subExtensionCode(coverageInfoExt, "pa-needed");
 
     if ("not-covered".equals(covered)) {
       return new CoverageDecision(PasExtensions.REVIEW_CODE_A2, "Not Certified", false);
@@ -117,7 +113,7 @@ public class PasCoverageEvaluator {
     if ("conditional".equals(covered)) {
       return new CoverageDecision(PasExtensions.REVIEW_CODE_A4, "Pending", true);
     }
-    String docNeeded = extractSubExtensionCode(coverageInfoExt, "doc-needed");
+    String docNeeded = CoverageInfoUtil.subExtensionCode(coverageInfoExt, "doc-needed");
     if ("auth-needed".equals(paNeeded)) {
       if ("no-doc".equals(docNeeded)) {
         return new CoverageDecision(PasExtensions.REVIEW_CODE_A1, "Certified in total", false);
@@ -128,11 +124,4 @@ public class PasCoverageEvaluator {
     return new CoverageDecision(PasExtensions.REVIEW_CODE_A3, "Not Required", false);
   }
 
-  private String extractSubExtensionCode(Extension parent, String subUrl) {
-    Extension sub = parent.getExtensionByUrl(subUrl);
-    if (sub == null || sub.getValue() == null) return null;
-    if (sub.getValue() instanceof CodeType ct) return ct.getCode();
-    if (sub.getValue() instanceof Coding c) return c.getCode();
-    return null;
-  }
 }
