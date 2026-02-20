@@ -1,0 +1,21 @@
+{
+  "resourceType": "ValueSet",
+  "id": "prior-auth-required-codes",
+  "url": "http://example.org/fhir/ValueSet/prior-auth-required-codes",
+  "name": "PriorAuthRequiredCodes",
+  "title": "Prior Authorization Required HCPCS Codes",
+  "status": "active",
+  "compose": {
+    "include": [{
+      "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+      "concept": [
+        {"code": "L8000", "display": "Breast prosthesis, mastectomy bra"},
+        {"code": "L8010", "display": "Breast prosthesis, mastectomy sleeve"},
+        {"code": "L8015", "display": "External breast prosthesis garment"},
+        {"code": "L8020", "display": "Breast prosthesis, mastectomy form"},
+        {"code": "L8030", "display": "Breast prosthesis, silicone or equal"},
+        {"code": "L8035", "display": "Custom breast prosthesis, post mastectomy"}
+      ]
+    }]
+  }
+}

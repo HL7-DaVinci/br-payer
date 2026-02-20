@@ -115,11 +115,13 @@ public class CrdRequestBuilder {
   }
 
   private static ServiceRequest buildServiceRequest(Coding code, String scenarioId) {
+    Coding codeCopy = code.copy();
+    codeCopy.setDisplay(null);
     ServiceRequest sr = new ServiceRequest();
     sr.setId(scenarioId + "-service-request");
     sr.setStatus(ServiceRequest.ServiceRequestStatus.DRAFT);
     sr.setIntent(ServiceRequest.ServiceRequestIntent.ORDER);
-    sr.setCode(new CodeableConcept().addCoding(code.copy()));
+    sr.setCode(new CodeableConcept().addCoding(codeCopy));
     sr.setSubject(new Reference("Patient/" + PATIENT_ID));
     sr.addInsurance(new Reference("Coverage/coverage-1"));
     return sr;

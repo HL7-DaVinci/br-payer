@@ -1,0 +1,23 @@
+{
+  "resourceType": "Library",
+  "id": "PriorAuthRequiredRule",
+  "url": "http://example.org/fhir/Library/PriorAuthRequiredRule",
+  "version": "1.0.0",
+  "name": "PriorAuthRequiredRule",
+  "title": "Prior Authorization Required CRD Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "PriorAuthRequiredRule.cql"
+    }
+  ]
+}

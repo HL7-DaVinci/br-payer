@@ -182,7 +182,7 @@ hapi:
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincipas:
         name: hl7.fhir.us.davinci-pas
-        version: 2.2.0-snapshot
+        version: 2.2.0
         packageUrl: https://build.fhir.org/ig/HL7/davinci-pas/package.tgz
         installMode: STORE_AND_INSTALL
     #   swiss:
@@ -474,3 +474,7 @@ dtr:
     # next-question-url defaults to {hapi.fhir.server_address}/Questionnaire/$next-question
     # Override to point to a different endpoint:
     # next-question-url: "https://payer.example/fhir/Questionnaire/$next-question"
+
+pas:
+  pended-resolution-delay-seconds: 15
+  authorization-number-prefix: "AUTH-"

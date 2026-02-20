@@ -1,0 +1,18 @@
+{
+  "resourceType": "ValueSet",
+  "id": "excluded-services-codes",
+  "url": "http://example.org/fhir/ValueSet/excluded-services-codes",
+  "name": "ExcludedServicesCodes",
+  "title": "Excluded Services HCPCS Codes",
+  "status": "active",
+  "compose": {
+    "include": [{
+      "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+      "concept": [
+        {"code": "J3490", "display": "Unclassified drugs - investigational gene therapy agent"},
+        {"code": "J3590", "display": "Unclassified biologics - experimental gene therapy product"},
+        {"code": "0537T", "display": "CAR-T cell therapy, investigational protocol"}
+      ]
+    }]
+  }
+}

@@ -67,13 +67,9 @@ public class DtrLibraryResolver {
       }
     }
 
-    // Rewrite all library references to version-specific canonicals
+    // Keep Library.url canonical in canonical form (without |version). Expression
+    // references in Questionnaires commonly use base canonical URLs.
     for (Library library : resolved.values()) {
-      String versionSpecific = DtrFhirUtil.toVersionSpecific(library.getUrl(), library.getVersion());
-      if (versionSpecific != null && !versionSpecific.equals(library.getUrl())) {
-        library.setUrl(versionSpecific);
-      }
-
       // Ensure CQL/ELM content uses inline data, not URL references (spec-99)
       ensureInlineContent(library, warnings);
     }
@@ -128,7 +124,9 @@ public class DtrLibraryResolver {
 
     ensureElm(library, warnings);
 
-    resolved.put(key, library);
+    Library normalized = library.copy();
+    normalizeCanonicalUrl(normalized);
+    resolved.put(key, normalized);
 
     // Recursively follow relatedArtifact depends-on
     if (library.hasRelatedArtifact()) {
@@ -181,5 +179,15 @@ public class DtrLibraryResolver {
   private boolean isCqlOrElmContent(Attachment content) {
     String type = content.getContentType();
     return CQL_CONTENT_TYPE.equals(type) || ELM_CONTENT_TYPE.equals(type);
+  }
+
+  private void normalizeCanonicalUrl(Library library) {
+    if (!library.hasUrl()) {
+      return;
+    }
+    String[] parsed = DtrFhirUtil.parseCanonical(library.getUrl());
+    if (parsed.length > 0 && parsed[0] != null && !parsed[0].isBlank()) {
+      library.setUrl(parsed[0]);
+    }
   }
 }

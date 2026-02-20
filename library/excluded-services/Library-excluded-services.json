@@ -1,0 +1,23 @@
+{
+  "resourceType": "Library",
+  "id": "ExcludedServicesRule",
+  "url": "http://example.org/fhir/Library/ExcludedServicesRule",
+  "version": "1.0.0",
+  "name": "ExcludedServicesRule",
+  "title": "Excluded Services CRD Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "ExcludedServicesRule.cql"
+    }
+  ]
+}

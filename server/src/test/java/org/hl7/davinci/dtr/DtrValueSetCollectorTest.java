@@ -142,6 +142,39 @@ class DtrValueSetCollectorTest {
   }
 
   @Test
+  @DisplayName("SNOMED concept '=' filters are converted to explicit concepts")
+  void snomedConceptEqualsFilter_convertedToConcept() {
+    ValueSet vs = new ValueSet();
+    vs.setId("vs-snomed-filter");
+    vs.setUrl("http://example.org/ValueSet/snomed-filter");
+    vs.setVersion("1.0");
+    vs.getCompose().addInclude()
+        .setSystem("http://snomed.info/sct")
+        .addFilter()
+        .setProperty("concept")
+        .setOp(ValueSet.FilterOperator.EQUAL)
+        .setValue("161665007");
+
+    IBundleProvider results = mock(IBundleProvider.class);
+    when(results.isEmpty()).thenReturn(false);
+    when(results.getResources(0, 1)).thenReturn(List.of(vs));
+    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
+
+    Questionnaire q = new Questionnaire();
+    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE)
+        .setAnswerValueSet("http://example.org/ValueSet/snomed-filter");
+
+    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
+
+    assertEquals(1, result.valueSets().size());
+    ValueSet.ConceptSetComponent include = result.valueSets().get(0).getCompose().getIncludeFirstRep();
+    assertTrue(include.getFilter().isEmpty(), "Snomed concept '=' filters should be removed");
+    assertEquals(1, include.getConcept().size(), "Converted include should contain explicit concept codes");
+    assertEquals("161665007", include.getConceptFirstRep().getCode());
+  }
+
+  @Test
   @DisplayName("ValueSet without description gets default from title")
   void valueSetWithoutDescription_defaultsFromTitle() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);

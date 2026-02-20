@@ -34,11 +34,33 @@ public class PasBundleValidator {
 
   /**
    * Validates a $inquire request bundle and extracts the Claim (inquiry).
+   * Enforces PAS inquiry request bundle profile.
    *
    * @throws IllegalArgumentException if the bundle is invalid
    */
   public Claim validateInquiryBundle(Bundle bundle) {
     Claim claim = validateCommon(bundle);
+    if (!bundle.hasIdentifier()) {
+      throw new IllegalArgumentException("Bundle.identifier is required");
+    }
+    if (!bundle.hasTimestamp()) {
+      throw new IllegalArgumentException("Bundle.timestamp is required");
+    }
+    for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+      if (!entry.hasFullUrl() || entry.getFullUrl().isBlank()) {
+        throw new IllegalArgumentException("All Bundle.entry elements must have a fullUrl");
+      }
+    }
+    if (!claim.hasIdentifier()) {
+      throw new IllegalArgumentException("Claim.identifier is required for inquiry");
+    }
+    if (claim.getStatus() != Claim.ClaimStatus.ACTIVE) {
+      throw new IllegalArgumentException(
+          "Claim.status must be 'active', got: " + claim.getStatus());
+    }
+    if (!claim.hasCreated()) {
+      throw new IllegalArgumentException("Claim.created is required");
+    }
     validateMemberIdentifier(bundle);
     return claim;
   }

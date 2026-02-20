@@ -198,6 +198,10 @@ public class DtrQuestionnaireResolver {
     Bundle dataBundle = buildDataBundle(patient, coverage, validOrders);
     String subjectRef = resolveSubjectReference(coverage, patient);
     Set<String> fetchedClinicalTypes = new HashSet<>();
+    Set<String> inputOrderTypes = new HashSet<>();
+    for (Resource order : validOrders) {
+      inputOrderTypes.add(order.fhirType());
+    }
 
     for (Resource order : validOrders) {
       String orderId = order.getIdElement().toUnqualifiedVersionless().getValue();
@@ -222,12 +226,19 @@ public class DtrQuestionnaireResolver {
       }
 
       boolean anyQuestionnaireFound = false;
+      boolean coverageInfoProduced = false;
+      boolean questionnaireExpectedButMissing = false;
 
       for (PlanDefinition plan : uniquePlans.values()) {
         try {
           // Fetch clinical data required by this PlanDefinition's libraries
           Set<String> requiredTypes = resolveRequiredClinicalTypes(plan);
           Set<String> newTypes = new HashSet<>(requiredTypes);
+          // Keep explicit request resources as primary CQL context for First([Type])
+          // queries; avoid replacing them with unrelated repository resources.
+          newTypes.remove("Patient");
+          newTypes.remove("Coverage");
+          newTypes.removeAll(inputOrderTypes);
           newTypes.removeAll(fetchedClinicalTypes);
           if (!newTypes.isEmpty()) {
             includePatientClinicalData(dataBundle, subjectRef, newTypes);
@@ -245,7 +256,14 @@ public class DtrQuestionnaireResolver {
 
           // Extract questionnaire canonicals from all coverage-information extensions
           for (Extension coverageInfoExt : coverageInfoExts) {
+            coverageInfoProduced = true;
             List<Extension> questionnaireExts = coverageInfoExt.getExtensionsByUrl("questionnaire");
+            if (questionnaireExts.isEmpty()) {
+              if (hasDocNeeded(coverageInfoExt)) {
+                questionnaireExpectedButMissing = true;
+              }
+              continue;
+            }
             for (Extension qExt : questionnaireExts) {
               if (qExt.getValue() instanceof CanonicalType canonicalType) {
                 String canonicalValue = canonicalType.getValue();
@@ -286,7 +304,7 @@ public class DtrQuestionnaireResolver {
         }
       }
 
-      if (!anyQuestionnaireFound) {
+      if (!anyQuestionnaireFound && (!coverageInfoProduced || questionnaireExpectedButMissing)) {
         String warning = "Order " + orderId + " produced no questionnaires after PlanDefinition evaluation";
         logger.warn(warning);
         warnings.add(warning);
@@ -559,5 +577,14 @@ public class DtrQuestionnaireResolver {
    */
   private List<Extension> extractCoverageInfoExtensions(RequestGroup requestGroup) {
     return CoverageInfoUtil.extractCoverageInfoExtensions(requestGroup);
+  }
+
+  private boolean hasDocNeeded(Extension coverageInfoExt) {
+    for (Extension ext : coverageInfoExt.getExtension()) {
+      if ("doc-needed".equals(ext.getUrl()) && ext.hasValue()) {
+        return true;
+      }
+    }
+    return false;
   }
 }

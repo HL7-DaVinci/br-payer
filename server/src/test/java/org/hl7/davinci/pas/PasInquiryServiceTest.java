@@ -13,6 +13,7 @@ import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Reference;
@@ -151,6 +152,50 @@ class PasInquiryServiceTest {
   void inquire_invalidBundle_throwsIllegalArgument() {
     when(validator.validateInquiryBundle(any())).thenThrow(new IllegalArgumentException("bad"));
     assertThrows(IllegalArgumentException.class, () -> service.inquire(new Bundle()));
+  }
+
+  @Test
+  void inquire_itemTraceNumberFiltersOutClaimsWithDifferentTraceNumber() {
+    Bundle requestBundle = new Bundle();
+    Claim inquiryClaim = buildInquiryClaim("Coverage/1");
+    addItemWithTraceNumber(inquiryClaim, "trace-hospital-beds");
+    when(validator.validateInquiryBundle(requestBundle)).thenReturn(inquiryClaim);
+
+    ClaimResponse matchingResponse = buildClaimResponse("CR-001", "Claim/100");
+    ClaimResponse seedDataResponse = buildClaimResponse("CR-002", "Claim/200");
+
+    IBundleProvider mockProvider = mock(IBundleProvider.class);
+    when(mockProvider.getResources(anyInt(), anyInt()))
+        .thenReturn(List.of(matchingResponse, seedDataResponse));
+    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
+
+    // Claim/100 has the matching trace number
+    Claim matchingClaim = buildStoredClaim("Coverage/1");
+    addItemWithTraceNumber(matchingClaim, "trace-hospital-beds");
+
+    // Claim/200 has a different trace number (simulates seed/unrelated data)
+    Claim seedClaim = buildStoredClaim("Coverage/1");
+    addItemWithTraceNumber(seedClaim, "trace-unrelated-1122334");
+
+    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
+        .thenReturn(matchingClaim);
+    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
+        .thenReturn(seedClaim);
+
+    Parameters expected = new Parameters();
+    when(responseBuilder.buildInquiryResponse(List.of(matchingResponse))).thenReturn(expected);
+
+    Parameters result = service.inquire(requestBundle);
+    assertSame(expected, result);
+    verify(responseBuilder).buildInquiryResponse(List.of(matchingResponse));
+  }
+
+  private void addItemWithTraceNumber(Claim claim, String traceValue) {
+    Identifier traceId = new Identifier()
+        .setSystem("http://example.org/ITEM_TRACE_NUMBER")
+        .setValue(traceValue);
+    Extension traceExt = new Extension(PasExtensions.ITEM_TRACE_NUMBER, traceId);
+    claim.addItem().addExtension(traceExt);
   }
 
   private Claim buildInquiryClaim(String coverageReference) {

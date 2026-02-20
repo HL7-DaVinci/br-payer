@@ -25,7 +25,8 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.UriType;
+import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.UrlType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -182,7 +183,7 @@ class DtrResponseBuilderTest {
     }
 
     @Test
-    @DisplayName("intendedUse extension uses CRD temp CodeSystem with withorder code and display")
+    @DisplayName("intendedUse extension uses CRD temp code system with DocReason-compatible code")
     void intendedUseExtension() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
           questionnaireProvenance(), List.of(), List.of());
@@ -194,7 +195,8 @@ class DtrResponseBuilderTest {
       CodeableConcept cc = (CodeableConcept) intendedUse.getValue();
       assertEquals(1, cc.getCoding().size());
       Coding coding = cc.getCodingFirstRep();
-      assertEquals("http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes", coding.getSystem());
+      assertEquals("http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp", coding.getSystem());
+      assertFalse(coding.hasVersion());
       assertEquals("withorder", coding.getCode());
       assertEquals("Include with order", coding.getDisplay());
     }
@@ -493,7 +495,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Detects adaptive via questionnaireAdaptive extension (primary signal)")
     void detectsViaExtension() {
       Questionnaire q = new Questionnaire();
-      q.addExtension(QUESTIONNAIRE_ADAPTIVE_EXT, new UriType("http://example.org/$next-question"));
+      q.addExtension(QUESTIONNAIRE_ADAPTIVE_EXT, new BooleanType(true));
       assertTrue(DtrResponseBuilder.isAdaptiveQuestionnaire(q));
     }
 
@@ -509,7 +511,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Detects adaptive when both extension and profile present")
     void detectsViaBoth() {
       Questionnaire q = new Questionnaire();
-      q.addExtension(QUESTIONNAIRE_ADAPTIVE_EXT, new UriType("http://example.org/$next-question"));
+      q.addExtension(QUESTIONNAIRE_ADAPTIVE_EXT, new BooleanType(true));
       q.getMeta().addProfile("http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt");
       assertTrue(DtrResponseBuilder.isAdaptiveQuestionnaire(q));
     }
@@ -586,6 +588,9 @@ class DtrResponseBuilderTest {
       assertInstanceOf(Questionnaire.class, qr.getContained().get(0));
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
       assertTrue(contained.getItem().isEmpty(), "Contained questionnaire should have no items");
+      assertTrue(contained.hasUrl(), "Contained questionnaire should include url");
+      assertTrue(contained.hasStatus(), "Contained questionnaire should include status");
+      assertTrue(contained.hasSubjectType(), "Contained questionnaire should include subjectType");
     }
 
     @Test
@@ -602,7 +607,7 @@ class DtrResponseBuilderTest {
     }
 
     @Test
-    @DisplayName("Contained Questionnaire has questionnaireAdaptive extension with configured URL")
+    @DisplayName("Contained Questionnaire has questionnaireAdaptive extension as valueUrl")
     void questionnaireAdaptiveExtension() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
           adaptiveProvenance(), List.of());
@@ -611,9 +616,9 @@ class DtrResponseBuilderTest {
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
       Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
       assertNotNull(adaptiveExt, "Should have questionnaireAdaptive extension");
-      assertInstanceOf(UriType.class, adaptiveExt.getValue());
+      assertInstanceOf(UrlType.class, adaptiveExt.getValue());
       assertEquals("http://payer.example/fhir/Questionnaire/$next-question",
-          ((UriType) adaptiveExt.getValue()).getValue());
+          ((UrlType) adaptiveExt.getValue()).asStringValue());
     }
 
     @Test
@@ -645,8 +650,8 @@ class DtrResponseBuilderTest {
     }
 
     @Test
-    @DisplayName("Fallback derives URL from server_address when explicit URL is blank")
-    void fallbackFromServerAddress() {
+    @DisplayName("Adaptive extension uses server_address fallback when explicit URL is blank")
+    void adaptiveExtensionWithBlankExplicitUrl() {
       AppProperties fallbackProps = mock(AppProperties.class);
       when(fallbackProps.getServer_address()).thenReturn("http://localhost:8080/fhir");
       DtrResponseBuilder fallbackBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
@@ -658,15 +663,15 @@ class DtrResponseBuilderTest {
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
       Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
-      assertNotNull(adaptiveExt, "Should derive URL from server_address");
+      assertNotNull(adaptiveExt, "Should keep questionnaireAdaptive extension");
       assertEquals("http://localhost:8080/fhir/Questionnaire/$next-question",
-          ((UriType) adaptiveExt.getValue()).getValue());
+          ((UrlType) adaptiveExt.getValue()).asStringValue());
       assertTrue(result.warnings().isEmpty(), "No warnings when fallback succeeds");
     }
 
     @Test
-    @DisplayName("Fallback strips trailing slash from server_address")
-    void fallbackStripsTrailingSlash() {
+    @DisplayName("Adaptive extension uses trimmed server_address with trailing slash")
+    void adaptiveExtensionWithTrailingSlashServerAddress() {
       AppProperties slashProps = mock(AppProperties.class);
       when(slashProps.getServer_address()).thenReturn("http://localhost:8080/fhir/");
       DtrResponseBuilder slashBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
@@ -678,24 +683,24 @@ class DtrResponseBuilderTest {
       Questionnaire contained = (Questionnaire) result.response().getContained().get(0);
       Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
       assertEquals("http://localhost:8080/fhir/Questionnaire/$next-question",
-          ((UriType) adaptiveExt.getValue()).getValue());
+          ((UrlType) adaptiveExt.getValue()).asStringValue());
     }
 
     @Test
-    @DisplayName("Explicit URL takes precedence over server_address fallback")
-    void explicitUrlTakesPrecedence() {
+    @DisplayName("Adaptive extension uses explicit configured URL")
+    void adaptiveExtensionWithExplicitUrl() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
           adaptiveProvenance(), List.of());
 
       Questionnaire contained = (Questionnaire) result.response().getContained().get(0);
       Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
       assertEquals("http://payer.example/fhir/Questionnaire/$next-question",
-          ((UriType) adaptiveExt.getValue()).getValue());
+          ((UrlType) adaptiveExt.getValue()).asStringValue());
     }
 
     @Test
-    @DisplayName("Warning when both explicit URL and server_address are unavailable")
-    void missingBothUrlsWarning() {
+    @DisplayName("Adaptive extension defaults to localhost URL when URL sources are unavailable")
+    void missingBothUrlsStillAddsAdaptiveExtension() {
       AppProperties emptyProps = mock(AppProperties.class);
       when(emptyProps.getServer_address()).thenReturn("");
       DtrResponseBuilder noUrlBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
@@ -706,10 +711,11 @@ class DtrResponseBuilderTest {
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
-      assertNull(contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT),
-          "Extension should be omitted when neither URL is configured");
-      assertFalse(result.warnings().isEmpty());
-      assertTrue(result.warnings().get(0).contains("Cannot determine next-question URL"));
+      assertNotNull(contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT),
+          "Extension should still be present");
+      assertEquals("http://localhost:8080/fhir/Questionnaire/$next-question",
+          ((UrlType) contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT).getValue()).asStringValue());
+      assertTrue(result.warnings().isEmpty());
     }
   }
 }

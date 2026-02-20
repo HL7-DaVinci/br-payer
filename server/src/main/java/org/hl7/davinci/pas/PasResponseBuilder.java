@@ -14,11 +14,14 @@ import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Reference;
 import org.springframework.stereotype.Component;
+
+import ca.uhn.fhir.jpa.starter.AppProperties;
 
 /**
  * Constructs PAS-conformant ClaimResponse bundles and inquiry response Parameters.
@@ -31,6 +34,13 @@ public class PasResponseBuilder {
   private static final String ADJUDICATION_SYSTEM = "http://terminology.hl7.org/CodeSystem/adjudication";
 
   private final AtomicLong authCounter = new AtomicLong(0);
+  private final String serverBase;
+
+  public PasResponseBuilder(AppProperties appProperties) {
+    String base = appProperties.getServer_address();
+    this.serverBase = (base != null && base.endsWith("/"))
+        ? base.substring(0, base.length() - 1) : base;
+  }
 
   /**
    * Builds a PAS Response Bundle from a submitted Claim and per-item coverage decisions.
@@ -55,7 +65,8 @@ public class PasResponseBuilder {
   public Parameters buildInquiryResponse(List<ClaimResponse> matches) {
     Parameters params = new Parameters();
     for (ClaimResponse cr : matches) {
-      Bundle responseBundle = wrapInResponseBundle(cr);
+      ClaimResponse sanitized = sanitizeForBundle(cr);
+      Bundle responseBundle = wrapInResponseBundle(sanitized);
       responseBundle.getMeta().getProfile().clear();
       responseBundle.getMeta().addProfile(PasExtensions.PROFILE_PAS_INQUIRY_RESPONSE_BUNDLE);
       params.addParameter().setName("responseBundle").setResource(responseBundle);
@@ -64,31 +75,41 @@ public class PasResponseBuilder {
   }
 
   /**
-   * Builds a resolved response bundle by upgrading a pended ClaimResponse (A4) to A1.
-   * Used by PasSubscriptionService when pended authorizations resolve.
+   * Finalizes pended adjudications in-place, transitioning A4 to A1 (Certified).
    */
-  public Bundle buildResolvedResponse(ClaimResponse pendedResponse, String authNumberPrefix) {
-    // Deep copy to avoid mutating the original
-    ClaimResponse resolved = pendedResponse.copy();
+  public void resolvePendedItems(ClaimResponse claimResponse, String authNumberPrefix) {
+    finalizePendedItems(claimResponse, PasExtensions.REVIEW_CODE_A1, "Certified in total", authNumberPrefix);
+  }
 
-    for (ClaimResponse.ItemComponent item : resolved.getItem()) {
-      for (ClaimResponse.AdjudicationComponent adj : item.getAdjudication()) {
-        // Remove existing reviewAction extension and replace with A1
-        adj.getExtension().removeIf(e -> PasExtensions.REVIEW_ACTION.equals(e.getUrl()));
-        String authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
-        adj.addExtension(PasExtensions.buildReviewActionExtension(
-            PasExtensions.REVIEW_CODE_A1, "Certified in total", authNumber));
-      }
-      // Add preAuthPeriod if not already present
-      if (item.getExtensionByUrl(PasExtensions.ITEM_PREAUTH_PERIOD) == null) {
-        item.addExtension(buildDefaultPreAuthPeriod());
-      }
-    }
-
-    return wrapInResponseBundle(resolved);
+  /**
+   * Finalizes pended adjudications in-place, transitioning A4 to A6 (Modified).
+   */
+  public void modifyPendedItems(ClaimResponse claimResponse, String authNumberPrefix) {
+    finalizePendedItems(claimResponse, PasExtensions.REVIEW_CODE_A6, "Modified", authNumberPrefix);
   }
 
   // ===== Internal =====
+
+  private void finalizePendedItems(ClaimResponse claimResponse,
+      String targetCode, String targetDisplay, String authNumberPrefix) {
+    for (ClaimResponse.ItemComponent item : claimResponse.getItem()) {
+      boolean itemWasFinalized = false;
+      for (ClaimResponse.AdjudicationComponent adj : item.getAdjudication()) {
+        if (!isPendedReviewAction(adj)) {
+          continue;
+        }
+
+        adj.getExtension().removeIf(e -> PasExtensions.REVIEW_ACTION.equals(e.getUrl()));
+        String authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
+        adj.addExtension(PasExtensions.buildReviewActionExtension(targetCode, targetDisplay, authNumber));
+        itemWasFinalized = true;
+      }
+
+      if (itemWasFinalized && item.getExtensionByUrl(PasExtensions.ITEM_PREAUTH_PERIOD) == null) {
+        item.addExtension(buildDefaultPreAuthPeriod());
+      }
+    }
+  }
 
   private ClaimResponse buildClaimResponse(Claim requestClaim,
       Map<Integer, CoverageDecision> itemDecisions, String authNumberPrefix) {
@@ -153,11 +174,32 @@ public class PasResponseBuilder {
         .setSystem("http://example.org/SUBMITTER_TRANSACTION_IDENTIFIER")
         .setValue(UUID.randomUUID().toString()));
 
+    String idPart = extractClaimResponseIdPart(claimResponse);
+    if (idPart == null || idPart.isBlank()) {
+      idPart = UUID.randomUUID().toString();
+      claimResponse.setId(idPart);
+    }
+
     bundle.addEntry()
-        .setFullUrl("http://example.org/fhir/ClaimResponse/" + claimResponse.getId())
+        .setFullUrl(serverBase + "/ClaimResponse/" + idPart)
         .setResource(claimResponse);
 
     return bundle;
+  }
+
+  private boolean isPendedReviewAction(ClaimResponse.AdjudicationComponent adjudication) {
+    Extension reviewAction = adjudication.getExtensionByUrl(PasExtensions.REVIEW_ACTION);
+    if (reviewAction == null) {
+      return false;
+    }
+
+    Extension codeExt = reviewAction.getExtensionByUrl(PasExtensions.REVIEW_ACTION_CODE);
+    if (codeExt == null || !(codeExt.getValue() instanceof CodeableConcept codeableConcept)) {
+      return false;
+    }
+
+    return codeableConcept.getCoding().stream()
+        .anyMatch(coding -> PasExtensions.REVIEW_CODE_A4.equals(coding.getCode()));
   }
 
   private Extension buildDefaultPreAuthPeriod() {
@@ -171,5 +213,33 @@ public class PasResponseBuilder {
     period.setStart(now);
     period.setEnd(oneMonthLater);
     return new Extension(PasExtensions.ITEM_PREAUTH_PERIOD, period);
+  }
+
+  private ClaimResponse sanitizeForBundle(ClaimResponse source) {
+    ClaimResponse copy = source.copy();
+    String idPart = extractClaimResponseIdPart(copy);
+    if (idPart != null && !idPart.isBlank()) {
+      copy.setId(idPart);
+    }
+
+    return copy;
+  }
+
+  private String extractClaimResponseIdPart(ClaimResponse claimResponse) {
+    String idPart = claimResponse.getIdElement().getIdPart();
+    if (idPart != null && !idPart.isBlank()) {
+      return idPart;
+    }
+
+    String rawId = claimResponse.getId();
+    if (rawId == null || rawId.isBlank()) {
+      return null;
+    }
+
+    String parsed = new IdType(rawId).getIdPart();
+    if (parsed != null && !parsed.isBlank()) {
+      return parsed;
+    }
+    return rawId;
   }
 }

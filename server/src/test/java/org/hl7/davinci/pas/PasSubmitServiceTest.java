@@ -46,7 +46,8 @@ class PasSubmitServiceTest {
     AppProperties appProperties = mock(AppProperties.class);
     when(appProperties.getServer_address()).thenReturn(SERVER_BASE);
 
-    service = new PasSubmitService(validator, evaluator, responseBuilder, daoRegistry, appProperties);
+    PasProperties pasProperties = new PasProperties(30, "AUTH-");
+    service = new PasSubmitService(validator, evaluator, responseBuilder, daoRegistry, appProperties, pasProperties);
   }
 
   @Test
@@ -69,7 +70,7 @@ class PasSubmitServiceTest {
 
     // Verify stored ClaimResponse has NO pended tag
     verify(daoRegistry.getResourceDao(ClaimResponse.class)).create(argThat(cr2 ->
-        cr2.getMeta().getTag("http://hl7.org/fhir/us/davinci-pas/tag", "pended-resolution") == null
+        cr2.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) == null
     ), any(RequestDetails.class));
   }
 
@@ -92,7 +93,7 @@ class PasSubmitServiceTest {
 
     // Verify stored ClaimResponse HAS pended tag
     verify(daoRegistry.getResourceDao(ClaimResponse.class)).create(argThat(cr2 ->
-        cr2.getMeta().getTag("http://hl7.org/fhir/us/davinci-pas/tag", "pended-resolution") != null
+        cr2.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) != null
     ), any(RequestDetails.class));
   }
 

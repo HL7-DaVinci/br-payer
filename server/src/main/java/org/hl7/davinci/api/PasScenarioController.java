@@ -33,7 +33,7 @@ public class PasScenarioController {
     this.fhirContext = fhirContext;
   }
 
-  @GetMapping("/scenarios")
+  @GetMapping({ "/scenarios", "/scenarios/" })
   public List<PasScenarioDto> getScenarios() {
     return scenarioService.getScenarios();
   }

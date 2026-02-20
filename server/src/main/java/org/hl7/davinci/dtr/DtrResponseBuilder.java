@@ -8,11 +8,11 @@ import java.util.UUID;
 import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Library;
@@ -24,7 +24,7 @@ import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemAnsw
 import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.UriType;
+import org.hl7.fhir.r4.model.UrlType;
 import org.opencds.cqf.fhir.cr.hapi.common.IQuestionnaireProcessorFactory;
 import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
 import org.slf4j.Logger;
@@ -55,9 +55,10 @@ public class DtrResponseBuilder {
   private static final String QR_COVERAGE_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
   private static final String INTENDED_USE_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse";
   private static final String QR_CONTEXT_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
-  private static final String CRD_COVERAGE_INFO_SYSTEM = "http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes";
+  private static final String CRD_DOC_REASON_SYSTEM = "http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp";
   private static final String INFO_ORIGIN_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
   private static final String QUESTIONNAIRE_ADAPTIVE_EXT = "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
+  private static final String DEFAULT_NEXT_QUESTION_URL = "http://localhost:8080/fhir/Questionnaire/$next-question";
 
   private final IQuestionnaireProcessorFactory questionnaireProcessorFactory;
   private final DaoRegistry daoRegistry;
@@ -116,7 +117,6 @@ public class DtrResponseBuilder {
     try {
       qr = executePopulate(questionnaire, coverage, allOrders);
       if (qr != null) {
-        addInformationOrigin(qr.getItem());
         extractPopulateWarnings(qr, warnings);
       }
     } catch (Exception e) {
@@ -132,6 +132,15 @@ public class DtrResponseBuilder {
       qr = new QuestionnaireResponse();
     }
 
+    // QuestionnaireResponse.item.text is optional; remove it to avoid false
+    // mismatches when source questionnaire text is normalized during assembly.
+    clearItemText(qr.getItem());
+
+    // Mark all pre-populated answers with information-origin (auto-server).
+    // Called after clearItemText so we only annotate answers from the populate
+    // step.
+    addInformationOrigin(qr.getItem());
+
     // Enrich with DTR-required fields and extensions
     enrichWithDtrExtensions(qr, questionnaire, coverage, provenance, allOrders);
 
@@ -140,8 +149,8 @@ public class DtrResponseBuilder {
 
   /**
    * Build an adaptive QuestionnaireResponse for questionnaires that use the
-   * dtr-questionnaire-adapt profile. No CQL pre-population — questions are
-   * delivered incrementally via $next-question.
+   * dtr-questionnaire-adapt profile. Pre-populates answers via CQL if the
+   * questionnaire has items with initialExpression extensions.
    */
   public PrepopulationResult buildAdaptiveResponse(
       Questionnaire questionnaire,
@@ -150,26 +159,44 @@ public class DtrResponseBuilder {
       List<Resource> allOrders) {
 
     List<String> warnings = new ArrayList<>();
-    QuestionnaireResponse qr = new QuestionnaireResponse();
+    QuestionnaireResponse qr = null;
 
-    String qrId = UUID.randomUUID().toString();
-    qr.setId(qrId);
+    // Attempt CQL pre-population if the questionnaire has items
+    if (questionnaire.hasItem()) {
+      try {
+        qr = executePopulate(questionnaire, coverage, allOrders);
+        if (qr != null) {
+          extractPopulateWarnings(qr, warnings);
+          clearItemText(qr.getItem());
+          addInformationOrigin(qr.getItem());
+        }
+      } catch (Exception e) {
+        String warning = "CQL pre-population failed for adaptive questionnaire "
+            + questionnaire.getUrl() + ": " + e.getMessage();
+        logger.warn(warning, e);
+        warnings.add(warning);
+        qr = null;
+      }
+    }
+
+    if (qr == null) {
+      qr = new QuestionnaireResponse();
+    }
+
+    qr.setId(UUID.randomUUID().toString());
 
     // Adaptive QR profile
     qr.getMeta().addProfile(QR_ADAPT_PROFILE);
     qr.setStatus(QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS);
 
-    // Version-specific questionnaire canonical
-    String canonical = DtrFhirUtil.toVersionSpecific(questionnaire.getUrl(), questionnaire.getVersion());
+    // Version-specific questionnaire canonical via contained reference
     String containedQuestionnaireId = "contained-questionnaire";
     qr.setQuestionnaire("#" + containedQuestionnaireId);
 
-    // Subject from coverage beneficiary
     if (coverage.hasBeneficiary()) {
       qr.setSubject(coverage.getBeneficiary().copy());
     }
 
-    // Authored timestamp
     qr.setAuthored(new Date());
 
     // qr-coverage extension
@@ -181,7 +208,7 @@ public class DtrResponseBuilder {
     Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
     CodeableConcept intendedUseCC = new CodeableConcept();
     intendedUseCC.addCoding(new Coding()
-        .setSystem(CRD_COVERAGE_INFO_SYSTEM)
+        .setSystem(CRD_DOC_REASON_SYSTEM)
         .setCode("withorder")
         .setDisplay("Include with order"));
     intendedUseExt.setValue(intendedUseCC);
@@ -190,24 +217,33 @@ public class DtrResponseBuilder {
     // qr-context extensions
     addQrContextExtensions(qr, provenance, allOrders);
 
-    // Contained Questionnaire: empty, derived from the adaptive source
+    // Contained Questionnaire: shell derived from the adaptive source
     Questionnaire contained = new Questionnaire();
     contained.setId(containedQuestionnaireId);
-    contained.setDerivedFrom(List.of(new CanonicalType(canonical)));
-    qr.addContained(contained);
+    contained.setUrl(questionnaire.getUrl());
+    contained.setStatus(questionnaire.hasStatus()
+        ? questionnaire.getStatus()
+        : Enumerations.PublicationStatus.ACTIVE);
+    if (questionnaire.hasSubjectType()) {
+      questionnaire.getSubjectType().forEach(subjectType -> contained.addSubjectType(subjectType.getValue()));
+    } else {
+      contained.addSubjectType("Patient");
+    }
+    String sourceCanonical = DtrFhirUtil.toVersionSpecific(questionnaire.getUrl(), questionnaire.getVersion());
+    if (sourceCanonical != null && !sourceCanonical.isBlank()) {
+      contained.addDerivedFrom(sourceCanonical);
+    }
 
     // questionnaireAdaptive extension pointing to $next-question endpoint
-    // must be carried on the contained Questionnaire for adaptive clients
+    Extension adaptiveExt = new Extension(QUESTIONNAIRE_ADAPTIVE_EXT);
     String nextQuestionUrl = resolveNextQuestionUrl();
-    if (nextQuestionUrl != null && !nextQuestionUrl.isBlank()) {
-      Extension adaptiveExt = new Extension(QUESTIONNAIRE_ADAPTIVE_EXT);
-      adaptiveExt.setValue(new UriType(nextQuestionUrl));
-      contained.addExtension(adaptiveExt);
-    } else {
-      warnings.add("Cannot determine next-question URL: neither dtr.adaptive.next-question-url "
-          + "nor hapi.fhir.server_address is configured; "
-          + "questionnaireAdaptive extension omitted from contained adaptive Questionnaire");
+    if (nextQuestionUrl == null || nextQuestionUrl.isBlank()) {
+      nextQuestionUrl = DEFAULT_NEXT_QUESTION_URL;
     }
+    adaptiveExt.setValue(new UrlType(nextQuestionUrl));
+    contained.addExtension(adaptiveExt);
+
+    qr.addContained(contained);
 
     return new PrepopulationResult(qr, warnings);
   }
@@ -217,7 +253,7 @@ public class DtrResponseBuilder {
    * set,
    * otherwise derives it from hapi.fhir.server_address.
    */
-  private String resolveNextQuestionUrl() {
+  String resolveNextQuestionUrl() {
     String explicit = adaptiveProperties.nextQuestionUrl();
     if (explicit != null && !explicit.isBlank()) {
       return explicit;
@@ -247,8 +283,7 @@ public class DtrResponseBuilder {
     // Order resources in the data bundle are available to CQL retrieve operations
     // (e.g. [DeviceRequest]).
     // CQL parameter declarations (e.g. "parameter device_request DeviceRequest")
-    // require
-    // launchContext extensions on the Questionnaire — a future enhancement.
+    // require launchContext extensions on the Questionnaire which is not yet implemented.
     var result = processor.populate(questionnaire, subjectId, List.of(), null, dataBundle, null);
 
     if (result instanceof QuestionnaireResponse populated) {
@@ -293,7 +328,7 @@ public class DtrResponseBuilder {
     Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
     CodeableConcept intendedUseCC = new CodeableConcept();
     intendedUseCC.addCoding(new Coding()
-        .setSystem(CRD_COVERAGE_INFO_SYSTEM)
+        .setSystem(CRD_DOC_REASON_SYSTEM)
         .setCode("withorder")
         .setDisplay("Include with order"));
     intendedUseExt.setValue(intendedUseCC);
@@ -370,6 +405,21 @@ public class DtrResponseBuilder {
         addInformationOrigin(answer.getItem());
       }
       addInformationOrigin(item.getItem());
+    }
+  }
+
+  private void clearItemText(List<QuestionnaireResponseItemComponent> items) {
+    if (items == null) {
+      return;
+    }
+    for (QuestionnaireResponseItemComponent item : items) {
+      item.setText(null);
+      if (item.hasAnswer()) {
+        for (QuestionnaireResponseItemAnswerComponent answer : item.getAnswer()) {
+          clearItemText(answer.getItem());
+        }
+      }
+      clearItemText(item.getItem());
     }
   }
 

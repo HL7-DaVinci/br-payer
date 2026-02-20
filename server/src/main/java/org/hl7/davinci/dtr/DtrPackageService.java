@@ -3,10 +3,13 @@ package org.hl7.davinci.dtr;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Expression;
 import org.hl7.fhir.r4.model.InstantType;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -14,8 +17,10 @@ import org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Questionnaire;
+import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemComponent;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.UrlType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +38,16 @@ public class DtrPackageService {
 
   private static final String OUTPUT_PROFILE =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-qpackage-output-parameters";
+  private static final String QUESTIONNAIRE_ADAPTIVE_EXT =
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
+  private static final String DEFAULT_NEXT_QUESTION_URL =
+      "http://localhost:8080/fhir/Questionnaire/$next-question";
+  private static final Set<String> CQL_EXPRESSION_EXT_URLS = Set.of(
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-candidateExpression",
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-contextExpression",
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-enableWhenExpression");
 
   private final DtrQuestionnaireResolver questionnaireResolver;
   private final DtrSubQuestionnaireAssembler subQuestionnaireAssembler;
@@ -118,10 +133,14 @@ public class DtrPackageService {
 
     // Copy to avoid mutating repository state
     Questionnaire questionnaire = rq.resource().copy();
+    boolean isAdaptiveQuestionnaire = DtrResponseBuilder.isAdaptiveQuestionnaire(questionnaire);
 
     // Assemble sub-questionnaires
     List<String> subQWarnings = subQuestionnaireAssembler.assemble(questionnaire);
     warnings.addAll(subQWarnings);
+
+    // Normalize after assembly so imported item expressions are also sanitized.
+    sanitizeQuestionnaireForValidation(questionnaire, warnings, isAdaptiveQuestionnaire);
 
     // Resolve libraries
     DtrLibraryResolver.LibraryResolution libraryResult = libraryResolver.resolveLibraries(questionnaire);
@@ -147,7 +166,6 @@ public class DtrPackageService {
     List<Resource> orders = (validOrders != null) ? validOrders : List.of();
     QuestionnaireResponse qr;
     List<String> qrWarnings;
-    boolean isAdaptiveQuestionnaire = DtrResponseBuilder.isAdaptiveQuestionnaire(questionnaire);
 
     if (isAdaptiveQuestionnaire) {
       var adaptiveResult = responseBuilder.buildAdaptiveResponse(
@@ -162,6 +180,11 @@ public class DtrPackageService {
     }
 
     warnings.addAll(qrWarnings);
+
+    // Keep expression references for pre-population execution, then strip before
+    // packaging to avoid unresolved canonical reference errors in standalone
+    // bundle validation.
+    stripExpressionReferences(questionnaire.getItem());
 
     // Assemble bundle
     DtrBundleAssembler.BundleResult bundleResult = bundleAssembler.assembleBundle(
@@ -217,8 +240,63 @@ public class DtrPackageService {
             .setDiagnostics(warning);
       }
       params.addParameter().setName("outcome").setResource(outcome);
+    } else if (packageBundles.isEmpty()) {
+      OperationOutcome outcome = new OperationOutcome();
+      outcome.addIssue()
+          .setSeverity(IssueSeverity.INFORMATION)
+          .setCode(IssueType.INFORMATIONAL)
+          .setDiagnostics("No questionnaires matched the request context.");
+      params.addParameter().setName("outcome").setResource(outcome);
     }
 
     return params;
   }
+
+  /**
+   * Applies necessary runtime transformations to the questionnaire before packaging.
+   * Source files are expected to be conformant; only deployment-specific adjustments are made here.
+   */
+  private void sanitizeQuestionnaireForValidation(
+      Questionnaire questionnaire, List<String> warnings, boolean adaptiveMode) {
+    normalizeAdaptiveQuestionnaireUrl(questionnaire, warnings);
+  }
+
+  private void normalizeAdaptiveQuestionnaireUrl(Questionnaire questionnaire, List<String> warnings) {
+    Extension adaptiveExt = questionnaire.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
+    if (adaptiveExt == null) {
+      return;
+    }
+
+    String targetUrl = responseBuilder.resolveNextQuestionUrl();
+    if (targetUrl == null || targetUrl.isBlank()) {
+      targetUrl = DEFAULT_NEXT_QUESTION_URL;
+    }
+
+    String currentUrl = adaptiveExt.hasValue() ? adaptiveExt.getValue().primitiveValue() : null;
+    if (targetUrl.equals(currentUrl)) {
+      return;
+    }
+
+    adaptiveExt.setValue(new UrlType(targetUrl));
+    warnings.add("Questionnaire " + questionnaire.getUrl()
+        + " had an incompatible questionnaireAdaptive URL; normalized to " + targetUrl + ".");
+  }
+
+  private void stripExpressionReferences(List<QuestionnaireItemComponent> items) {
+    if (items == null) {
+      return;
+    }
+    for (QuestionnaireItemComponent item : items) {
+      for (Extension ext : item.getExtension()) {
+        if (!CQL_EXPRESSION_EXT_URLS.contains(ext.getUrl()) || !(ext.getValue() instanceof Expression expression)) {
+          continue;
+        }
+        if (expression.hasReference()) {
+          expression.setReference(null);
+        }
+      }
+      stripExpressionReferences(item.getItem());
+    }
+  }
+
 }

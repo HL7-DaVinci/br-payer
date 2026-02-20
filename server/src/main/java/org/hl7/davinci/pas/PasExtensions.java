@@ -29,10 +29,12 @@ public final class PasExtensions {
   public static final String ITEM_TRACE_NUMBER = PAS_EXT_BASE + "extension-itemTraceNumber";
 
   // Claim extensions
+  public static final String CARE_TEAM_CLAIM_SCOPE = PAS_EXT_BASE + "extension-careTeamClaimScope";
   public static final String CERTIFICATION_TYPE = PAS_EXT_BASE + "extension-certificationType";
   public static final String SERVICE_ITEM_REQUEST_TYPE = PAS_EXT_BASE + "extension-serviceItemRequestType";
   public static final String LEVEL_OF_SERVICE_CODE = PAS_EXT_BASE + "extension-levelOfServiceCode";
   public static final String TRANSMISSION_IDENTIFIERS = PAS_EXT_BASE + "extension-TransmissionIdentifiers";
+  public static final String ITEM_REQUESTED_SERVICE = PAS_EXT_BASE + "extension-requestedService";
 
   // Claim Update extensions
   public static final String INFO_CHANGED = PAS_EXT_BASE + "extension-infoChanged";
@@ -55,6 +57,7 @@ public final class PasExtensions {
   public static final String PROFILE_PAS_CLAIM_INQUIRY = PAS_EXT_BASE + "profile-claim-inquiry";
   public static final String PROFILE_PAS_CLAIM_RESPONSE = PAS_EXT_BASE + "profile-claimresponse";
   public static final String PROFILE_PAS_CLAIM_UPDATE = PAS_EXT_BASE + "profile-claim-update";
+  public static final String PROFILE_PAS_BENEFICIARY = PAS_EXT_BASE + "profile-beneficiary";
   public static final String PROFILE_PAS_SUBSCRIBER = PAS_EXT_BASE + "profile-subscriber";
   public static final String PROFILE_PAS_INSURER = PAS_EXT_BASE + "profile-insurer";
   public static final String PROFILE_PAS_REQUESTOR = PAS_EXT_BASE + "profile-requestor";

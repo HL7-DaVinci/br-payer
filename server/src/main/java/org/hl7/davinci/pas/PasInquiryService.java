@@ -9,6 +9,7 @@ import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
@@ -95,7 +96,10 @@ public class PasInquiryService {
     if (!hasCoverageMatch(requestedClaim, inquiryCoverageRefs)) {
       return false;
     }
-    return hasIdentifierMatch(inquiryClaim, requestedClaim);
+    if (!hasIdentifierMatch(inquiryClaim, requestedClaim)) {
+      return false;
+    }
+    return hasItemTraceNumberMatch(inquiryClaim, requestedClaim);
   }
 
   private Claim readRequestedClaim(ClaimResponse claimResponse) {
@@ -159,6 +163,32 @@ public class PasInquiryService {
       return false;
     }
     return true;
+  }
+
+  /**
+   * When the inquiry Claim items carry itemTraceNumber extensions, at least one stored Claim item
+   * must share a matching trace number. This prevents seed-data or unrelated prior-authorization
+   * ClaimResponses from polluting inquiry results when the inquiry uses no Claim.identifier.
+   * If the inquiry has no item trace numbers, this check is skipped (returns true).
+   */
+  private boolean hasItemTraceNumberMatch(Claim inquiryClaim, Claim storedClaim) {
+    Set<String> inquiryTraceNumbers = extractItemTraceNumbers(inquiryClaim);
+    if (inquiryTraceNumbers.isEmpty()) {
+      return true;
+    }
+    Set<String> storedTraceNumbers = extractItemTraceNumbers(storedClaim);
+    return inquiryTraceNumbers.stream().anyMatch(storedTraceNumbers::contains);
+  }
+
+  private Set<String> extractItemTraceNumbers(Claim claim) {
+    return claim.getItem().stream()
+        .flatMap(item -> item.getExtensionsByUrl(PasExtensions.ITEM_TRACE_NUMBER).stream())
+        .map(Extension::getValue)
+        .filter(v -> v instanceof Identifier)
+        .map(v -> ((Identifier) v).getValue())
+        .filter(Objects::nonNull)
+        .filter(v -> !v.isBlank())
+        .collect(Collectors.toSet());
   }
 
   private String normalizeAllowedTypedReference(Reference reference, String expectedTypes) {

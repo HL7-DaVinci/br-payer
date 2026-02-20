@@ -1,0 +1,65 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "PriorAuthRequired",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PriorAuthRequired",
+  "version": "1.0.0",
+  "name": "PriorAuthRequired",
+  "title": "Prior Authorization Acknowledgment",
+  "status": "active",
+  "publisher": "Da Vinci",
+  "subjectType": ["Patient"],
+  "date": "2026-02-18",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        {
+          "url": "clinicalTime",
+          "valueCode": "under-5min"
+        },
+        {
+          "url": "totalTime",
+          "valueCode": "under-5min"
+        }
+      ]
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Prior Authorization Acknowledgment",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "1.1",
+          "text": "I acknowledge that prior authorization is required for this item. No additional clinical documentation is needed at this time.",
+          "type": "display"
+        },
+        {
+          "linkId": "1.2",
+          "text": "Provider confirms prior authorization has been obtained",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

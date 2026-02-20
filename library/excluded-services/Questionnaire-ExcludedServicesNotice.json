@@ -1,0 +1,65 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "ExcludedServicesNotice",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ExcludedServicesNotice",
+  "version": "1.0.0",
+  "name": "ExcludedServicesNotice",
+  "title": "Service Exclusion Notice",
+  "status": "active",
+  "publisher": "Da Vinci",
+  "subjectType": ["Patient"],
+  "date": "2026-02-18",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        {
+          "url": "clinicalTime",
+          "valueCode": "under-5min"
+        },
+        {
+          "url": "totalTime",
+          "valueCode": "under-5min"
+        }
+      ]
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Service Exclusion Notice",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "1.1",
+          "text": "This service is not covered under the current plan. Experimental and investigational gene therapy procedures are excluded from coverage pending FDA approval and evidence review.",
+          "type": "display"
+        },
+        {
+          "linkId": "1.2",
+          "text": "Patient has been informed of the coverage exclusion",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

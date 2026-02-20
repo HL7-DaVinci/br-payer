@@ -15,7 +15,7 @@
   "extension": [
     {
       "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive",
-      "valueUrl": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPrescribingJustification/$next-question"
+      "valueUrl": "http://localhost:8080/fhir/Questionnaire/$next-question"
     },
     {
       "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
@@ -83,9 +83,9 @@
           "type": "choice",
           "required": true,
           "answerOption": [
-            { "valueCoding": { "code": "acute", "display": "Acute (< 3 months)" } },
-            { "valueCoding": { "code": "subacute", "display": "Subacute (3-6 months)" } },
-            { "valueCoding": { "code": "chronic", "display": "Chronic (> 6 months)" } }
+            { "valueCoding": { "system": "http://snomed.info/sct", "code": "385315009", "display": "Sudden onset" } },
+            { "valueCoding": { "system": "http://snomed.info/sct", "code": "19939008", "display": "Subacute" } },
+            { "valueCoding": { "system": "http://snomed.info/sct", "code": "90734009", "display": "Chronic" } }
           ]
         },
         {

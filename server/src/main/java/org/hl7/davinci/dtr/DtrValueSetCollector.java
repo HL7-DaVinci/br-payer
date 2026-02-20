@@ -75,14 +75,11 @@ public class DtrValueSetCollector {
         vs.setDescription(vs.hasTitle() ? vs.getTitle() : vs.hasName() ? vs.getName() : "ValueSet " + url);
       }
 
+      normalizeCanonicalUrl(vs);
+      sanitizeInvalidSnomedConceptFilters(vs);
+
       // Pre-expand small ValueSets
       tryExpand(vs, warnings);
-
-      // Rewrite URL to version-specific
-      String versionSpecific = DtrFhirUtil.toVersionSpecific(vs.getUrl(), vs.getVersion());
-      if (versionSpecific != null && !versionSpecific.equals(vs.getUrl())) {
-        vs.setUrl(versionSpecific);
-      }
 
       valueSets.add(vs);
     }
@@ -206,6 +203,37 @@ public class DtrValueSetCollector {
   }
 
   /**
+   * Some externally sourced ValueSets encode exact SNOMED concept matches with
+   * filter op "=" on property "concept", which is not a permitted SNOMED filter
+   * operation in R4 validation. Convert those filters to explicit concepts.
+   */
+  private void sanitizeInvalidSnomedConceptFilters(ValueSet vs) {
+    if (!vs.hasCompose()) {
+      return;
+    }
+
+    for (ValueSet.ConceptSetComponent include : vs.getCompose().getInclude()) {
+      if (!"http://snomed.info/sct".equals(include.getSystem()) || !include.hasFilter()) {
+        continue;
+      }
+
+      List<ValueSet.ConceptSetFilterComponent> filters = new ArrayList<>(include.getFilter());
+      for (ValueSet.ConceptSetFilterComponent filter : filters) {
+        String opCode = filter.hasOp() ? filter.getOp().toCode() : null;
+        boolean equalOp = "=".equals(opCode) || filter.getOp() == ValueSet.FilterOperator.EQUAL;
+        if ("concept".equals(filter.getProperty())
+            && equalOp
+            && filter.hasValue()) {
+          include.getFilter().remove(filter);
+          if (!hasConceptCode(include, filter.getValue())) {
+            include.addConcept().setCode(filter.getValue());
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Count explicit concepts in compose.include[].concept[].
    * Returns -1 if size is unknown (no explicit concepts, only filters/imports).
    */
@@ -222,5 +250,22 @@ public class DtrValueSetCollector {
       }
     }
     return hasExplicitConcepts ? total : -1;
+  }
+
+  private void normalizeCanonicalUrl(ValueSet vs) {
+    if (!vs.hasUrl()) {
+      return;
+    }
+    String[] parsed = DtrFhirUtil.parseCanonical(vs.getUrl());
+    if (parsed.length > 0 && parsed[0] != null && !parsed[0].isBlank()) {
+      vs.setUrl(parsed[0]);
+    }
+  }
+
+  private boolean hasConceptCode(ValueSet.ConceptSetComponent include, String code) {
+    if (!include.hasConcept() || code == null) {
+      return false;
+    }
+    return include.getConcept().stream().anyMatch(c -> code.equals(c.getCode()));
   }
 }

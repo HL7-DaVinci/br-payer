@@ -1,0 +1,177 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "home-o2-std-questionnaire",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"
+    ]
+  },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/request-specific",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-entryMode",
+      "valueCode": "sequential"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        {
+          "url": "clinicalTime",
+          "valueCode": "under-5min"
+        },
+        {
+          "url": "totalTime",
+          "valueCode": "under-5min"
+        }
+      ]
+    }
+  ],
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/home-o2-std-questionnaire",
+  "version": "2.2.0-snapshot",
+  "name": "HomeOxygenTherapyStdQuestionnaire",
+  "title": "Home Oxygen Therapy Order Template",
+  "status": "active",
+  "subjectType": [
+    "Patient"
+  ],
+  "date": "2020-01-13T00:00:00+00:00",
+  "publisher": "HL7 International / Clinical Decision Support",
+  "contact": [
+    {
+      "name": "HL7 International / Clinical Decision Support",
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/dss"
+        }
+      ]
+    }
+  ],
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Patient Information",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "1.1",
+          "text": "Last Name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "linkId": "1.2",
+          "text": "Fist Name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "linkId": "1.3",
+          "text": "Middle Name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "linkId": "1.gender",
+          "definition": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-question-library#Demographics.sex",
+          "text": "What is this person's gender?",
+          "type": "choice",
+          "required": true,
+          "answerValueSet": "http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype"
+        },
+        {
+          "linkId": "1.4",
+          "text": "Date Of Birth",
+          "type": "date"
+        },
+        {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 1
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 400
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxDecimalPlaces",
+              "valueInteger": 2
+            }
+          ],
+          "linkId": "1.5",
+          "text": "Enter your weight in lb",
+          "type": "decimal"
+        },
+        {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/mimeType",
+              "valueCode": "image/jpeg"
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxSize",
+              "valueDecimal": 1048576
+            }
+          ],
+          "linkId": "1.6",
+          "text": "Attach latest x-ray",
+          "type": "attachment"
+        }
+      ]
+    },
+    {
+      "linkId": "2",
+      "text": "Calculation",
+      "type": "group",
+      "item": [
+        {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+              "valueExpression": {
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
+                    "valueExpression": {
+                      "language": "application/elm+json",
+                      "expression": "corresponding elm data"
+                    }
+                  }
+                ],
+                "description": "deadline for submission",
+                "language": "text/fhirpath",
+                "expression": "today() + 7 days"
+              }
+            }
+          ],
+          "linkId": "2.1",
+          "text": "Deadline for submission (7 days from now)",
+          "type": "date",
+          "readOnly": true
+        }
+      ]
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.ServiceRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -161,8 +162,33 @@ class PasRequestBuilderTest {
 
     boolean hasMb = patient.getIdentifier().stream()
         .anyMatch(id -> id.hasType() && id.getType().hasCoding()
-            && "MB".equals(id.getType().getCodingFirstRep().getCode()));
+            && "MB".equals(id.getType().getCodingFirstRep().getCode())
+            && id.hasSystem());
+    boolean hasMrCompanionCoding = patient.getIdentifier().stream()
+        .filter(id -> id.hasType() && id.getType().hasCoding()
+            && id.getType().getCoding().stream().anyMatch(c -> "MB".equals(c.getCode())))
+        .anyMatch(id -> id.getType().getCoding().stream().anyMatch(c -> "MR".equals(c.getCode())));
     assertTrue(hasMb, "Inquiry patient must have MB-typed identifier");
+    assertTrue(hasMrCompanionCoding, "Inquiry MB identifier should include an IdentifierType companion coding");
+  }
+
+  @Test
+  void buildSubmitBundle_patientSupportsBeneficiaryAndSubscriberProfiles() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
+
+    Patient patient = bundle.getEntry().stream()
+        .filter(e -> e.getResource() instanceof Patient)
+        .map(e -> (Patient) e.getResource())
+        .findFirst()
+        .orElseThrow();
+
+    assertTrue(patient.getMeta().hasProfile(PasExtensions.PROFILE_PAS_BENEFICIARY));
+    assertTrue(patient.getMeta().hasProfile(PasExtensions.PROFILE_PAS_SUBSCRIBER));
+    assertTrue(patient.getIdentifier().stream().anyMatch(id ->
+        id.hasType()
+            && id.getType().hasCoding()
+            && "MB".equals(id.getType().getCodingFirstRep().getCode())));
   }
 
   @Test
@@ -173,6 +199,81 @@ class PasRequestBuilderTest {
 
     assertTrue(claim.getMeta().hasProfile(PasExtensions.PROFILE_PAS_CLAIM_INQUIRY));
     assertFalse(claim.getMeta().hasProfile(PasExtensions.PROFILE_PAS_CLAIM));
+  }
+
+  @Test
+  void buildSeedResources_coverageRelationshipUsesFhirSelfCode() {
+    boolean hasFhirSelf = seed.coverage().getRelationship().getCoding().stream()
+        .anyMatch(c -> "http://terminology.hl7.org/CodeSystem/subscriber-relationship".equals(c.getSystem())
+            && "self".equals(c.getCode()));
+
+    assertTrue(hasFhirSelf, "Coverage.relationship must include FHIR self coding");
+    assertNotNull(seed.coverage().getSubscriber(), "Coverage.subscriber should be populated");
+    assertEquals("Patient/" + PasRequestBuilder.PATIENT_ID, seed.coverage().getSubscriber().getReference());
+  }
+
+  @Test
+  void buildSeedResources_coverageHasMemberIdIdentifier() {
+    boolean hasMemberIdIdentifier = seed.coverage().getIdentifier().stream()
+        .anyMatch(id -> id.hasType()
+            && id.getType().hasCoding()
+            && id.getType().getCoding().stream().anyMatch(c -> "MB".equals(c.getCode()))
+            && id.getType().getCoding().stream().anyMatch(c -> "MR".equals(c.getCode()))
+            && PasRequestBuilder.MEMBER_ID_SYSTEM.equals(id.getSystem())
+            && seed.coverage().getSubscriberId().equals(id.getValue()));
+
+    assertTrue(hasMemberIdIdentifier, "Coverage must include member ID identifier slice");
+  }
+
+  @Test
+  void buildSubmitBundle_claimHasIdentifier() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+
+    assertFalse(claim.getIdentifier().isEmpty(), "Claim must have an identifier");
+    assertEquals("oxygen", claim.getIdentifierFirstRep().getValue());
+  }
+
+  @Test
+  void buildSubmitBundle_nonPasFocusCodeFallsBackToX12RequestedServiceCode() {
+    Coding snomedFocus = new Coding("http://snomed.info/sct", "394579002", "Cardiology");
+    ScenarioMetadata meta = buildMetaWithFocus("cardio", "Cardiology", snomedFocus);
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, snomedFocus, seed, "I", "Initial");
+
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+    Coding claimCode = claim.getItemFirstRep().getProductOrService().getCodingFirstRep();
+    assertEquals(PasRequestBuilder.X12_REQUESTED_SERVICE_SYSTEM, claimCode.getSystem());
+    assertEquals(PasRequestBuilder.DEFAULT_REQUESTED_SERVICE_CODE, claimCode.getCode());
+
+    ServiceRequest serviceRequest = bundle.getEntry().stream()
+        .filter(e -> e.getResource() instanceof ServiceRequest)
+        .map(e -> (ServiceRequest) e.getResource())
+        .findFirst()
+        .orElseThrow();
+    Coding serviceRequestCode = serviceRequest.getCode().getCodingFirstRep();
+    assertEquals(PasRequestBuilder.X12_REQUESTED_SERVICE_SYSTEM, serviceRequestCode.getSystem());
+    assertEquals(PasRequestBuilder.DEFAULT_REQUESTED_SERVICE_CODE, serviceRequestCode.getCode());
+  }
+
+  @Test
+  void buildSubmitBundle_pasAllowedFocusCodeClearsDisplay() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+    Coding claimCode = claim.getItemFirstRep().getProductOrService().getCodingFirstRep();
+
+    assertFalse(claimCode.hasDisplay(), "Generated PAS request code display should be omitted");
+  }
+
+  @Test
+  void buildInquiryBundle_claimHasIdentifier() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildInquiryBundle(meta, meta.focusCodes().get(0), seed);
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+
+    assertFalse(claim.getIdentifier().isEmpty(), "Inquiry claim must have identifier (1..1 per profile)");
+    assertEquals("oxygen", claim.getIdentifierFirstRep().getValue());
   }
 
   @Test
@@ -210,6 +311,9 @@ class PasRequestBuilderTest {
     boolean hasPriorAuthId = claim.getIdentifier().stream()
         .anyMatch(id -> "http://example.org/PATIENT_EVENT_TRACE_NUMBER".equals(id.getSystem()));
     assertTrue(hasPriorAuthId, "Update bundle Claim must have a synthetic prior auth identifier");
+    assertFalse(claim.getRelated().isEmpty(), "Update bundle Claim must reference a prior claim");
+    assertEquals("Claim/oxygen-prior-auth-claim", claim.getRelatedFirstRep().getClaim().getReference());
+    assertEquals("prior", claim.getRelatedFirstRep().getRelationship().getCodingFirstRep().getCode());
   }
 
   @Test
@@ -221,6 +325,9 @@ class PasRequestBuilderTest {
     boolean hasPriorAuthId = claim.getIdentifier().stream()
         .anyMatch(id -> "http://example.org/PATIENT_EVENT_TRACE_NUMBER".equals(id.getSystem()));
     assertTrue(hasPriorAuthId, "Cancel bundle Claim must have a synthetic prior auth identifier");
+    assertFalse(claim.getRelated().isEmpty(), "Cancel bundle Claim must reference a prior claim");
+    assertEquals("Claim/oxygen-prior-auth-claim", claim.getRelatedFirstRep().getClaim().getReference());
+    assertEquals("prior", claim.getRelatedFirstRep().getRelationship().getCodingFirstRep().getCode());
   }
 
   // ===== Helpers =====
@@ -228,6 +335,10 @@ class PasRequestBuilderTest {
   private ScenarioMetadata buildMeta(String id, String name) {
     Coding focusCode = new Coding(
         "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", "E0424", "Stationary Oxygen");
+    return buildMetaWithFocus(id, name, focusCode);
+  }
+
+  private ScenarioMetadata buildMetaWithFocus(String id, String name, Coding focusCode) {
     return new ScenarioMetadata(
         id, name, null, List.of(focusCode), List.of("order-select"), "DeviceRequest",
         List.of(), false);

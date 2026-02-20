@@ -17,13 +17,18 @@ import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import ca.uhn.fhir.jpa.starter.AppProperties;
+
 class PasResponseBuilderTest {
 
+  private static final String SERVER_BASE = "http://localhost:8080/fhir";
   private PasResponseBuilder builder;
 
   @BeforeEach
   void setUp() {
-    builder = new PasResponseBuilder();
+    AppProperties appProperties = new AppProperties();
+    appProperties.setServer_address(SERVER_BASE);
+    builder = new PasResponseBuilder(appProperties);
   }
 
   @Test
@@ -57,6 +62,12 @@ class PasResponseBuilderTest {
     Extension numberExt = reviewAction.getExtensionByUrl("number");
     assertNotNull(numberExt, "Approved items must have an authorization number");
     assertTrue(((StringType) numberExt.getValue()).getValue().startsWith("AUTH"));
+
+    String fullUrl = response.getEntryFirstRep().getFullUrl();
+    assertTrue(fullUrl.startsWith(SERVER_BASE + "/ClaimResponse/"));
+    assertFalse(fullUrl.contains("/_history/"), "Response fullUrl should be versionless");
+    assertFalse(fullUrl.contains("/ClaimResponse/ClaimResponse/"),
+        "Response fullUrl should not duplicate the resource type segment");
   }
 
   @Test
@@ -180,21 +191,16 @@ class PasResponseBuilderTest {
   }
 
   @Test
-  void buildResolvedResponse_upgradesA4ToA1() {
-    // Build an initial pended response
+  void resolvePendedItems_upgradesA4ToA1() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
         new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A4, "Pending", true));
     Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
-    pendedCr.setId("CR-PENDED");
 
-    // Resolve it
-    Bundle resolvedBundle = builder.buildResolvedResponse(pendedCr, "AUTH");
-    ClaimResponse resolvedCr = (ClaimResponse) resolvedBundle.getEntryFirstRep().getResource();
+    builder.resolvePendedItems(pendedCr, "AUTH");
 
-    // Should now be A1 with auth number
-    ClaimResponse.ItemComponent item = resolvedCr.getItem().get(0);
+    ClaimResponse.ItemComponent item = pendedCr.getItem().get(0);
     Extension reviewAction = item.getAdjudication().get(0).getExtensionByUrl(PasExtensions.REVIEW_ACTION);
     Extension codeExt = reviewAction.getExtensionByUrl(PasExtensions.REVIEW_ACTION_CODE);
     CodeableConcept cc = (CodeableConcept) codeExt.getValue();
@@ -202,6 +208,75 @@ class PasResponseBuilderTest {
 
     Extension numberExt = reviewAction.getExtensionByUrl("number");
     assertNotNull(numberExt, "Resolved items must have an authorization number");
+  }
+
+  @Test
+  void resolvePendedItems_onlyUpgradesPendedItems() {
+    Claim claim = buildClaim();
+    claim.addItem().setSequence(2).setProductOrService(
+        new CodeableConcept().addCoding(new Coding("http://example.com", "99214", "Office Visit")));
+
+    var decisions = Map.of(
+        1, new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A4, "Pending", true),
+        2, new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A2, "Not Certified", false));
+    Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
+
+    builder.resolvePendedItems(pendedCr, "AUTH");
+
+    ClaimResponse.ItemComponent resolvedPendedItem = pendedCr.getItem().get(0);
+    Extension resolvedReviewAction = resolvedPendedItem.getAdjudication().get(0)
+        .getExtensionByUrl(PasExtensions.REVIEW_ACTION);
+    Extension resolvedCodeExt = resolvedReviewAction.getExtensionByUrl(PasExtensions.REVIEW_ACTION_CODE);
+    CodeableConcept resolvedCode = (CodeableConcept) resolvedCodeExt.getValue();
+    assertEquals("A1", resolvedCode.getCodingFirstRep().getCode());
+    assertNotNull(resolvedReviewAction.getExtensionByUrl("number"));
+    assertNotNull(resolvedPendedItem.getExtensionByUrl(PasExtensions.ITEM_PREAUTH_PERIOD));
+
+    ClaimResponse.ItemComponent unchangedDeniedItem = pendedCr.getItem().get(1);
+    Extension deniedReviewAction = unchangedDeniedItem.getAdjudication().get(0)
+        .getExtensionByUrl(PasExtensions.REVIEW_ACTION);
+    Extension deniedCodeExt = deniedReviewAction.getExtensionByUrl(PasExtensions.REVIEW_ACTION_CODE);
+    CodeableConcept deniedCode = (CodeableConcept) deniedCodeExt.getValue();
+    assertEquals("A2", deniedCode.getCodingFirstRep().getCode());
+    assertNull(deniedReviewAction.getExtensionByUrl("number"));
+    assertNull(unchangedDeniedItem.getExtensionByUrl(PasExtensions.ITEM_PREAUTH_PERIOD));
+  }
+
+  @Test
+  void modifyPendedItems_upgradesA4ToA6WithAuthNumber() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A4, "Pending", true));
+    Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
+
+    builder.modifyPendedItems(pendedCr, "MOD");
+
+    ClaimResponse.ItemComponent item = pendedCr.getItem().get(0);
+    Extension reviewAction = item.getAdjudication().get(0).getExtensionByUrl(PasExtensions.REVIEW_ACTION);
+    Extension codeExt = reviewAction.getExtensionByUrl(PasExtensions.REVIEW_ACTION_CODE);
+    CodeableConcept cc = (CodeableConcept) codeExt.getValue();
+    assertEquals("A6", cc.getCodingFirstRep().getCode());
+    assertEquals("Modified", cc.getCodingFirstRep().getDisplay());
+
+    Extension numberExt = reviewAction.getExtensionByUrl("number");
+    assertNotNull(numberExt, "Modified items must have an authorization number");
+    assertTrue(((StringType) numberExt.getValue()).getValue().startsWith("MOD"));
+  }
+
+  @Test
+  void modifyPendedItems_addsPreAuthPeriod() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A4, "Pending", true));
+    Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
+
+    builder.modifyPendedItems(pendedCr, "MOD");
+
+    Extension preAuthPeriod = pendedCr.getItem().get(0).getExtensionByUrl(PasExtensions.ITEM_PREAUTH_PERIOD);
+    assertNotNull(preAuthPeriod, "Modified items must have itemPreAuthPeriod");
   }
 
   // ===== Helpers =====

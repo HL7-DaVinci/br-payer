@@ -14,6 +14,7 @@ import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Reference;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
@@ -27,25 +28,27 @@ import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
  * so the provider classes stay thin and the business logic is testable in isolation.
  */
 @Service
+@EnableConfigurationProperties(PasProperties.class)
 public class PasSubmitService {
 
-  static final String PENDED_TAG_SYSTEM = "http://hl7.org/fhir/us/davinci-pas/tag";
+  static final String PENDED_TAG_SYSTEM = "http://example.org/fhir/us/davinci-pas/internal-tags";
   static final String PENDED_TAG_CODE = "pended-resolution";
-
-  private static final String AUTH_PREFIX = "AUTH-";
 
   private final PasBundleValidator validator;
   private final PasCoverageEvaluator evaluator;
   private final PasResponseBuilder responseBuilder;
   private final DaoRegistry daoRegistry;
+  private final PasProperties pasProperties;
   private final String serverBase;
 
   public PasSubmitService(PasBundleValidator validator, PasCoverageEvaluator evaluator,
-      PasResponseBuilder responseBuilder, DaoRegistry daoRegistry, AppProperties appProperties) {
+      PasResponseBuilder responseBuilder, DaoRegistry daoRegistry, AppProperties appProperties,
+      PasProperties pasProperties) {
     this.validator = validator;
     this.evaluator = evaluator;
     this.responseBuilder = responseBuilder;
     this.daoRegistry = daoRegistry;
+    this.pasProperties = pasProperties;
     String base = appProperties.getServer_address();
     this.serverBase = (base != null && base.endsWith("/"))
         ? base.substring(0, base.length() - 1) : base;
@@ -79,7 +82,7 @@ public class PasSubmitService {
     }
 
     Bundle responseBundle = responseBuilder.buildSubmitResponse(
-        claim, requestBundle, itemDecisions, AUTH_PREFIX);
+        claim, requestBundle, itemDecisions, pasProperties.authorizationNumberPrefix());
 
     // Tag ClaimResponse for scheduler discovery if any item is pended
     ClaimResponse claimResponse = (ClaimResponse) responseBundle.getEntryFirstRep().getResource();
@@ -87,22 +90,21 @@ public class PasSubmitService {
       claimResponse.getMeta().addTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE, "Pended Resolution");
     }
 
-    // The Claim arrives with the provider's server ID — strip it so the payer assigns its own.
-    // This prevents ID collisions and correctly separates provider vs payer identity.
+    // The incoming Claim will already have an ID from the provider, but we cannot use that.
     claim.setId((String) null);
     DaoMethodOutcome claimOutcome = daoRegistry.getResourceDao(Claim.class)
         .create(claim, new SystemRequestDetails());
 
-    // Point ClaimResponse.request at the payer's stored copy of the Claim
+    // Point ClaimResponse.request at our stored copy of the Claim
     String serverClaimId = claimOutcome.getId().getIdPart();
     claimResponse.setRequest(new Reference("Claim/" + serverClaimId));
 
-    // Store the ClaimResponse with a payer-assigned ID
+    // Store the ClaimResponse with a our ID
     claimResponse.setId((String) null);
     DaoMethodOutcome crOutcome = daoRegistry.getResourceDao(ClaimResponse.class)
         .create(claimResponse, new SystemRequestDetails());
 
-    // Update the response with the server-assigned ID and a resolvable fullUrl
+    // Update the response with our ID and a resolvable fullUrl
     String crId = crOutcome.getId().getIdPart();
     claimResponse.setId(crId);
     responseBundle.getEntryFirstRep()

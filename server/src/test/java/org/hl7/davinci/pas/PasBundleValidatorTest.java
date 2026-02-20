@@ -5,6 +5,7 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,8 +80,30 @@ class PasBundleValidatorTest {
   }
 
   @Test
+  void validateInquiryBundle_missingIdentifier_throws() {
+    Bundle bundle = buildMinimalBundleWithMemberIdentifier();
+    bundle.setIdentifier(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateInquiryBundle(bundle));
+  }
+
+  @Test
+  void validateInquiryBundle_missingTimestamp_throws() {
+    Bundle bundle = buildMinimalBundleWithMemberIdentifier();
+    bundle.setTimestamp(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateInquiryBundle(bundle));
+  }
+
+  @Test
+  void validateInquiryBundle_missingEntryFullUrl_throws() {
+    Bundle bundle = buildMinimalBundleWithMemberIdentifier();
+    bundle.getEntryFirstRep().setFullUrl(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateInquiryBundle(bundle));
+  }
+
+  @Test
   void validateInquiryBundle_missingMemberIdentifier_throws() {
-    Bundle bundle = buildMinimalBundle();  // no Patient resource in bundle with MB identifier
+    Bundle bundle = buildMinimalBundleWithMemberIdentifier();
+    bundle.getEntry().removeIf(e -> e.getResource() instanceof Patient);
     assertThrows(IllegalArgumentException.class, () -> validator.validateInquiryBundle(bundle));
   }
 
@@ -101,8 +124,37 @@ class PasBundleValidatorTest {
     return bundle;
   }
 
+  @Test
+  void validateInquiryBundle_missingClaimIdentifier_throws() {
+    Bundle bundle = buildMinimalBundleWithMemberIdentifier();
+    ((Claim) bundle.getEntryFirstRep().getResource()).getIdentifier().clear();
+    assertThrows(IllegalArgumentException.class, () -> validator.validateInquiryBundle(bundle));
+  }
+
+  @Test
+  void validateInquiryBundle_claimStatusNotActive_throws() {
+    Bundle bundle = buildMinimalBundleWithMemberIdentifier();
+    ((Claim) bundle.getEntryFirstRep().getResource()).setStatus(Claim.ClaimStatus.CANCELLED);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateInquiryBundle(bundle));
+  }
+
+  @Test
+  void validateInquiryBundle_missingClaimCreated_throws() {
+    Bundle bundle = buildMinimalBundleWithMemberIdentifier();
+    ((Claim) bundle.getEntryFirstRep().getResource()).setCreated(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateInquiryBundle(bundle));
+  }
+
   private Bundle buildMinimalBundleWithMemberIdentifier() {
     Bundle bundle = buildMinimalBundle();
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+    claim.addIdentifier(
+        new Identifier().setSystem("http://example.org/claim-identifiers").setValue("claim-001"));
+    claim.setStatus(Claim.ClaimStatus.ACTIVE);
+    claim.setCreated(new java.util.Date());
+    bundle.setIdentifier(
+        new Identifier().setSystem("http://example.org/bundles").setValue("bundle-001"));
+    bundle.setTimestamp(new java.util.Date());
     // Add Patient resource with MB identifier to bundle
     Patient patient = new Patient();
     patient.setId("1");
