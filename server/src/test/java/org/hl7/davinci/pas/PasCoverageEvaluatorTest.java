@@ -41,7 +41,7 @@ class PasCoverageEvaluatorTest {
   void mapCoverageInfo_notCovered_returnsA2() {
     Extension ext = buildCoverageInfoExt("not-covered", null, null);
     var decision = evaluator.mapCoverageInfoToReviewAction(ext);
-    assertEquals(PasExtensions.REVIEW_CODE_A2, decision.reviewActionCode());
+    assertEquals(PasConstants.REVIEW_CODE_A2, decision.reviewActionCode());
     assertFalse(decision.isPended());
   }
 
@@ -49,7 +49,7 @@ class PasCoverageEvaluatorTest {
   void mapCoverageInfo_conditional_returnsA4() {
     Extension ext = buildCoverageInfoExt("conditional", null, null);
     var decision = evaluator.mapCoverageInfoToReviewAction(ext);
-    assertEquals(PasExtensions.REVIEW_CODE_A4, decision.reviewActionCode());
+    assertEquals(PasConstants.REVIEW_CODE_A4, decision.reviewActionCode());
     assertTrue(decision.isPended());
   }
 
@@ -57,7 +57,7 @@ class PasCoverageEvaluatorTest {
   void mapCoverageInfo_authNeeded_noDoc_returnsA1() {
     Extension ext = buildCoverageInfoExt("covered", "auth-needed", "no-doc");
     var decision = evaluator.mapCoverageInfoToReviewAction(ext);
-    assertEquals(PasExtensions.REVIEW_CODE_A1, decision.reviewActionCode());
+    assertEquals(PasConstants.REVIEW_CODE_A1, decision.reviewActionCode());
     assertFalse(decision.isPended());
   }
 
@@ -65,7 +65,7 @@ class PasCoverageEvaluatorTest {
   void mapCoverageInfo_authNeeded_withDoc_returnsA4() {
     Extension ext = buildCoverageInfoExt("covered", "auth-needed", "clinical");
     var decision = evaluator.mapCoverageInfoToReviewAction(ext);
-    assertEquals(PasExtensions.REVIEW_CODE_A4, decision.reviewActionCode());
+    assertEquals(PasConstants.REVIEW_CODE_A4, decision.reviewActionCode());
     assertTrue(decision.isPended());
   }
 
@@ -73,7 +73,7 @@ class PasCoverageEvaluatorTest {
   void mapCoverageInfo_noAuth_returnsA3() {
     Extension ext = buildCoverageInfoExt("covered", "no-auth", null);
     var decision = evaluator.mapCoverageInfoToReviewAction(ext);
-    assertEquals(PasExtensions.REVIEW_CODE_A3, decision.reviewActionCode());
+    assertEquals(PasConstants.REVIEW_CODE_A3, decision.reviewActionCode());
     assertFalse(decision.isPended());
   }
 
@@ -95,7 +95,7 @@ class PasCoverageEvaluatorTest {
       CoverageDecision decision = evaluator.evaluate(
           orderCode, List.of(), coverage, patientId, dataBundle);
 
-      assertEquals(PasExtensions.REVIEW_CODE_A3, decision.reviewActionCode());
+      assertEquals(PasConstants.REVIEW_CODE_A3, decision.reviewActionCode());
       assertFalse(decision.isPended());
     }
 
@@ -113,7 +113,7 @@ class PasCoverageEvaluatorTest {
       CoverageDecision decision = evaluator.evaluate(
           orderCode, List.of(), coverage, patientId, dataBundle);
 
-      assertEquals(PasExtensions.REVIEW_CODE_A2, decision.reviewActionCode());
+      assertEquals(PasConstants.REVIEW_CODE_A2, decision.reviewActionCode());
       assertFalse(decision.isPended());
     }
 
@@ -137,7 +137,7 @@ class PasCoverageEvaluatorTest {
       CoverageDecision decision = evaluator.evaluate(
           orderCode, List.of(), coverage, patientId, dataBundle);
 
-      assertEquals(PasExtensions.REVIEW_CODE_A4, decision.reviewActionCode());
+      assertEquals(PasConstants.REVIEW_CODE_A4, decision.reviewActionCode());
       assertTrue(decision.isPended());
     }
 
@@ -154,7 +154,7 @@ class PasCoverageEvaluatorTest {
       CoverageDecision decision = evaluator.evaluate(
           orderCode, List.of(), coverage, patientId, dataBundle);
 
-      assertEquals(PasExtensions.REVIEW_CODE_A3, decision.reviewActionCode());
+      assertEquals(PasConstants.REVIEW_CODE_A3, decision.reviewActionCode());
       assertFalse(decision.isPended());
     }
 

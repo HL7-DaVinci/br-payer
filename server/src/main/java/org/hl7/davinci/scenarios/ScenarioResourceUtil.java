@@ -14,6 +14,7 @@ import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Practitioner;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.ServiceRequest;
 
 /**
  * Shared utilities for scenario generation used by both CRD and DTR request
@@ -29,7 +30,7 @@ public final class ScenarioResourceUtil {
   private static final String CRD_PRACTITIONER_PROFILE =
       "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/profile-practitioner";
 
-  /** Build a synthetic order resource (DeviceRequest, MedicationRequest, or Appointment). */
+  /** Build a synthetic order resource (DeviceRequest, MedicationRequest, ServiceRequest, or Appointment). */
   public static Resource buildOrderResource(Coding firstCode, String orderType, String scenarioId) {
     Coding codeCopy = firstCode.copy();
     // Displays from source metadata can drift from terminology package displays.
@@ -59,6 +60,18 @@ public final class ScenarioResourceUtil {
         mr.setRequester(new Reference("Practitioner/example"));
         mr.addInsurance(new Reference("Coverage/coverage-1"));
         return mr;
+      }
+      case "ServiceRequest" -> {
+        ServiceRequest sr = new ServiceRequest();
+        sr.setId(scenarioId + "-service-request");
+        sr.setStatus(ServiceRequest.ServiceRequestStatus.DRAFT);
+        sr.setIntent(ServiceRequest.ServiceRequestIntent.ORDER);
+        sr.setCode(new CodeableConcept().addCoding(codeCopy));
+        sr.setSubject(new Reference("Patient/example"));
+        sr.setAuthoredOn(new Date());
+        sr.setRequester(new Reference("Practitioner/example"));
+        sr.addInsurance(new Reference("Coverage/coverage-1"));
+        return sr;
       }
       case "Appointment" -> {
         Date start = new Date();

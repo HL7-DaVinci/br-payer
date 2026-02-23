@@ -7,7 +7,7 @@ import {
   Loader2,
   Send,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,16 +44,11 @@ function extractQrFromResponse(
   let fallback: QuestionnaireResponse | null = null;
 
   for (const param of params.parameter ?? []) {
-    if (
-      param.resource?.resourceType === "QuestionnaireResponse"
-    ) {
+    if (param.resource?.resourceType === "QuestionnaireResponse") {
       const qr = param.resource as QuestionnaireResponse;
 
       // Prefer current server contract, but accept spec examples that use "return".
-      if (
-        param.name === "questionnaire-response" ||
-        param.name === "return"
-      ) {
+      if (param.name === "questionnaire-response" || param.name === "return") {
         return qr;
       }
 
@@ -106,7 +101,6 @@ export function DtrAdaptivePanel({
     bundle.questionnaireResponse ?? null,
   );
   const [iterations, setIterations] = useState<AdaptiveIteration[]>([]);
-  const [initialized, setInitialized] = useState(false);
 
   const {
     mutateAsync: callNextQuestion,
@@ -118,76 +112,21 @@ export function DtrAdaptivePanel({
   useEffect(() => {
     setCurrentQr(bundle.questionnaireResponse ?? null);
     setIterations([]);
-    setInitialized(false);
     resetNextQuestion();
   }, [bundle.questionnaireResponse, resetNextQuestion]);
 
-  // Perform the initial $next-question call to get the first batch
-  const initializeAdaptive = useCallback(async () => {
-    if (initialized || !currentQr || currentQr.status === "completed") return;
-    setInitialized(true);
-    const inputQr = currentQr;
-
-    try {
-      const requestParams: Parameters = {
-        resourceType: "Parameters",
-        meta: {
-          profile: [
-            "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-next-question-input-parameters",
-          ],
-        },
-        parameter: [{ name: "questionnaire-response", resource: inputQr }],
-      };
-
-      const result = await callNextQuestion({
-        serverUrl,
-        questionnaireResponse: inputQr,
-      });
-
-      const responseQr = extractQrFromResponse(result);
-      if (responseQr) {
-        const previousLinkIds = new Set(getTopLevelLinkIds(inputQr));
-        const nextLinkIds = getTopLevelLinkIds(responseQr);
-        const newTopLevelLinkIds = nextLinkIds.filter(
-          (linkId) => !previousLinkIds.has(linkId),
-        );
-
-        setCurrentQr(responseQr);
-        setIterations([
-          {
-            index: 0,
-            request: requestParams,
-            response: result,
-            questionnaireResponse: responseQr,
-            newTopLevelLinkIds,
-            totalTopLevelGroups: nextLinkIds.length,
-          },
-        ]);
-      }
-    } catch {
-      // Error is captured by the mutation state
-    }
-  }, [initialized, currentQr, callNextQuestion, serverUrl]);
-
-  useEffect(() => {
-    initializeAdaptive();
-  }, [initializeAdaptive]);
-
-  const handleSubmitAndNext = async () => {
+  const handleNextQuestion = async () => {
     if (!currentQr || isComplete) return;
 
-    // Extract answers from LHC Forms
+    // If a form is rendered, extract answers and merge with the server's QR.
+    // On the initial call (adapt-search, no form), send the QR as-is.
     const formQr = formRef.current?.getQuestionnaireResponse();
-    if (!formQr) return;
-
-    // Merge: take items from the form but keep metadata from the server's QR
-    const mergedQr: QuestionnaireResponse = {
-      ...currentQr,
-      item: formQr.item,
-    };
+    const qrToSend: QuestionnaireResponse = formQr
+      ? { ...currentQr, item: formQr.item }
+      : currentQr;
 
     try {
-      const previousLinkIds = new Set(getTopLevelLinkIds(mergedQr));
+      const previousLinkIds = new Set(getTopLevelLinkIds(qrToSend));
       const requestParams: Parameters = {
         resourceType: "Parameters",
         meta: {
@@ -195,12 +134,12 @@ export function DtrAdaptivePanel({
             "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-next-question-input-parameters",
           ],
         },
-        parameter: [{ name: "questionnaire-response", resource: mergedQr }],
+        parameter: [{ name: "questionnaire-response", resource: qrToSend }],
       };
 
       const result = await callNextQuestion({
         serverUrl,
-        questionnaireResponse: mergedQr,
+        questionnaireResponse: qrToSend,
       });
 
       const responseQr = extractQrFromResponse(result);
@@ -232,6 +171,8 @@ export function DtrAdaptivePanel({
   const sourceCanonical = getSourceCanonical(containedQ);
   const latestIteration = iterations[iterations.length - 1];
   const isComplete = currentQr?.status === "completed";
+  const hasItems = (containedQ?.item?.length ?? 0) > 0;
+  const isInitialState = iterations.length === 0 && !hasItems;
 
   return (
     <div className="space-y-4">
@@ -299,33 +240,29 @@ export function DtrAdaptivePanel({
               View details
             </Button>
           )}
-          {iterations.length === 0 && currentQr && (
-            <div className="mt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  resetNextQuestion();
-                  setInitialized(false);
-                }}
-              >
-                Retry Initial Load
-              </Button>
-            </div>
-          )}
+          <div className="mt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => resetNextQuestion()}
+            >
+              Dismiss
+            </Button>
+          </div>
         </div>
       )}
 
       {/* Form rendering area */}
       <div>
-        {isNextPending && iterations.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-            <span className="text-sm text-muted-foreground">
-              Loading initial questions...
-            </span>
+        {isInitialState ? (
+          <div className="text-center py-12 border border-dashed rounded-md">
+            <p className="text-sm font-medium">No questions delivered yet</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Call <code>$next-question</code> to request the first batch of
+              questions from the server.
+            </p>
           </div>
-        ) : containedQ && currentQr ? (
+        ) : hasItems && containedQ && currentQr ? (
           <div className="py-4">
             <QuestionnaireForm
               ref={formRef}
@@ -357,28 +294,31 @@ export function DtrAdaptivePanel({
               </>
             ) : (
               <>
-                Last <code>$next-question</code> call delivered no new top-level groups.
-                This usually means a gating question is still unanswered.
+                Last <code>$next-question</code> call delivered no new top-level
+                groups. This usually means a gating question is still
+                unanswered.
               </>
             )}
           </div>
         )}
       </div>
 
-      {/* Submit button */}
+      {/* $next-question button */}
       <div className="pt-4 border-t">
         <div className="flex items-center justify-between">
           <Button
             size="sm"
-            onClick={handleSubmitAndNext}
-            disabled={isComplete || isNextPending || !containedQ}
+            onClick={handleNextQuestion}
+            disabled={isComplete || isNextPending || !currentQr}
           >
             {isNextPending ? (
               <Loader2 className="h-4 w-4 animate-spin mr-1" />
             ) : (
               <Send className="h-4 w-4 mr-1" />
             )}
-            Submit & Get Next Questions
+            {isInitialState
+              ? "Get First Questions"
+              : "Submit & Get Next Questions"}
           </Button>
         </div>
       </div>

@@ -194,7 +194,7 @@ class PasInquiryServiceTest {
     Identifier traceId = new Identifier()
         .setSystem("http://example.org/ITEM_TRACE_NUMBER")
         .setValue(traceValue);
-    Extension traceExt = new Extension(PasExtensions.ITEM_TRACE_NUMBER, traceId);
+    Extension traceExt = new Extension(PasConstants.ITEM_TRACE_NUMBER, traceId);
     claim.addItem().addExtension(traceExt);
   }
 

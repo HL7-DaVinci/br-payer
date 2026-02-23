@@ -557,7 +557,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Adaptive QR has dtr-questionnaireresponse-adapt profile")
     void adaptiveProfile() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertTrue(qr.getMeta().hasProfile(QR_ADAPT_PROFILE));
@@ -566,10 +566,22 @@ class DtrResponseBuilderTest {
     }
 
     @Test
+    @DisplayName("Adaptive QR starts with no items (pre-population deferred to $next-question)")
+    void adaptiveQr_noItems() {
+      // Even with items on the source questionnaire, the adaptive QR should be empty
+      adaptiveQ.addItem().setLinkId("1").setText("Some question");
+      DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
+          adaptiveProvenance(), List.of(), List.of());
+      QuestionnaireResponse qr = result.response();
+
+      assertTrue(qr.getItem().isEmpty(), "Adaptive QR should start with no items");
+    }
+
+    @Test
     @DisplayName("Adaptive QR has a generated UUID ID")
     void generatedUuid() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertNotNull(qr.getIdElement().getIdPart());
@@ -581,7 +593,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Adaptive QR contains a contained Questionnaire with no items")
     void containedQuestionnaire() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertEquals(1, qr.getContained().size());
@@ -597,7 +609,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Contained Questionnaire has derivedFrom pointing to adaptive Q canonical")
     void containedDerivedFrom() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
@@ -610,7 +622,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Contained Questionnaire has questionnaireAdaptive extension as valueUrl")
     void questionnaireAdaptiveExtension() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
@@ -628,7 +640,7 @@ class DtrResponseBuilderTest {
       order.setId("dr-1");
 
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of(order));
+          adaptiveProvenance(), List.of(order), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertNotNull(qr.getExtensionByUrl(QR_COVERAGE_EXT), "Should have qr-coverage");
@@ -640,7 +652,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Adaptive QR has correct status, questionnaire, and subject")
     void basicFields() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       assertEquals(QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS, qr.getStatus());
@@ -658,7 +670,7 @@ class DtrResponseBuilderTest {
           new DtrAdaptiveProperties(""), fallbackProps);
 
       DtrResponseBuilder.PrepopulationResult result = fallbackBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
@@ -678,7 +690,7 @@ class DtrResponseBuilderTest {
           new DtrAdaptiveProperties(""), slashProps);
 
       DtrResponseBuilder.PrepopulationResult result = slashBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
 
       Questionnaire contained = (Questionnaire) result.response().getContained().get(0);
       Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
@@ -690,7 +702,7 @@ class DtrResponseBuilderTest {
     @DisplayName("Adaptive extension uses explicit configured URL")
     void adaptiveExtensionWithExplicitUrl() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
 
       Questionnaire contained = (Questionnaire) result.response().getContained().get(0);
       Extension adaptiveExt = contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
@@ -707,7 +719,7 @@ class DtrResponseBuilderTest {
           new DtrAdaptiveProperties(""), emptyProps);
 
       DtrResponseBuilder.PrepopulationResult result = noUrlBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
-          adaptiveProvenance(), List.of());
+          adaptiveProvenance(), List.of(), List.of());
       QuestionnaireResponse qr = result.response();
 
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);

@@ -149,7 +149,7 @@ class DtrNextQuestionIT {
     void fullAdaptiveFlow_twoRoundTrips() throws IOException {
       // Step 1: Generate adaptive package (provides the initial QR with derivedFrom)
       Parameters packageResult = dtrPackageService.generatePackages(
-          testCoverage, List.of(), List.of(new CanonicalType(JUSTIFICATION_CANONICAL)), null);
+          testCoverage, List.of(), List.of(new CanonicalType(JUSTIFICATION_CANONICAL)), null, null);
 
       Bundle bundle = extractPackageBundle(packageResult);
       assertNotNull(bundle, "Should produce adaptive package");
@@ -210,7 +210,7 @@ class DtrNextQuestionIT {
     @DisplayName("enableWhen skips group 6 when 4.1 not answered")
     void enableWhenSkipsGroup_whenQuestionNotAnswered() {
       Parameters packageResult = dtrPackageService.generatePackages(
-          testCoverage, List.of(), List.of(new CanonicalType(JUSTIFICATION_CANONICAL)), null);
+          testCoverage, List.of(), List.of(new CanonicalType(JUSTIFICATION_CANONICAL)), null, null);
 
       Bundle bundle = extractPackageBundle(packageResult);
       QuestionnaireResponse adaptiveQr = bundle.getEntry().stream()

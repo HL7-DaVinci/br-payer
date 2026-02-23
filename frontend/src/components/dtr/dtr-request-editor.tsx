@@ -4,7 +4,6 @@ import {
   RequestEditor,
   type SummaryItem,
 } from "@/components/shared/request-editor";
-import { Badge } from "@/components/ui/badge";
 import type { DtrRequestVariant, DtrScenario } from "@/lib/dtr-types";
 
 interface DtrRequestEditorProps {
@@ -90,18 +89,7 @@ export function DtrRequestEditor({
   return (
     <RequestEditor
       scenarioName={scenario && variant ? scenario.name : null}
-      headerDescription={
-        variant && (
-          <>
-            {variant.label} path
-            {variant.pathType !== "canonical" && (
-              <Badge variant="outline" className="ml-2 text-[10px]">
-                {variant.pathType}
-              </Badge>
-            )}
-          </>
-        )
-      }
+      headerDescription={variant ? variant.label : undefined}
       requestJson={requestJson}
       onRequestJsonChange={onRequestJsonChange}
       onExecute={handleExecute}

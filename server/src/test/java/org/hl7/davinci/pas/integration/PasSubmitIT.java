@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
-import org.hl7.davinci.pas.PasExtensions;
+import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.pas.PasSubmitService;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
@@ -155,11 +155,11 @@ class PasSubmitIT {
           "Item " + item.getItemSequence() + " should have adjudication");
 
       Extension reviewAction = item.getAdjudicationFirstRep()
-          .getExtensionByUrl(PasExtensions.REVIEW_ACTION);
+          .getExtensionByUrl(PasConstants.REVIEW_ACTION);
       assertNotNull(reviewAction,
           "Item " + item.getItemSequence() + " adjudication should have reviewAction extension");
 
-      Extension reviewCode = reviewAction.getExtensionByUrl(PasExtensions.REVIEW_ACTION_CODE);
+      Extension reviewCode = reviewAction.getExtensionByUrl(PasConstants.REVIEW_ACTION_CODE);
       assertNotNull(reviewCode,
           "reviewAction should contain a reviewActionCode sub-extension");
     }

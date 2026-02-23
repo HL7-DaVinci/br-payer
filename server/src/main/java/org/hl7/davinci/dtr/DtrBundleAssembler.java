@@ -13,6 +13,8 @@ import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.springframework.stereotype.Component;
 
+import static org.hl7.davinci.dtr.DtrConstants.*;
+
 import ca.uhn.fhir.jpa.starter.AppProperties;
 
 /**
@@ -23,22 +25,8 @@ import ca.uhn.fhir.jpa.starter.AppProperties;
 @Component
 public class DtrBundleAssembler {
 
-  private static final String BUNDLE_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/DTR-QPackageBundle";
-
   private static final Set<String> ALLOWED_TYPES = Set.of(
       "Questionnaire", "Library", "ValueSet", "QuestionnaireResponse");
-
-  // CQL expression extension URLs to check for alternativeExpression
-  private static final Set<String> CQL_EXPRESSION_EXT_URLS = Set.of(
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-candidateExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-contextExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-enableWhenExpression");
-
-  private static final String ALT_EXPRESSION_EXT_URL =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression";
 
   private final AppProperties appProperties;
 
@@ -69,7 +57,7 @@ public class DtrBundleAssembler {
 
     Bundle bundle = new Bundle();
     bundle.setType(Bundle.BundleType.COLLECTION);
-    bundle.getMeta().addProfile(BUNDLE_PROFILE);
+    bundle.getMeta().addProfile(QPACKAGE_BUNDLE_PROFILE);
 
     String serverBase = getServerBase();
 
@@ -153,10 +141,10 @@ public class DtrBundleAssembler {
       for (Extension ext : item.getExtension()) {
         if (CQL_EXPRESSION_EXT_URLS.contains(ext.getUrl())) {
           // Check as sibling sub-extension (legacy location)
-          Extension altExt = ext.getExtensionByUrl(ALT_EXPRESSION_EXT_URL);
+          Extension altExt = ext.getExtensionByUrl(ALT_EXPRESSION_EXT);
           // Check on the Expression datatype's own extensions (correct FHIR structure)
           if (altExt == null && ext.hasValue()) {
-            altExt = ext.getValue().getExtensionByUrl(ALT_EXPRESSION_EXT_URL);
+            altExt = ext.getValue().getExtensionByUrl(ALT_EXPRESSION_EXT);
           }
           if (altExt == null) {
             return "item '" + item.getLinkId() + "' extension '" + ext.getUrl() + "'";

@@ -19,6 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import static org.hl7.davinci.dtr.DtrConstants.*;
+
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 
 /**
@@ -31,8 +33,6 @@ public class DtrLibraryResolver {
 
   private static final Logger logger = LoggerFactory.getLogger(DtrLibraryResolver.class);
 
-  private static final String CQF_LIBRARY_EXT_URL =
-      "http://hl7.org/fhir/StructureDefinition/cqf-library";
   private static final String CQL_CONTENT_TYPE = "text/cql";
   private static final String ELM_CONTENT_TYPE = "application/elm+json";
 
@@ -61,7 +61,7 @@ public class DtrLibraryResolver {
 
     // Extract cqf-library extension canonicals from the Questionnaire
     for (Extension ext : questionnaire.getExtension()) {
-      if (CQF_LIBRARY_EXT_URL.equals(ext.getUrl()) && ext.hasValue()) {
+      if (CQF_LIBRARY_EXT.equals(ext.getUrl()) && ext.hasValue()) {
         String canonical = ext.getValue().primitiveValue();
         resolveLibraryRecursive(canonical, resolved, visited, seenNames, warnings);
       }

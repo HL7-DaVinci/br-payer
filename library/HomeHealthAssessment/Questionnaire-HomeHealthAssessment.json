@@ -1,0 +1,220 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "HomeHealthAssessment",
+  "meta": {
+    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt-search"]
+  },
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeHealthAssessment",
+  "version": "1.0.0",
+  "name": "HomeHealthAssessment",
+  "title": "Home Health Service Assessment",
+  "status": "active",
+  "publisher": "Da Vinci",
+  "subjectType": ["Patient"],
+  "date": "2026-02-20",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive",
+      "valueUrl": "http://localhost:8080/fhir/Questionnaire/$next-question"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/rendering-styleSensitive",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
+      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeHealthAssessmentPrepopulation"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        { "url": "clinicalTime", "valueCode": "3-5min" },
+        { "url": "totalTime", "valueCode": "3-5min" }
+      ]
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "Service Category Selection",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "1.1",
+          "text": "What category of home health service is being requested?",
+          "type": "choice",
+          "required": true,
+          "answerOption": [
+            {
+              "valueCoding": {
+                "system": "http://snomed.info/sct",
+                "code": "9632001",
+                "display": "Nursing procedure"
+              }
+            },
+            {
+              "valueCoding": {
+                "system": "http://snomed.info/sct",
+                "code": "91251008",
+                "display": "Physical therapy procedure"
+              }
+            },
+            {
+              "valueCoding": {
+                "system": "http://snomed.info/sct",
+                "code": "84478008",
+                "display": "Occupational therapy"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "2",
+      "text": "Skilled Nursing Assessment",
+      "type": "group",
+      "enableWhen": [
+        {
+          "question": "1.1",
+          "operator": "=",
+          "answerCoding": {
+            "system": "http://snomed.info/sct",
+            "code": "9632001"
+          }
+        }
+      ],
+      "item": [
+        {
+          "linkId": "2.0",
+          "text": "Patient Information",
+          "type": "group",
+          "extension": [{
+            "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+            "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+          }]
+        },
+        {
+          "linkId": "2.1",
+          "text": "What type of skilled nursing service is needed?",
+          "type": "choice",
+          "required": true,
+          "answerOption": [
+            { "valueString": "Wound care" },
+            { "valueString": "IV therapy" },
+            { "valueString": "Medication management" },
+            { "valueString": "Disease management" },
+            { "valueString": "Other" }
+          ]
+        },
+        {
+          "linkId": "2.2",
+          "text": "Expected duration of service (weeks)",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "linkId": "2.3",
+          "text": "Has a physician certified the need for skilled nursing?",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "linkId": "3",
+      "text": "Physical Therapy Assessment",
+      "type": "group",
+      "enableWhen": [
+        {
+          "question": "1.1",
+          "operator": "=",
+          "answerCoding": {
+            "system": "http://snomed.info/sct",
+            "code": "91251008"
+          }
+        }
+      ],
+      "item": [
+        {
+          "linkId": "3.0",
+          "text": "Patient Information",
+          "type": "group",
+          "extension": [{
+            "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+            "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+          }]
+        },
+        {
+          "linkId": "3.1",
+          "text": "Primary diagnosis requiring physical therapy",
+          "type": "string",
+          "required": true
+        },
+        {
+          "linkId": "3.2",
+          "text": "Functional limitations",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "3.3",
+          "text": "Treatment goals",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "linkId": "4",
+      "text": "Occupational Therapy Assessment",
+      "type": "group",
+      "enableWhen": [
+        {
+          "question": "1.1",
+          "operator": "=",
+          "answerCoding": {
+            "system": "http://snomed.info/sct",
+            "code": "84478008"
+          }
+        }
+      ],
+      "item": [
+        {
+          "linkId": "4.0",
+          "text": "Patient Information",
+          "type": "group",
+          "extension": [{
+            "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+            "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
+          }]
+        },
+        {
+          "linkId": "4.1",
+          "text": "Primary diagnosis requiring occupational therapy",
+          "type": "string",
+          "required": true
+        },
+        {
+          "linkId": "4.2",
+          "text": "Activities of daily living (ADL) limitations",
+          "type": "text",
+          "required": true
+        },
+        {
+          "linkId": "4.3",
+          "text": "Treatment goals",
+          "type": "text",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

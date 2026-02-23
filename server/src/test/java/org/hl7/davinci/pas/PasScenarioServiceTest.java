@@ -47,6 +47,6 @@ class PasScenarioServiceTest {
         List.of("order-select"),
         "ServiceRequest",
         List.of(),
-        false);
+        false, false, false);
   }
 }

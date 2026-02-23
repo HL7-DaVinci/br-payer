@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 
-import org.hl7.davinci.common.FhirUtil;
+import org.hl7.davinci.common.CrdConstants;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -451,7 +451,7 @@ class DtrQuestionnaireResolverTest {
     RequestGroup requestGroup = new RequestGroup();
     for (String canonical : canonicals) {
       RequestGroup.RequestGroupActionComponent action = requestGroup.addAction();
-      Extension coverageInfo = new Extension(FhirUtil.COVERAGE_INFO_EXT_URL);
+      Extension coverageInfo = new Extension(CrdConstants.COVERAGE_INFO_EXT);
       coverageInfo.addExtension(new Extension("questionnaire", new CanonicalType(canonical)));
       action.addExtension(coverageInfo);
     }

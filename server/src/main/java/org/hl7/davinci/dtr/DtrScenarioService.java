@@ -1,6 +1,7 @@
 package org.hl7.davinci.dtr;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.hl7.davinci.scenarios.DtrRequestBuilder;
@@ -69,12 +70,14 @@ public class DtrScenarioService {
         .map(v -> new DtrVariantDto(
             v.id(), v.label(), v.pathType(),
             fhirContext.newJsonParser().setPrettyPrint(false)
-                .encodeResourceToString(v.parameters())))
+                .encodeResourceToString(v.parameters()),
+            v.headers()))
         .toList();
 
     return new DtrScenarioDto(
         scenario.id(), scenario.name(), scenario.description(),
-        scenario.orderType(), scenario.isAdaptive(), variantDtos);
+        scenario.orderType(), scenario.isAdaptive(), scenario.isAdaptiveSearch(),
+        variantDtos);
   }
 
   // ===== DTOs =====
@@ -85,6 +88,7 @@ public class DtrScenarioService {
       String description,
       String orderType,
       @JsonProperty("isAdaptive") boolean isAdaptive,
+      @JsonProperty("isAdaptiveSearch") boolean isAdaptiveSearch,
       List<DtrVariantDto> variants) {
   }
 
@@ -92,6 +96,7 @@ public class DtrScenarioService {
       String id,
       String label,
       String pathType,
-      @JsonRawValue String parameters) {
+      @JsonRawValue String parameters,
+      Map<String, String> headers) {
   }
 }

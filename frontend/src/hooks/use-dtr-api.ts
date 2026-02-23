@@ -24,12 +24,17 @@ export interface DtrError extends Error {
 // Fetch Helper
 // =============================================================================
 
-async function dtrFetch<T>(url: string, body: unknown): Promise<T> {
+async function dtrFetch<T>(
+  url: string,
+  body: unknown,
+  extraHeaders?: Record<string, string>,
+): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
     headers: {
       Accept: "application/fhir+json",
       "Content-Type": "application/fhir+json",
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   });
@@ -149,6 +154,7 @@ export function parsePackageResponse(params: Parameters): DtrPackageResponse {
 interface QuestionnairePackageParams {
   serverUrl: string;
   parameters: Parameters;
+  headers?: Record<string, string>;
 }
 
 export function useQuestionnairePackage() {
@@ -156,10 +162,12 @@ export function useQuestionnairePackage() {
     mutationFn: async ({
       serverUrl,
       parameters,
+      headers,
     }: QuestionnairePackageParams): Promise<DtrPackageResponse> => {
       const result = await dtrFetch<Parameters>(
         `${serverUrl}/Questionnaire/$questionnaire-package`,
         parameters,
+        headers,
       );
       return parsePackageResponse(result);
     },

@@ -18,6 +18,8 @@ import org.hl7.fhir.r4.model.UsageContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.hl7.davinci.dtr.DtrConstants.*;
+
 import ca.uhn.fhir.context.FhirContext;
 
 /**
@@ -29,13 +31,8 @@ public class LibraryScenarioScanner {
 
   private static final Logger logger = LoggerFactory.getLogger(LibraryScenarioScanner.class);
 
-  private static final String DTR_Q_PREFIX = "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/";
   private static final String USAGE_CONTEXT_TYPE_SYSTEM =
       "http://terminology.hl7.org/CodeSystem/usage-context-type";
-  private static final String QUESTIONNAIRE_ADAPTIVE_EXT =
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
-  private static final String Q_ADAPT_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt";
 
   private static final Set<String> SUB_QUESTIONNAIRE_NAMES = Set.of("PatientInfo");
 
@@ -88,7 +85,7 @@ public class LibraryScenarioScanner {
 
     for (Questionnaire q : questionnaires) {
       String qName = q.getName();
-      if (qName == null || !q.hasUrl() || !q.getUrl().startsWith(DTR_Q_PREFIX)) {
+      if (qName == null || !q.hasUrl() || !q.getUrl().startsWith(DTR_QUESTIONNAIRE_PREFIX)) {
         continue;
       }
       if (SUB_QUESTIONNAIRE_NAMES.contains(qName)) {
@@ -110,10 +107,19 @@ public class LibraryScenarioScanner {
 
       List<Coding> focusCodes = extractFocusCodes(pd);
       List<String> hookTriggers = extractHookTriggers(pd);
-      String orderType = inferOrderType(focusCodes);
+      String orderType = extractExplicitOrderType(pd);
+      if (orderType == null) {
+        orderType = inferOrderType(focusCodes);
+      }
       List<String> qUrls = associatedQs.stream().map(Questionnaire::getUrl).toList();
       boolean isAdaptive = associatedQs.stream()
           .anyMatch(LibraryScenarioScanner::isAdaptiveQuestionnaire);
+      boolean isAdaptiveSearch = isAdaptive && associatedQs.stream()
+          .filter(LibraryScenarioScanner::isAdaptiveQuestionnaire)
+          .anyMatch(q -> q.getMeta().hasProfile(Q_ADAPT_SEARCH_PROFILE));
+      boolean hasInitialItems = isAdaptive && associatedQs.stream()
+          .filter(LibraryScenarioScanner::isAdaptiveQuestionnaire)
+          .anyMatch(LibraryScenarioScanner::hasNonConditionalFirstItem);
 
       scenarios.add(new ScenarioMetadata(
           toKebabCase(pd.getName()),
@@ -123,11 +129,15 @@ public class LibraryScenarioScanner {
           hookTriggers,
           orderType,
           qUrls,
-          isAdaptive));
+          isAdaptive,
+          isAdaptiveSearch,
+          hasInitialItems));
     }
 
     // Orphan Questionnaires with no matching PlanDefinition
     for (Questionnaire q : unmatchedQuestionnaires) {
+      boolean orphanAdaptive = isAdaptiveQuestionnaire(q);
+      boolean orphanSearch = orphanAdaptive && q.getMeta().hasProfile(Q_ADAPT_SEARCH_PROFILE);
       scenarios.add(new ScenarioMetadata(
           toKebabCase(q.getName()),
           q.hasTitle() ? q.getTitle() : q.getName(),
@@ -136,7 +146,9 @@ public class LibraryScenarioScanner {
           List.of(),
           null,
           List.of(q.getUrl()),
-          isAdaptiveQuestionnaire(q)));
+          orphanAdaptive,
+          orphanSearch,
+          orphanAdaptive && hasNonConditionalFirstItem(q)));
     }
 
     scenarios.sort((a, b) -> a.name().compareTo(b.name()));
@@ -191,6 +203,24 @@ public class LibraryScenarioScanner {
     return new ArrayList<>(triggers);
   }
 
+  /**
+   * Extracts an explicit order type from a PlanDefinition's useContext with code "task".
+   * The value CodeableConcept text field specifies the FHIR resource type (e.g. "ServiceRequest").
+   * Returns null if no explicit order type is declared.
+   */
+  static String extractExplicitOrderType(PlanDefinition pd) {
+    for (UsageContext ctx : pd.getUseContext()) {
+      if (ctx.hasCode()
+          && USAGE_CONTEXT_TYPE_SYSTEM.equals(ctx.getCode().getSystem())
+          && "task".equals(ctx.getCode().getCode())
+          && ctx.hasValueCodeableConcept()
+          && ctx.getValueCodeableConcept().hasText()) {
+        return ctx.getValueCodeableConcept().getText();
+      }
+    }
+    return null;
+  }
+
   static String inferOrderType(List<Coding> focusCodes) {
     for (Coding code : focusCodes) {
       if (code.hasSystem()) {
@@ -203,11 +233,23 @@ public class LibraryScenarioScanner {
     return null;
   }
 
+  /**
+   * Returns true if the questionnaire's first top-level item has no enableWhen.
+   * This is independent of declared profile.
+   */
+  static boolean hasNonConditionalFirstItem(Questionnaire q) {
+    if (!q.hasItem()) {
+      return false;
+    }
+    return !q.getItemFirstRep().hasEnableWhen();
+  }
+
   static boolean isAdaptiveQuestionnaire(Questionnaire q) {
     if (q.hasExtension(QUESTIONNAIRE_ADAPTIVE_EXT)) {
       return true;
     }
-    return q.getMeta().hasProfile(Q_ADAPT_PROFILE);
+    return q.getMeta().hasProfile(Q_ADAPT_PROFILE)
+        || q.getMeta().hasProfile(Q_ADAPT_SEARCH_PROFILE);
   }
 
   /**
@@ -249,6 +291,8 @@ public class LibraryScenarioScanner {
       List<String> hookTriggers,
       String orderType,
       List<String> questionnaireUrls,
-      boolean isAdaptive) {
+      boolean isAdaptive,
+      boolean isAdaptiveSearch,
+      boolean hasInitialItems) {
   }
 }

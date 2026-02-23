@@ -62,7 +62,7 @@ class PasSubmitServiceTest {
 
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
     when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
 
     Bundle result = service.submit(requestBundle);
@@ -86,7 +86,7 @@ class PasSubmitServiceTest {
 
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A4, "Pended", true));
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pended", true));
     when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
 
     service.submit(requestBundle);
@@ -111,7 +111,7 @@ class PasSubmitServiceTest {
 
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
     when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
 
     Bundle result = service.submit(requestBundle);
@@ -157,7 +157,7 @@ class PasSubmitServiceTest {
 
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasExtensions.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
     when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
 
     service.submit(requestBundle);

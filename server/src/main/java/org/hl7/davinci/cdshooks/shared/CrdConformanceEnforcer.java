@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 
-import static org.hl7.davinci.cdshooks.shared.CrdConstants.COVERAGE_INFO_EXT_URL;
+import static org.hl7.davinci.common.CrdConstants.COVERAGE_INFO_EXT;
 
 /**
  * Static utility that enforces CRD profile conformance on CDS Hooks response resources.
@@ -161,7 +161,7 @@ public final class CrdConformanceEnforcer {
    * if coverage information is returned.
    */
   private static void stripDocNeededFromSecondaryHook(DomainResource resource) {
-    Extension coverageInfoExt = resource.getExtensionByUrl(COVERAGE_INFO_EXT_URL);
+    Extension coverageInfoExt = resource.getExtensionByUrl(COVERAGE_INFO_EXT);
     if (coverageInfoExt == null) {
       return;
     }

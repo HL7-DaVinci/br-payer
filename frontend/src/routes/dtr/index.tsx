@@ -245,7 +245,7 @@ function DtrPage() {
   const handleExecute = useCallback(
     (parameters: Parameters) => {
       executePackage(
-        { serverUrl, parameters },
+        { serverUrl, parameters, headers: selectedVariant?.headers },
         {
           onSuccess: (data) => {
             setResponseData(data);
@@ -259,7 +259,7 @@ function DtrPage() {
         },
       );
     },
-    [serverUrl, executePackage],
+    [serverUrl, executePackage, selectedVariant?.headers],
   );
 
   // Preview request

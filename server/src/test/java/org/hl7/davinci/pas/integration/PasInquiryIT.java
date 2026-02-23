@@ -8,7 +8,7 @@ import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import org.hl7.davinci.pas.PasExtensions;
+import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.pas.PasInquiryService;
 import org.hl7.davinci.pas.PasSubmitService;
 import org.hl7.fhir.r4.model.Bundle;
@@ -198,7 +198,7 @@ class PasInquiryIT {
     Claim submitClaim = (Claim) submitBundle.getEntryFirstRep().getResource();
 
     Claim inquiryClaim = new Claim();
-    inquiryClaim.getMeta().addProfile(PasExtensions.PROFILE_PAS_CLAIM_INQUIRY);
+    inquiryClaim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_INQUIRY);
     inquiryClaim.setStatus(Claim.ClaimStatus.ACTIVE);
     inquiryClaim.setType(submitClaim.getType().copy());
     inquiryClaim.setUse(Claim.Use.PREAUTHORIZATION);
@@ -220,7 +220,7 @@ class PasInquiryIT {
 
     Bundle inquiryBundle = new Bundle();
     inquiryBundle.setType(Bundle.BundleType.COLLECTION);
-    inquiryBundle.getMeta().addProfile(PasExtensions.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE);
+    inquiryBundle.getMeta().addProfile(PasConstants.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE);
     inquiryBundle.setIdentifier(new Identifier()
         .setSystem("http://example.org/INQUIRY_BUNDLE_ID")
         .setValue(UUID.randomUUID().toString()));

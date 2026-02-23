@@ -10,6 +10,7 @@ import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.IOUtils;
+import org.hl7.davinci.common.CrdConstants;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.core.io.DefaultResourceLoader;
@@ -32,7 +33,7 @@ public class CdsHooksTestUtils {
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private static final IParser fhirJsonParser = fhirContext.newJsonParser();
 
-  public static final String COVERAGE_INFO_EXT_URL = "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/ext-coverage-information";
+  public static final String COVERAGE_INFO_EXT_URL = CrdConstants.COVERAGE_INFO_EXT;
   public static final String CMS_PAYOR_SYSTEM = "urn:oid:2.16.840.1.113883.6.300";
   public static final String CMS_PAYOR_VALUE = "00001";
 

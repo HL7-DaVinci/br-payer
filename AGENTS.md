@@ -82,11 +82,11 @@ nx run frontend:copy-to-server
     - `api/` - REST controllers for non-FHIR APIs (`/api/dtr/`, `/api/crd/`)
     - `cdshooks/services/` - CDS Hook service implementations
     - `cdshooks/shared/` - Shared CDS Hooks utilities
-    - `common/` - Shared utilities (`PlanDefinitionService`, `FhirCodeExtractor`, `FhirUtil`)
+    - `common/` - Shared utilities (`PlanDefinitionService`, `FhirCodeExtractor`, `FhirUtil`, `CrdConstants`)
     - `config/` - Spring configuration
     - `cql/` - CQL file resolution and ELM compilation
     - `datainitializer/` - Startup resource loading and CQL compilation
-    - `dtr/` - DTR questionnaire pipeline (resolver, assemblers, response builder, session store)
+    - `dtr/` - DTR questionnaire pipeline (resolver, assemblers, response builder, session store, `DtrConstants`)
     - `providers/` - Custom FHIR resource providers
     - `scenarios/` - Test scenario generation from library PlanDefinitions (see below)
 
@@ -251,9 +251,22 @@ PlanDefinitions are matched based on:
 CQL should output a FHIR Extension matching [ext-coverage-information](https://build.fhir.org/ig/HL7/davinci-crd/en/StructureDefinition-ext-coverage-information.html). The extension is extracted from the RequestGroup returned by PlanDefinition/$apply.
 
 
+## IG Constants
+
+FHIR URL constants (profiles, extensions, code systems) are organized by implementation guide into dedicated classes. New constants should be placed in the class matching their IG.
+
+| IG | Class | Package | Contents |
+|----|-------|---------|----------|
+| **CRD** | `CrdConstants` | `common` | Coverage info extension, doc reason code system, card type system |
+| **DTR** | `DtrConstants` | `dtr` | Questionnaire/QR profiles, DTR + SDC extensions, CQL expression URLs, adaptive mode header, canonical prefixes |
+| **PAS** | `PasExtensions` | `pas` | PAS extension URLs, profile URLs, X12 review codes, extension builder helpers |
+
+`CrdConstants` is in `common/` because CRD constants are referenced from both the `cdshooks` and `dtr` packages. DTR and PAS constants live within their respective packages.
+
 ## Key Constraints
 
 1. **Do NOT modify HAPI starter code** in `src/main/java/ca/uhn/fhir/` - place custom code in `org.hl7.davinci`
 2. **Payer-only scope** - This server implements payer operations; DTR app launch URLs are provider-side concerns
-3. **CodeSystem for card types** - Use `http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp`, not custom codes
+3. **CodeSystem for card types** - Use `CrdConstants.CARD_TYPE_SYSTEM`, not hardcoded URLs
 4. **Coverage extension** - Always include required elements: `coverage`, `covered`, `date`, `coverage-assertion-id`
+5. **IG constants** - Place new FHIR URL constants in the correct IG constants class (see table above), not inline in consuming classes

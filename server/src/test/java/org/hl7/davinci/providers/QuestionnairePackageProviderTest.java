@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -21,15 +22,17 @@ class QuestionnairePackageProviderTest {
 
   private QuestionnairePackageProvider provider;
   private DtrPackageService mockPackageService;
+  private HttpServletRequest mockServletRequest;
   private Coverage testCoverage;
 
   @BeforeEach
   void setUp() {
     mockPackageService = mock(DtrPackageService.class);
+    mockServletRequest = mock(HttpServletRequest.class);
     // Return empty Parameters by default
-    when(mockPackageService.generatePackages(any(), any(), any(), any()))
+    when(mockPackageService.generatePackages(any(), any(), any(), any(), any()))
         .thenReturn(new Parameters());
-    provider = new QuestionnairePackageProvider(mockPackageService);
+    provider = new QuestionnairePackageProvider(mockPackageService, mockServletRequest);
     testCoverage = CdsHooksTestUtils.createTestCoverage("cov-1", "org-1");
   }
 
@@ -47,7 +50,7 @@ class QuestionnairePackageProviderTest {
           testCoverage, null, questionnaires, null, null);
 
       assertNotNull(result);
-      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), eq(questionnaires), isNull());
+      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), eq(questionnaires), isNull(), isNull());
     }
 
     @Test
@@ -60,7 +63,7 @@ class QuestionnairePackageProviderTest {
           testCoverage, orders, null, null, null);
 
       assertNotNull(result);
-      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), isNull(), isNull());
+      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), isNull(), isNull(), isNull());
     }
 
     @Test
@@ -75,7 +78,7 @@ class QuestionnairePackageProviderTest {
           testCoverage, orders, questionnaires, null, null);
 
       assertNotNull(result);
-      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), eq(questionnaires), isNull());
+      verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), eq(questionnaires), isNull(), isNull());
     }
 
     @Test
@@ -103,7 +106,7 @@ class QuestionnairePackageProviderTest {
 
       assertNotNull(result);
       verify(mockPackageService).generatePackages(
-          eq(testCoverage), anyList(), eq(questionnaires), any(InstantType.class));
+          eq(testCoverage), anyList(), eq(questionnaires), any(InstantType.class), isNull());
     }
   }
 
@@ -206,7 +209,7 @@ class QuestionnairePackageProviderTest {
     void serviceResult_returned() {
       Parameters serviceResult = new Parameters();
       serviceResult.addParameter().setName("packagebundle").setResource(new Bundle());
-      when(mockPackageService.generatePackages(any(), any(), any(), any()))
+      when(mockPackageService.generatePackages(any(), any(), any(), any(), any()))
           .thenReturn(serviceResult);
 
       List<CanonicalType> questionnaires = List.of(
@@ -229,7 +232,7 @@ class QuestionnairePackageProviderTest {
           .setCode(OperationOutcome.IssueType.INFORMATIONAL)
           .setDiagnostics("Service-level warning");
       serviceResult.addParameter().setName("outcome").setResource(serviceOutcome);
-      when(mockPackageService.generatePackages(any(), any(), any(), any()))
+      when(mockPackageService.generatePackages(any(), any(), any(), any(), any()))
           .thenReturn(serviceResult);
 
       // Trigger a provider-level warning via context parameter

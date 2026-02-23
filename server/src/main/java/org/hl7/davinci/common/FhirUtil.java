@@ -5,11 +5,9 @@ import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
 
 /**
- * Pure FHIR utility methods and shared Da Vinci IG constants used across CDS Hooks and DTR.
+ * Pure FHIR utility methods used across CDS Hooks and DTR.
  */
 public final class FhirUtil {
-
-  public static final String COVERAGE_INFO_EXT_URL = "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/ext-coverage-information";
 
   private FhirUtil() {
   }

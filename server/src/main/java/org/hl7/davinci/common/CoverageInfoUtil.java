@@ -34,7 +34,7 @@ public final class CoverageInfoUtil {
       if (action == null) {
         continue;
       }
-      Extension ext = action.getExtensionByUrl(FhirUtil.COVERAGE_INFO_EXT_URL);
+      Extension ext = action.getExtensionByUrl(CrdConstants.COVERAGE_INFO_EXT);
       if (ext != null) {
         coverageInfoExts.add(ext);
       }

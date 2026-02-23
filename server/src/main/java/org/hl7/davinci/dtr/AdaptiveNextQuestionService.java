@@ -31,6 +31,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import static org.hl7.davinci.dtr.DtrConstants.*;
+
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
@@ -51,16 +53,7 @@ public class AdaptiveNextQuestionService {
 
   private static final Logger logger = LoggerFactory.getLogger(AdaptiveNextQuestionService.class);
 
-  private static final String NEXT_QUESTION_OUTPUT_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-next-question-output-parameters";
-
   private static final String OUTPUT_PARAMETER_NAME = "questionnaire-response";
-  private static final String QR_COVERAGE_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
-  private static final String QR_CONTEXT_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
-  private static final String INFO_ORIGIN_EXT =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
 
   private final DaoRegistry daoRegistry;
   private final DtrSubQuestionnaireAssembler subQuestionnaireAssembler;

@@ -2,6 +2,7 @@ package org.hl7.davinci.scenarios;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -12,17 +13,14 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 
+import static org.hl7.davinci.dtr.DtrConstants.*;
+
 /**
  * Builds DTR $questionnaire-package request Parameters from ScenarioMetadata.
  * Produces canonical, order, and combined variants per scenario.
  * Pure FHIR model logic with no Spring dependencies.
  */
 public class DtrRequestBuilder {
-
-  private static final String DTR_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-qpackage-input-parameters";
-  private static final String DTR_Q_PREFIX =
-      "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/";
 
   private DtrRequestBuilder() {}
 
@@ -42,9 +40,32 @@ public class DtrRequestBuilder {
         String qKebab = questionnaireIdFromUrl(url);
         variants.add(new DtrVariant(
             qKebab + "-canonical",
-            buildQuestionnaireVariantLabel("Canonical", url, hasMultipleQuestionnaires),
+            buildQuestionnaireVariantLabel("Questionnaire", url, hasMultipleQuestionnaires),
             "canonical",
-            buildCanonicalParams(url, sharedCoverage)));
+            buildCanonicalParams(url, sharedCoverage),
+            null));
+
+        // For adaptive questionnaires that have initial items,
+        // offer the alternative mode so the user can compare both behaviors.
+        if (meta.isAdaptive() && meta.hasInitialItems()) {
+          if (meta.isAdaptiveSearch()) {
+            // Default is empty; offer "initial" to force initial items
+            variants.add(new DtrVariant(
+                qKebab + "-canonical-initial",
+                buildQuestionnaireVariantLabel("Questionnaire (initial)", url, hasMultipleQuestionnaires),
+                "canonical",
+                buildCanonicalParams(url, sharedCoverage),
+                Map.of(ADAPTIVE_MODE_HEADER, "initial")));
+          } else {
+            // Default has items; offer "search" to force empty
+            variants.add(new DtrVariant(
+                qKebab + "-canonical-search",
+                buildQuestionnaireVariantLabel("Questionnaire (search)", url, hasMultipleQuestionnaires),
+                "canonical",
+                buildCanonicalParams(url, sharedCoverage),
+                Map.of(ADAPTIVE_MODE_HEADER, "search")));
+          }
+        }
       }
 
       // Order and combined variants when focus codes and order type are available
@@ -55,15 +76,17 @@ public class DtrRequestBuilder {
         if (orderResource != null) {
           variants.add(new DtrVariant(
               meta.id() + "-order", "Order", "order",
-              buildOrderParams(orderResource, sharedCoverage)));
+              buildOrderParams(orderResource, sharedCoverage),
+              null));
 
           for (String url : meta.questionnaireUrls()) {
             String qKebab = questionnaireIdFromUrl(url);
             variants.add(new DtrVariant(
                 qKebab + "-combined",
-                buildQuestionnaireVariantLabel("Combined", url, hasMultipleQuestionnaires),
+                buildQuestionnaireVariantLabel("Questionnaire & Order", url, hasMultipleQuestionnaires),
                 "combined",
-                buildCombinedParams(url, orderResource, sharedCoverage)));
+                buildCombinedParams(url, orderResource, sharedCoverage),
+                null));
           }
         }
       }
@@ -76,6 +99,7 @@ public class DtrRequestBuilder {
           description,
           hasOrderType ? meta.orderType() : "Unknown",
           meta.isAdaptive(),
+          meta.isAdaptiveSearch(),
           variants));
     }
 
@@ -118,7 +142,7 @@ public class DtrRequestBuilder {
 
   static Parameters buildCanonicalParams(String canonical, Coverage coverage) {
     Parameters params = new Parameters();
-    params.getMeta().addProfile(DTR_PROFILE);
+    params.getMeta().addProfile(QPACKAGE_INPUT_PROFILE);
     params.addParameter().setName("coverage").setResource(coverage.copy());
     params.addParameter().setName("questionnaire").setValue(new CanonicalType(canonical));
     return params;
@@ -126,7 +150,7 @@ public class DtrRequestBuilder {
 
   static Parameters buildOrderParams(Resource order, Coverage coverage) {
     Parameters params = new Parameters();
-    params.getMeta().addProfile(DTR_PROFILE);
+    params.getMeta().addProfile(QPACKAGE_INPUT_PROFILE);
     params.addParameter().setName("coverage").setResource(coverage.copy());
     params.addParameter().setName("order").setResource(order);
     return params;
@@ -134,7 +158,7 @@ public class DtrRequestBuilder {
 
   static Parameters buildCombinedParams(String canonical, Resource order, Coverage coverage) {
     Parameters params = new Parameters();
-    params.getMeta().addProfile(DTR_PROFILE);
+    params.getMeta().addProfile(QPACKAGE_INPUT_PROFILE);
     params.addParameter().setName("coverage").setResource(coverage.copy());
     params.addParameter().setName("order").setResource(order);
     params.addParameter().setName("questionnaire").setValue(new CanonicalType(canonical));
@@ -144,8 +168,8 @@ public class DtrRequestBuilder {
   // ===== URL helpers =====
 
   static String questionnaireIdFromUrl(String url) {
-    String name = url.startsWith(DTR_Q_PREFIX)
-        ? url.substring(DTR_Q_PREFIX.length())
+    String name = url.startsWith(DTR_QUESTIONNAIRE_PREFIX)
+        ? url.substring(DTR_QUESTIONNAIRE_PREFIX.length())
         : url;
     return LibraryScenarioScanner.toKebabCase(name);
   }
@@ -186,6 +210,7 @@ public class DtrRequestBuilder {
       String description,
       String orderType,
       boolean isAdaptive,
+      boolean isAdaptiveSearch,
       List<DtrVariant> variants) {
   }
 
@@ -194,6 +219,7 @@ public class DtrRequestBuilder {
       String id,
       String label,
       String pathType,
-      Parameters parameters) {
+      Parameters parameters,
+      Map<String, String> headers) {
   }
 }

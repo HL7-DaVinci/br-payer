@@ -179,7 +179,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(Q_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       assertNotNull(result, "Result should not be null");
 
@@ -208,7 +208,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(Q_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle);
@@ -224,7 +224,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(Q_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle);
@@ -251,7 +251,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(Q_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle);
@@ -282,7 +282,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(Q_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       // Check outcome for alternativeExpression errors
       for (Parameters.ParametersParameterComponent param : result.getParameter()) {
@@ -312,7 +312,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(Q_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Should have package bundle. Warnings: " + extractWarnings(result));
@@ -383,7 +383,7 @@ class DtrQuestionnairePackageIT {
       deviceRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(deviceRequest), List.of(), null);
+          testCoverage, List.of(deviceRequest), List.of(), null, null);
 
       assertNotNull(result, "Result should not be null");
 
@@ -414,7 +414,7 @@ class DtrQuestionnairePackageIT {
           new CanonicalType("http://example.org/fhir/Questionnaire/DoesNotExist"));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       assertNotNull(result);
 
@@ -453,7 +453,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(HOME_OXYGEN_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       assertNotNull(result);
       Bundle bundle = extractPackageBundle(result);
@@ -471,7 +471,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(HOME_OXYGEN_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle);
@@ -495,7 +495,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(HOME_OXYGEN_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle);
@@ -529,7 +529,7 @@ class DtrQuestionnairePackageIT {
       deviceRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(deviceRequest), List.of(), null);
+          testCoverage, List.of(deviceRequest), List.of(), null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Order-based resolution should produce a package for E0424. "
@@ -559,7 +559,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(IMMUNO_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Should produce package. Warnings: " + extractWarnings(result));
@@ -576,7 +576,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(PROGRESS_NOTE_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Should produce package. Warnings: " + extractWarnings(result));
@@ -591,12 +591,12 @@ class DtrQuestionnairePackageIT {
     @DisplayName("Both questionnaires reference same prepopulation Library")
     void sharedLibrary_samePrepopulationLibraryInBothPackages() {
       Parameters mainResult = dtrPackageService.generatePackages(
-          testCoverage, List.of(), List.of(new CanonicalType(IMMUNO_CANONICAL)), null);
+          testCoverage, List.of(), List.of(new CanonicalType(IMMUNO_CANONICAL)), null, null);
       Bundle mainBundle = extractPackageBundle(mainResult);
       assertNotNull(mainBundle);
 
       Parameters noteResult = dtrPackageService.generatePackages(
-          testCoverage, List.of(), List.of(new CanonicalType(PROGRESS_NOTE_CANONICAL)), null);
+          testCoverage, List.of(), List.of(new CanonicalType(PROGRESS_NOTE_CANONICAL)), null, null);
       Bundle noteBundle = extractPackageBundle(noteResult);
       assertNotNull(noteBundle);
 
@@ -634,7 +634,7 @@ class DtrQuestionnairePackageIT {
       medRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(medRequest), List.of(), null);
+          testCoverage, List.of(medRequest), List.of(), null, null);
 
       long bundleCount = result.getParameter().stream()
           .filter(p -> "packagebundle".equals(p.getName()))
@@ -664,7 +664,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(PT_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Should have package bundle. Warnings: " + extractWarnings(result));
@@ -691,7 +691,7 @@ class DtrQuestionnairePackageIT {
               .setDisplay("Therapeutic exercises")));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(appointment), List.of(), null);
+          testCoverage, List.of(appointment), List.of(), null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNull(bundle,
@@ -734,7 +734,7 @@ class DtrQuestionnairePackageIT {
               .setDisplay("Therapeutic exercises")));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(appointment), List.of(), null);
+          testCoverage, List.of(appointment), List.of(), null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Exceeded session limit should produce a package for 97110. "
@@ -760,7 +760,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(CARDIO_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Should have package bundle. Warnings: " + extractWarnings(result));
@@ -784,7 +784,7 @@ class DtrQuestionnairePackageIT {
               .setDisplay("Cardiology")));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(appointment), List.of(), null);
+          testCoverage, List.of(appointment), List.of(), null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Order-based resolution should produce a package for 394579002. "
@@ -816,7 +816,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(JUSTIFICATION_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Should produce package. Warnings: " + extractWarnings(result));
@@ -839,7 +839,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(PDMP_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle, "Should produce package. Warnings: " + extractWarnings(result));
@@ -862,7 +862,7 @@ class DtrQuestionnairePackageIT {
       List<CanonicalType> canonicals = List.of(new CanonicalType(JUSTIFICATION_CANONICAL));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(), canonicals, null);
+          testCoverage, List.of(), canonicals, null, null);
 
       Bundle bundle = extractPackageBundle(result);
       assertNotNull(bundle);
@@ -913,7 +913,7 @@ class DtrQuestionnairePackageIT {
       medRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
-          testCoverage, List.of(medRequest), List.of(), null);
+          testCoverage, List.of(medRequest), List.of(), null, null);
 
       long bundleCount = result.getParameter().stream()
           .filter(p -> "packagebundle".equals(p.getName()))

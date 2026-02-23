@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.hl7.davinci.cdshooks.error.CdsHooksException;
 import org.hl7.davinci.common.BundleResourceUtil;
+import org.hl7.davinci.common.CrdConstants;
 import org.hl7.davinci.common.PayorIdentifierUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -155,7 +156,7 @@ public abstract class CdsServiceBase {
           return false;
         }
         if (action.getResource() instanceof org.hl7.fhir.r4.model.DomainResource domainResource) {
-          return domainResource.hasExtension(CrdConstants.COVERAGE_INFO_EXT_URL);
+          return domainResource.hasExtension(CrdConstants.COVERAGE_INFO_EXT);
         }
         return false;
       });

@@ -38,8 +38,8 @@ import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseCodingJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseLinkJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 
-import static org.hl7.davinci.cdshooks.shared.CrdConstants.CARD_TYPE_SYSTEM;
-import static org.hl7.davinci.cdshooks.shared.CrdConstants.COVERAGE_INFO_EXT_URL;
+import static org.hl7.davinci.common.CrdConstants.CARD_TYPE_SYSTEM;
+import static org.hl7.davinci.common.CrdConstants.COVERAGE_INFO_EXT;
 
 /**
  * Converts PlanDefinition $apply results (RequestGroups) into CDS Hooks
@@ -93,7 +93,7 @@ public class CardConverter {
       }
 
       if (topicCoding == null) {
-        if (action.getExtensionByUrl(COVERAGE_INFO_EXT_URL) != null) {
+        if (action.getExtensionByUrl(COVERAGE_INFO_EXT) != null) {
           logger.debug("Skipping action {} - no card type code and has coverage-info", actionId);
         } else {
           logger.debug("Skipping action {} - no card type code", actionId);
@@ -140,7 +140,7 @@ public class CardConverter {
 
       // Set indicator based on coverage status
       card.setIndicator(CdsServiceIndicatorEnum.INFO);
-      Extension coverageExt = action.getExtensionByUrl(COVERAGE_INFO_EXT_URL);
+      Extension coverageExt = action.getExtensionByUrl(COVERAGE_INFO_EXT);
       if (coverageExt != null) {
         Extension coveredExt = coverageExt.getExtensionByUrl("covered");
         if (coveredExt != null && "not-covered".equals(coveredExt.getValue().primitiveValue())) {
@@ -463,7 +463,7 @@ public class CardConverter {
 
     // Extract coverage reference from the coverage-information extension
     if (resource instanceof DomainResource dr) {
-      Extension coverageInfoExt = dr.getExtensionByUrl(COVERAGE_INFO_EXT_URL);
+      Extension coverageInfoExt = dr.getExtensionByUrl(COVERAGE_INFO_EXT);
       if (coverageInfoExt != null) {
         Extension coverageRefExt = coverageInfoExt.getExtensionByUrl("coverage");
         if (coverageRefExt != null && coverageRefExt.getValue() instanceof Reference ref) {

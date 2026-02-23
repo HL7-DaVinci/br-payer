@@ -28,7 +28,7 @@ import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 
-import static org.hl7.davinci.cdshooks.shared.CrdConstants.COVERAGE_INFO_EXT_URL;
+import static org.hl7.davinci.common.CrdConstants.COVERAGE_INFO_EXT;
 
 /**
  * Manages coverage-information extensions in CDS Hooks responses.
@@ -122,7 +122,7 @@ public class CoverageInfoHandler {
             return false;
           }
           if (action.getResource() instanceof DomainResource resource) {
-            return resource.hasExtension(COVERAGE_INFO_EXT_URL);
+            return resource.hasExtension(COVERAGE_INFO_EXT);
           }
           return false;
         });
@@ -136,7 +136,7 @@ public class CoverageInfoHandler {
       List<Resource> resources) {
     for (Resource resource : resources) {
       if (resource instanceof DomainResource domainResource
-          && domainResource.hasExtension(COVERAGE_INFO_EXT_URL)) {
+          && domainResource.hasExtension(COVERAGE_INFO_EXT)) {
         continue;
       }
       Extension coverageInfoExt = buildDefaultCoverageExtension(context);
@@ -154,7 +154,7 @@ public class CoverageInfoHandler {
    * Builds a default coverage-information extension based on available context.
    */
   public Extension buildDefaultCoverageExtension(ResolvedResources context) {
-    Extension coverageInfoExt = new Extension(COVERAGE_INFO_EXT_URL);
+    Extension coverageInfoExt = new Extension(COVERAGE_INFO_EXT);
     Coverage coverage = context.getCoverage();
 
     if (coverage == null || !coverage.hasIdElement()) {
@@ -207,7 +207,7 @@ public class CoverageInfoHandler {
   }
 
   private boolean isSameCoverageExtension(Extension ext, String coverageRef) {
-    if (!COVERAGE_INFO_EXT_URL.equals(ext.getUrl())) {
+    if (!COVERAGE_INFO_EXT.equals(ext.getUrl())) {
       return false;
     }
     Extension coverageExt = ext.getExtensionByUrl("coverage");
@@ -230,7 +230,7 @@ public class CoverageInfoHandler {
     }
 
     for (Extension ext : domainResource.getExtension()) {
-      if (!COVERAGE_INFO_EXT_URL.equals(ext.getUrl())) {
+      if (!COVERAGE_INFO_EXT.equals(ext.getUrl())) {
         continue;
       }
       if (coverageRef == null || isSameCoverageExtension(ext, coverageRef)) {

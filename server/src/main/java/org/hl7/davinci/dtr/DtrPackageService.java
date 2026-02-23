@@ -3,7 +3,6 @@ package org.hl7.davinci.dtr;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -26,6 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import static org.hl7.davinci.dtr.DtrConstants.*;
+
 /**
  * Orchestrates the DTR $questionnaire-package operation pipeline.
  * Coordinates questionnaire resolution, sub-questionnaire assembly, library resolution,
@@ -36,18 +37,8 @@ public class DtrPackageService {
 
   private static final Logger logger = LoggerFactory.getLogger(DtrPackageService.class);
 
-  private static final String OUTPUT_PROFILE =
-      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-qpackage-output-parameters";
-  private static final String QUESTIONNAIRE_ADAPTIVE_EXT =
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
   private static final String DEFAULT_NEXT_QUESTION_URL =
       "http://localhost:8080/fhir/Questionnaire/$next-question";
-  private static final Set<String> CQL_EXPRESSION_EXT_URLS = Set.of(
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-candidateExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-contextExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-enableWhenExpression");
 
   private final DtrQuestionnaireResolver questionnaireResolver;
   private final DtrSubQuestionnaireAssembler subQuestionnaireAssembler;
@@ -78,13 +69,16 @@ public class DtrPackageService {
    * @param validOrders             validated order resources (may be null/empty)
    * @param questionnaireCanonicals explicit questionnaire canonicals (may be null/empty)
    * @param changedsince            only include packages modified after this instant (may be null)
+   * @param adaptiveMode            header override: "search" forces adapt-search, "initial" forces
+   *                                initial items, null uses structural analysis (default)
    * @return Parameters with packagebundle(s) and optional outcome
    */
   public Parameters generatePackages(
       Coverage coverage,
       List<Resource> validOrders,
       List<CanonicalType> questionnaireCanonicals,
-      InstantType changedsince) {
+      InstantType changedsince,
+      String adaptiveMode) {
 
     List<String> warnings = new ArrayList<>();
 
@@ -109,7 +103,7 @@ public class DtrPackageService {
       }
 
       try {
-        Bundle packageBundle = processQuestionnaire(rq, coverage, validOrders, changedsince, warnings);
+        Bundle packageBundle = processQuestionnaire(rq, coverage, validOrders, changedsince, adaptiveMode, warnings);
         if (packageBundle != null) {
           packageBundles.add(packageBundle);
         }
@@ -129,6 +123,7 @@ public class DtrPackageService {
       Coverage coverage,
       List<Resource> validOrders,
       InstantType changedsince,
+      String adaptiveMode,
       List<String> warnings) {
 
     // Copy to avoid mutating repository state
@@ -167,9 +162,11 @@ public class DtrPackageService {
     QuestionnaireResponse qr;
     List<String> qrWarnings;
 
+    List<QuestionnaireItemComponent> initialItems = List.of();
     if (isAdaptiveQuestionnaire) {
+      initialItems = resolveInitialItems(questionnaire, adaptiveMode);
       var adaptiveResult = responseBuilder.buildAdaptiveResponse(
-          questionnaire, coverage, rq, orders);
+          questionnaire, coverage, rq, orders, initialItems);
       qr = adaptiveResult.response();
       qrWarnings = adaptiveResult.warnings();
     } else {
@@ -186,9 +183,20 @@ public class DtrPackageService {
     // bundle validation.
     stripExpressionReferences(questionnaire.getItem());
 
+    // Dual-mode adaptive packaging: include initial items when available,
+    // otherwise use item-less adapt-search profile.
+    Questionnaire bundleQuestionnaire = questionnaire;
+    if (isAdaptiveQuestionnaire) {
+      if (initialItems.isEmpty()) {
+        bundleQuestionnaire = createAdaptiveSearchQuestionnaire(questionnaire);
+      } else {
+        bundleQuestionnaire = createAdaptiveInitialQuestionnaire(questionnaire, initialItems);
+      }
+    }
+
     // Assemble bundle
     DtrBundleAssembler.BundleResult bundleResult = bundleAssembler.assembleBundle(
-        questionnaire, libraries, valueSets, qr);
+        bundleQuestionnaire, libraries, valueSets, qr);
 
     if (bundleResult.error() != null) {
       warnings.add(bundleResult.error());
@@ -225,7 +233,7 @@ public class DtrPackageService {
 
   private Parameters buildOutputParameters(List<Bundle> packageBundles, List<String> warnings) {
     Parameters params = new Parameters();
-    params.getMeta().addProfile(OUTPUT_PROFILE);
+    params.getMeta().addProfile(QPACKAGE_OUTPUT_PROFILE);
 
     for (Bundle bundle : packageBundles) {
       params.addParameter().setName("packagebundle").setResource(bundle);
@@ -280,6 +288,70 @@ public class DtrPackageService {
     adaptiveExt.setValue(new UrlType(targetUrl));
     warnings.add("Questionnaire " + questionnaire.getUrl()
         + " had an incompatible questionnaireAdaptive URL; normalized to " + targetUrl + ".");
+  }
+
+  /**
+   * Creates an item-less copy of the questionnaire for the adaptive bundle entry.
+   * The dtr-questionnaire-adapt-search profile requires item 0..0; items are
+   * delivered exclusively via $next-question.
+   */
+  private Questionnaire createAdaptiveSearchQuestionnaire(Questionnaire source) {
+    Questionnaire shell = source.copy();
+    shell.getItem().clear();
+    shell.getMeta().getProfile().clear();
+    shell.getMeta().addProfile(Q_ADAPT_SEARCH_PROFILE);
+    return shell;
+  }
+
+  /**
+   * Determines which initial items to include based on the adaptive mode.
+   * "search" header forces empty; "initial" forces structural analysis.
+   * Default (null) defers to the questionnaire's declared profile, falling back
+   * to structural analysis when no recognized profile is present.
+   */
+  List<QuestionnaireItemComponent> resolveInitialItems(Questionnaire questionnaire, String adaptiveMode) {
+    if ("search".equalsIgnoreCase(adaptiveMode)) {
+      return List.of();
+    }
+    if ("initial".equalsIgnoreCase(adaptiveMode)) {
+      return collectInitialItems(questionnaire);
+    }
+    if (questionnaire.hasMeta() && questionnaire.getMeta().hasProfile(Q_ADAPT_SEARCH_PROFILE)) {
+      return List.of();
+    }
+    return collectInitialItems(questionnaire);
+  }
+
+  /**
+   * Walks top-level items, collecting groups until hitting one with enableWhen.
+   * This mirrors the $next-question delivery algorithm which checks group-level
+   * enableWhen to determine conditional delivery boundaries.
+   */
+  List<QuestionnaireItemComponent> collectInitialItems(Questionnaire questionnaire) {
+    List<QuestionnaireItemComponent> result = new ArrayList<>();
+    for (QuestionnaireItemComponent item : questionnaire.getItem()) {
+      if (item.hasEnableWhen()) {
+        break;
+      }
+      result.add(item.copy());
+    }
+    return result;
+  }
+
+  /**
+   * Creates a copy of the questionnaire with only the initial items,
+   * using the dtr-questionnaire-adapt profile (allows items).
+   */
+  private Questionnaire createAdaptiveInitialQuestionnaire(
+      Questionnaire source, List<QuestionnaireItemComponent> initialItems) {
+    Questionnaire shell = source.copy();
+    shell.getItem().clear();
+    for (QuestionnaireItemComponent item : initialItems) {
+      shell.addItem(item);
+    }
+    shell.getMeta().getProfile().clear();
+    shell.getMeta().addProfile(Q_ADAPT_PROFILE);
+    return shell;
   }
 
   private void stripExpressionReferences(List<QuestionnaireItemComponent> items) {

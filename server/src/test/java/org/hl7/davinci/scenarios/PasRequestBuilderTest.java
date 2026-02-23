@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
-import org.hl7.davinci.pas.PasExtensions;
+import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
 import org.hl7.davinci.scenarios.PasRequestBuilder.PasScenario;
 import org.hl7.davinci.scenarios.PasRequestBuilder.PasVariant;
@@ -31,7 +31,7 @@ class PasRequestBuilderTest {
   @Test
   void build_noFocusCodes_skipsScenario() {
     ScenarioMetadata meta = new ScenarioMetadata(
-        "no-codes", "No Codes", null, List.of(), List.of(), null, List.of(), false);
+        "no-codes", "No Codes", null, List.of(), List.of(), null, List.of(), false, false, false);
 
     List<PasScenario> scenarios = PasRequestBuilder.build(List.of(meta));
     assertTrue(scenarios.isEmpty());
@@ -124,7 +124,7 @@ class PasRequestBuilderTest {
     Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
-    assertNotNull(claim.getItemFirstRep().getExtensionByUrl(PasExtensions.CERTIFICATION_TYPE));
+    assertNotNull(claim.getItemFirstRep().getExtensionByUrl(PasConstants.CERTIFICATION_TYPE));
   }
 
   @Test
@@ -133,7 +133,7 @@ class PasRequestBuilderTest {
     Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "R", "Renewal");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
-    Extension certTypeExt = claim.getItemFirstRep().getExtensionByUrl(PasExtensions.CERTIFICATION_TYPE);
+    Extension certTypeExt = claim.getItemFirstRep().getExtensionByUrl(PasConstants.CERTIFICATION_TYPE);
     assertNotNull(certTypeExt);
     CodeableConcept cc = (CodeableConcept) certTypeExt.getValue();
     assertEquals("R", cc.getCodingFirstRep().getCode());
@@ -183,8 +183,8 @@ class PasRequestBuilderTest {
         .findFirst()
         .orElseThrow();
 
-    assertTrue(patient.getMeta().hasProfile(PasExtensions.PROFILE_PAS_BENEFICIARY));
-    assertTrue(patient.getMeta().hasProfile(PasExtensions.PROFILE_PAS_SUBSCRIBER));
+    assertTrue(patient.getMeta().hasProfile(PasConstants.PROFILE_PAS_BENEFICIARY));
+    assertTrue(patient.getMeta().hasProfile(PasConstants.PROFILE_PAS_SUBSCRIBER));
     assertTrue(patient.getIdentifier().stream().anyMatch(id ->
         id.hasType()
             && id.getType().hasCoding()
@@ -197,8 +197,8 @@ class PasRequestBuilderTest {
     Bundle bundle = PasRequestBuilder.buildInquiryBundle(meta, meta.focusCodes().get(0), seed);
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
-    assertTrue(claim.getMeta().hasProfile(PasExtensions.PROFILE_PAS_CLAIM_INQUIRY));
-    assertFalse(claim.getMeta().hasProfile(PasExtensions.PROFILE_PAS_CLAIM));
+    assertTrue(claim.getMeta().hasProfile(PasConstants.PROFILE_PAS_CLAIM_INQUIRY));
+    assertFalse(claim.getMeta().hasProfile(PasConstants.PROFILE_PAS_CLAIM));
   }
 
   @Test
@@ -283,8 +283,8 @@ class PasRequestBuilderTest {
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     // infoChanged is a regular extension on each Claim.item per PAS IG
-    assertNotNull(claim.getItemFirstRep().getExtensionByUrl(PasExtensions.INFO_CHANGED));
-    assertTrue(claim.getModifierExtensionsByUrl(PasExtensions.INFO_CHANGED).isEmpty(),
+    assertNotNull(claim.getItemFirstRep().getExtensionByUrl(PasConstants.INFO_CHANGED));
+    assertTrue(claim.getModifierExtensionsByUrl(PasConstants.INFO_CHANGED).isEmpty(),
         "infoChanged must not be on the Claim root as a modifier extension");
   }
 
@@ -296,9 +296,9 @@ class PasRequestBuilderTest {
 
     // infoCancelled is a modifier extension on each Claim.item per PAS IG
     boolean itemHasInfoCancelled = claim.getItemFirstRep().getModifierExtension().stream()
-        .anyMatch(e -> PasExtensions.INFO_CANCELLED.equals(e.getUrl()));
+        .anyMatch(e -> PasConstants.INFO_CANCELLED.equals(e.getUrl()));
     assertTrue(itemHasInfoCancelled, "Claim.item must have infoCancelled modifier extension");
-    assertTrue(claim.getModifierExtensionsByUrl(PasExtensions.INFO_CANCELLED).isEmpty(),
+    assertTrue(claim.getModifierExtensionsByUrl(PasConstants.INFO_CANCELLED).isEmpty(),
         "infoCancelled must not be on the Claim root as a modifier extension");
   }
 
@@ -341,6 +341,6 @@ class PasRequestBuilderTest {
   private ScenarioMetadata buildMetaWithFocus(String id, String name, Coding focusCode) {
     return new ScenarioMetadata(
         id, name, null, List.of(focusCode), List.of("order-select"), "DeviceRequest",
-        List.of(), false);
+        List.of(), false, false, false);
   }
 }

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.hl7.davinci.dtr.DtrConstants;
 import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrScenario;
 import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrVariant;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
@@ -34,11 +35,11 @@ class DtrRequestBuilderTest {
         List.of(),
         null,
         List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenTherapy"),
-        false);
+        false, false, false);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
     assertEquals(1, scenario.variants().size());
-    assertEquals("Canonical", scenario.variants().get(0).label());
+    assertEquals("Questionnaire", scenario.variants().get(0).label());
   }
 
   @Test
@@ -59,19 +60,19 @@ class DtrRequestBuilderTest {
         List.of(
             "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugs",
             "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugsProgressNote"),
-        false);
+        false, false, false);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
 
     Set<String> canonicalLabels = labelsForPathType(scenario.variants(), "canonical");
     assertEquals(2, canonicalLabels.size());
-    assertTrue(canonicalLabels.contains("Canonical (ImmunosuppressiveDrugs)"));
-    assertTrue(canonicalLabels.contains("Canonical (ImmunosuppressiveDrugsProgressNote)"));
+    assertTrue(canonicalLabels.contains("Questionnaire (ImmunosuppressiveDrugs)"));
+    assertTrue(canonicalLabels.contains("Questionnaire (ImmunosuppressiveDrugsProgressNote)"));
 
     Set<String> combinedLabels = labelsForPathType(scenario.variants(), "combined");
     assertEquals(2, combinedLabels.size());
-    assertTrue(combinedLabels.contains("Combined (ImmunosuppressiveDrugs)"));
-    assertTrue(combinedLabels.contains("Combined (ImmunosuppressiveDrugsProgressNote)"));
+    assertTrue(combinedLabels.contains("Questionnaire & Order (ImmunosuppressiveDrugs)"));
+    assertTrue(combinedLabels.contains("Questionnaire & Order (ImmunosuppressiveDrugsProgressNote)"));
 
     Set<String> orderLabels = labelsForPathType(scenario.variants(), "order");
     assertEquals(Set.of("Order"), orderLabels);
@@ -100,7 +101,7 @@ class DtrRequestBuilderTest {
         List.of("order-select"),
         "DeviceRequest",
         List.of(),
-        false);
+        false, false, false);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
     Resource order = extractOrderResource(orderVariant(scenario));
@@ -124,7 +125,7 @@ class DtrRequestBuilderTest {
         List.of("order-select"),
         "MedicationRequest",
         List.of(),
-        false);
+        false, false, false);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
     Resource order = extractOrderResource(orderVariant(scenario));
@@ -149,7 +150,7 @@ class DtrRequestBuilderTest {
         List.of("appointment-book"),
         "Appointment",
         List.of(),
-        false);
+        false, false, false);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
     Resource order = extractOrderResource(orderVariant(scenario));
@@ -164,6 +165,75 @@ class DtrRequestBuilderTest {
         .anyMatch(p -> p.getType().stream().anyMatch(t -> t.getCoding().stream()
             .anyMatch(c -> "http://terminology.hl7.org/CodeSystem/v3-ParticipationType".equals(c.getSystem())
                 && "PPRF".equals(c.getCode())))));
+  }
+
+  @Test
+  @DisplayName("Adaptive questionnaire with initial items produces adaptive search variant")
+  void adaptiveWithInitialItems_producesSearchVariant() {
+    ScenarioMetadata metadata = new ScenarioMetadata(
+        "opioid",
+        "Opioid Prescribing",
+        null,
+        List.of(),
+        List.of(),
+        null,
+        List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidJustification"),
+        true, false, true);
+
+    DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
+    Set<String> canonicalLabels = labelsForPathType(scenario.variants(), "canonical");
+    assertEquals(2, canonicalLabels.size());
+    assertTrue(canonicalLabels.contains("Questionnaire"));
+    assertTrue(canonicalLabels.contains("Questionnaire (search)"));
+
+    DtrVariant searchVariant = scenario.variants().stream()
+        .filter(v -> v.id().endsWith("-canonical-search"))
+        .findFirst().orElseThrow();
+    assertEquals("search", searchVariant.headers().get(DtrConstants.ADAPTIVE_MODE_HEADER));
+  }
+
+  @Test
+  @DisplayName("Adaptive search questionnaire with initial items produces initial variant")
+  void adaptiveSearch_withInitialItems_producesInitialVariant() {
+    ScenarioMetadata metadata = new ScenarioMetadata(
+        "home-health",
+        "Home Health Assessment",
+        null,
+        List.of(),
+        List.of(),
+        null,
+        List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeHealthAssessment"),
+        true, true, true);
+
+    DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
+    Set<String> canonicalLabels = labelsForPathType(scenario.variants(), "canonical");
+    assertEquals(2, canonicalLabels.size());
+    assertTrue(canonicalLabels.contains("Questionnaire"));
+    assertTrue(canonicalLabels.contains("Questionnaire (initial)"));
+
+    DtrVariant initialVariant = scenario.variants().stream()
+        .filter(v -> v.id().endsWith("-canonical-initial"))
+        .findFirst().orElseThrow();
+    assertEquals("initial", initialVariant.headers().get(DtrConstants.ADAPTIVE_MODE_HEADER));
+  }
+
+  @Test
+  @DisplayName("Adaptive search questionnaire without initial items produces single variant")
+  void adaptiveSearch_noInitialItems_singleVariant() {
+    ScenarioMetadata metadata = new ScenarioMetadata(
+        "all-conditional",
+        "All Conditional",
+        null,
+        List.of(),
+        List.of(),
+        null,
+        List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/AllConditional"),
+        true, true, false);
+
+    DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
+    Set<String> canonicalLabels = labelsForPathType(scenario.variants(), "canonical");
+    assertEquals(1, canonicalLabels.size());
+    assertEquals("Questionnaire", canonicalLabels.iterator().next());
   }
 
   private Set<String> labelsForPathType(List<DtrVariant> variants, String pathType) {

@@ -182,7 +182,7 @@ public class PasInquiryService {
 
   private Set<String> extractItemTraceNumbers(Claim claim) {
     return claim.getItem().stream()
-        .flatMap(item -> item.getExtensionsByUrl(PasExtensions.ITEM_TRACE_NUMBER).stream())
+        .flatMap(item -> item.getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER).stream())
         .map(Extension::getValue)
         .filter(v -> v instanceof Identifier)
         .map(v -> ((Identifier) v).getValue())

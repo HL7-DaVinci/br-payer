@@ -20,6 +20,7 @@ export interface DtrScenario {
   description: string;
   orderType: string;
   isAdaptive: boolean;
+  isAdaptiveSearch: boolean;
   variants: DtrRequestVariant[];
 }
 
@@ -28,6 +29,7 @@ export interface DtrRequestVariant {
   label: string;
   pathType: "canonical" | "order" | "combined";
   parameters: Parameters;
+  headers?: Record<string, string>;
 }
 
 export interface DtrPackageResponse {

@@ -68,7 +68,7 @@ public class PasResponseBuilder {
       ClaimResponse sanitized = sanitizeForBundle(cr);
       Bundle responseBundle = wrapInResponseBundle(sanitized);
       responseBundle.getMeta().getProfile().clear();
-      responseBundle.getMeta().addProfile(PasExtensions.PROFILE_PAS_INQUIRY_RESPONSE_BUNDLE);
+      responseBundle.getMeta().addProfile(PasConstants.PROFILE_PAS_INQUIRY_RESPONSE_BUNDLE);
       params.addParameter().setName("responseBundle").setResource(responseBundle);
     }
     return params;
@@ -78,14 +78,14 @@ public class PasResponseBuilder {
    * Finalizes pended adjudications in-place, transitioning A4 to A1 (Certified).
    */
   public void resolvePendedItems(ClaimResponse claimResponse, String authNumberPrefix) {
-    finalizePendedItems(claimResponse, PasExtensions.REVIEW_CODE_A1, "Certified in total", authNumberPrefix);
+    finalizePendedItems(claimResponse, PasConstants.REVIEW_CODE_A1, "Certified in total", authNumberPrefix);
   }
 
   /**
    * Finalizes pended adjudications in-place, transitioning A4 to A6 (Modified).
    */
   public void modifyPendedItems(ClaimResponse claimResponse, String authNumberPrefix) {
-    finalizePendedItems(claimResponse, PasExtensions.REVIEW_CODE_A6, "Modified", authNumberPrefix);
+    finalizePendedItems(claimResponse, PasConstants.REVIEW_CODE_A6, "Modified", authNumberPrefix);
   }
 
   // ===== Internal =====
@@ -99,13 +99,13 @@ public class PasResponseBuilder {
           continue;
         }
 
-        adj.getExtension().removeIf(e -> PasExtensions.REVIEW_ACTION.equals(e.getUrl()));
+        adj.getExtension().removeIf(e -> PasConstants.REVIEW_ACTION.equals(e.getUrl()));
         String authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
-        adj.addExtension(PasExtensions.buildReviewActionExtension(targetCode, targetDisplay, authNumber));
+        adj.addExtension(PasConstants.buildReviewActionExtension(targetCode, targetDisplay, authNumber));
         itemWasFinalized = true;
       }
 
-      if (itemWasFinalized && item.getExtensionByUrl(PasExtensions.ITEM_PREAUTH_PERIOD) == null) {
+      if (itemWasFinalized && item.getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD) == null) {
         item.addExtension(buildDefaultPreAuthPeriod());
       }
     }
@@ -116,7 +116,7 @@ public class PasResponseBuilder {
 
     ClaimResponse cr = new ClaimResponse();
     cr.setId(UUID.randomUUID().toString());
-    cr.getMeta().addProfile(PasExtensions.PROFILE_PAS_CLAIM_RESPONSE);
+    cr.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_RESPONSE);
 
     cr.setStatus(ClaimResponse.ClaimResponseStatus.ACTIVE);
     cr.setType(requestClaim.getType().copy());
@@ -137,7 +137,7 @@ public class PasResponseBuilder {
     for (Claim.ItemComponent requestItem : requestClaim.getItem()) {
       int seq = requestItem.getSequence();
       CoverageDecision decision = itemDecisions.getOrDefault(seq,
-          new CoverageDecision(PasExtensions.REVIEW_CODE_A3, "Not Required", false));
+          new CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false));
 
       ClaimResponse.ItemComponent responseItem = cr.addItem();
       responseItem.setItemSequence(seq);
@@ -147,13 +147,13 @@ public class PasResponseBuilder {
       adj.setCategory(new CodeableConcept().addCoding(
           new Coding(ADJUDICATION_SYSTEM, "submitted", "Submitted Amount")));
 
-      boolean isApproved = PasExtensions.REVIEW_CODE_A1.equals(decision.reviewActionCode());
+      boolean isApproved = PasConstants.REVIEW_CODE_A1.equals(decision.reviewActionCode());
       String authNumber = null;
       if (isApproved) {
         authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
       }
 
-      adj.addExtension(PasExtensions.buildReviewActionExtension(
+      adj.addExtension(PasConstants.buildReviewActionExtension(
           decision.reviewActionCode(), decision.reviewActionDisplay(), authNumber));
 
       // Approved items get additional extensions per PAS IG
@@ -167,7 +167,7 @@ public class PasResponseBuilder {
 
   private Bundle wrapInResponseBundle(ClaimResponse claimResponse) {
     Bundle bundle = new Bundle();
-    bundle.getMeta().addProfile(PasExtensions.PROFILE_PAS_RESPONSE_BUNDLE);
+    bundle.getMeta().addProfile(PasConstants.PROFILE_PAS_RESPONSE_BUNDLE);
     bundle.setType(Bundle.BundleType.COLLECTION);
     bundle.setTimestamp(new Date());
     bundle.setIdentifier(new Identifier()
@@ -188,18 +188,18 @@ public class PasResponseBuilder {
   }
 
   private boolean isPendedReviewAction(ClaimResponse.AdjudicationComponent adjudication) {
-    Extension reviewAction = adjudication.getExtensionByUrl(PasExtensions.REVIEW_ACTION);
+    Extension reviewAction = adjudication.getExtensionByUrl(PasConstants.REVIEW_ACTION);
     if (reviewAction == null) {
       return false;
     }
 
-    Extension codeExt = reviewAction.getExtensionByUrl(PasExtensions.REVIEW_ACTION_CODE);
+    Extension codeExt = reviewAction.getExtensionByUrl(PasConstants.REVIEW_ACTION_CODE);
     if (codeExt == null || !(codeExt.getValue() instanceof CodeableConcept codeableConcept)) {
       return false;
     }
 
     return codeableConcept.getCoding().stream()
-        .anyMatch(coding -> PasExtensions.REVIEW_CODE_A4.equals(coding.getCode()));
+        .anyMatch(coding -> PasConstants.REVIEW_CODE_A4.equals(coding.getCode()));
   }
 
   private Extension buildDefaultPreAuthPeriod() {
@@ -212,7 +212,7 @@ public class PasResponseBuilder {
     Period period = new Period();
     period.setStart(now);
     period.setEnd(oneMonthLater);
-    return new Extension(PasExtensions.ITEM_PREAUTH_PERIOD, period);
+    return new Extension(PasConstants.ITEM_PREAUTH_PERIOD, period);
   }
 
   private ClaimResponse sanitizeForBundle(ClaimResponse source) {

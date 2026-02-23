@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.hl7.davinci.cdshooks.error.OperationOutcomeBuilder;
 import org.hl7.davinci.common.BaseProvider;
+import org.hl7.davinci.dtr.DtrConstants;
 import org.hl7.davinci.dtr.DtrPackageService;
 import org.hl7.fhir.instance.model.api.IAnyResource;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Component;
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.annotation.OperationParam;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Implements the DTR $questionnaire-package operation.
@@ -53,8 +55,11 @@ public class QuestionnairePackageProvider extends BaseProvider {
 
   private final DtrPackageService dtrPackageService;
 
-  public QuestionnairePackageProvider(DtrPackageService dtrPackageService) {
+  private final HttpServletRequest servletRequest;
+
+  public QuestionnairePackageProvider(DtrPackageService dtrPackageService, HttpServletRequest servletRequest) {
     this.dtrPackageService = dtrPackageService;
+    this.servletRequest = servletRequest;
   }
 
   @Operation(
@@ -134,9 +139,14 @@ public class QuestionnairePackageProvider extends BaseProvider {
       warnings.add("The 'context' parameter was provided but is not yet supported; it was ignored.");
     }
 
+    // Extract adaptive mode header for dual-mode adaptive questionnaire packaging
+    String adaptiveMode = servletRequest != null
+        ? servletRequest.getHeader(DtrConstants.ADAPTIVE_MODE_HEADER)
+        : null;
+
     // Delegate to service
     Parameters result = dtrPackageService.generatePackages(
-        theCoverage, validOrders, theQuestionnaires, theChangedsince);
+        theCoverage, validOrders, theQuestionnaires, theChangedsince, adaptiveMode);
 
     // Merge provider-level warnings into result outcome
     if (!warnings.isEmpty()) {

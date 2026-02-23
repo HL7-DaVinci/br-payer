@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import org.hl7.davinci.pas.PasExtensions;
+import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
 import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.Bundle;
@@ -36,8 +36,8 @@ import org.hl7.fhir.r4.model.ServiceRequest;
 public class PasRequestBuilder {
 
   // Profile URLs referenced from PasExtensions for request/inquiry bundles
-  static final String PROFILE_PAS_REQUEST_BUNDLE = PasExtensions.PROFILE_PAS_REQUEST_BUNDLE;
-  static final String PROFILE_PAS_INQUIRY_REQUEST_BUNDLE = PasExtensions.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE;
+  static final String PROFILE_PAS_REQUEST_BUNDLE = PasConstants.PROFILE_PAS_REQUEST_BUNDLE;
+  static final String PROFILE_PAS_INQUIRY_REQUEST_BUNDLE = PasConstants.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE;
 
   // X12 code systems
   static final String X12_CERT_TYPE_SYSTEM = "https://codesystem.x12.org/005010/1322";
@@ -124,21 +124,21 @@ public class PasRequestBuilder {
       String certTypeCode, String certTypeDisplay) {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
     Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, certTypeCode, certTypeDisplay);
-    claim.getMeta().addProfile(PasExtensions.PROFILE_PAS_CLAIM);
+    claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM);
     return wrapInBundle(PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
   }
 
   static Bundle buildInquiryBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed) {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
     Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, "I", "Initial");
-    claim.getMeta().addProfile(PasExtensions.PROFILE_PAS_CLAIM_INQUIRY);
+    claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_INQUIRY);
     return wrapInBundle(PROFILE_PAS_INQUIRY_REQUEST_BUNDLE, claim, seed, true, serviceRequest);
   }
 
   static Bundle buildUpdateBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed) {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
     Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, "I", "Initial");
-    claim.getMeta().addProfile(PasExtensions.PROFILE_PAS_CLAIM_UPDATE);
+    claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_UPDATE);
     addPriorRelatedClaim(claim, meta.id() + "-prior-auth-claim");
     // Synthetic prior auth identifier referencing a hypothetical previous
     // authorization
@@ -148,7 +148,7 @@ public class PasRequestBuilder {
     // PAS IG: infoChanged is a regular extension on each Claim.item with a
     // valueCode
     for (Claim.ItemComponent item : claim.getItem()) {
-      item.addExtension(new Extension(PasExtensions.INFO_CHANGED, new CodeType("changed")));
+      item.addExtension(new Extension(PasConstants.INFO_CHANGED, new CodeType("changed")));
     }
     return wrapInBundle(PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
   }
@@ -156,7 +156,7 @@ public class PasRequestBuilder {
   static Bundle buildCancelBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed) {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
     Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, "I", "Initial");
-    claim.getMeta().addProfile(PasExtensions.PROFILE_PAS_CLAIM_UPDATE);
+    claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_UPDATE);
     addPriorRelatedClaim(claim, meta.id() + "-prior-auth-claim");
     // Synthetic prior auth identifier referencing a hypothetical previous
     // authorization
@@ -166,7 +166,7 @@ public class PasRequestBuilder {
     // PAS IG: infoCancelled is a modifier extension on each Claim.item
     for (Claim.ItemComponent item : claim.getItem()) {
       item.addModifierExtension(
-          new Extension(PasExtensions.INFO_CANCELLED, new org.hl7.fhir.r4.model.BooleanType(true)));
+          new Extension(PasConstants.INFO_CANCELLED, new org.hl7.fhir.r4.model.BooleanType(true)));
     }
     return wrapInBundle(PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
   }
@@ -208,7 +208,7 @@ public class PasRequestBuilder {
     claim.addCareTeam()
         .setSequence(1)
         .setProvider(new Reference("PractitionerRole/" + PRACTITIONER_ROLE_ID));
-    claim.getCareTeam().get(0).addExtension(PasExtensions.CARE_TEAM_CLAIM_SCOPE, new BooleanType(true));
+    claim.getCareTeam().get(0).addExtension(PasConstants.CARE_TEAM_CLAIM_SCOPE, new BooleanType(true));
 
     // Item with focus code and required PAS extensions
     Claim.ItemComponent item = claim.addItem();
@@ -220,21 +220,21 @@ public class PasRequestBuilder {
         "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set", "11", "Office")));
     item.setProductOrService(new CodeableConcept().addCoding(normalizeRequestedServiceCoding(focusCode)));
 
-    item.addExtension(PasExtensions.CERTIFICATION_TYPE,
+    item.addExtension(PasConstants.CERTIFICATION_TYPE,
         new CodeableConcept().addCoding(new Coding(X12_CERT_TYPE_SYSTEM, certTypeCode, certTypeDisplay)));
 
     // serviceItemRequestType = "HS" (Health Services Review)
-    item.addExtension(PasExtensions.SERVICE_ITEM_REQUEST_TYPE,
+    item.addExtension(PasConstants.SERVICE_ITEM_REQUEST_TYPE,
         new CodeableConcept().addCoding(new Coding(X12_SERVICE_TYPE_SYSTEM, "HS",
             "Health Services Review")));
 
     // itemTraceNumber
-    item.addExtension(PasExtensions.ITEM_TRACE_NUMBER,
+    item.addExtension(PasConstants.ITEM_TRACE_NUMBER,
         new Identifier().setSystem("http://example.org/ITEM_TRACE_NUMBER")
             .setValue(meta.id() + "-trace"));
 
     // requestedService reference
-    item.addExtension(PasExtensions.ITEM_REQUESTED_SERVICE,
+    item.addExtension(PasConstants.ITEM_REQUESTED_SERVICE,
         new Reference("ServiceRequest/" + serviceRequest.getId()));
 
     return claim;
@@ -243,7 +243,7 @@ public class PasRequestBuilder {
   static ServiceRequest buildServiceRequest(ScenarioMetadata meta, Coding focusCode) {
     ServiceRequest sr = new ServiceRequest();
     sr.setId(meta.id() + "-service-request");
-    sr.getMeta().addProfile(PasExtensions.PROFILE_PAS_SERVICE_REQUEST);
+    sr.getMeta().addProfile(PasConstants.PROFILE_PAS_SERVICE_REQUEST);
     sr.setStatus(ServiceRequest.ServiceRequestStatus.ACTIVE);
     sr.setIntent(ServiceRequest.ServiceRequestIntent.ORDER);
     sr.setCode(new CodeableConcept().addCoding(normalizeRequestedServiceCoding(focusCode)));
@@ -328,8 +328,8 @@ public class PasRequestBuilder {
   static Patient buildPatient() {
     Patient patient = new Patient();
     patient.setId(PATIENT_ID);
-    patient.getMeta().addProfile(PasExtensions.PROFILE_PAS_BENEFICIARY);
-    patient.getMeta().addProfile(PasExtensions.PROFILE_PAS_SUBSCRIBER);
+    patient.getMeta().addProfile(PasConstants.PROFILE_PAS_BENEFICIARY);
+    patient.getMeta().addProfile(PasConstants.PROFILE_PAS_SUBSCRIBER);
 
     patient.addIdentifier()
         .setSystem(MEMBER_ID_SYSTEM)
@@ -359,7 +359,7 @@ public class PasRequestBuilder {
   static Organization buildInsurer() {
     Organization org = new Organization();
     org.setId(INSURER_ID);
-    org.getMeta().addProfile(PasExtensions.PROFILE_PAS_INSURER);
+    org.getMeta().addProfile(PasConstants.PROFILE_PAS_INSURER);
     org.setActive(true);
     org.addIdentifier().setSystem(NPI_SYSTEM).setValue("1234567893");
     org.addType().addCoding(new Coding("https://codesystem.x12.org/005010/98", "PR", null));
@@ -370,7 +370,7 @@ public class PasRequestBuilder {
   static Organization buildProvider() {
     Organization org = new Organization();
     org.setId(PROVIDER_ID);
-    org.getMeta().addProfile(PasExtensions.PROFILE_PAS_REQUESTOR);
+    org.getMeta().addProfile(PasConstants.PROFILE_PAS_REQUESTOR);
     org.setActive(true);
     org.addIdentifier().setSystem(NPI_SYSTEM).setValue("8189991234");
     org.addType().addCoding(new Coding("https://codesystem.x12.org/005010/98", "X3", null));
@@ -381,7 +381,7 @@ public class PasRequestBuilder {
   static Coverage buildCoverage() {
     Coverage coverage = new Coverage();
     coverage.setId(COVERAGE_ID);
-    coverage.getMeta().addProfile(PasExtensions.PROFILE_PAS_COVERAGE);
+    coverage.getMeta().addProfile(PasConstants.PROFILE_PAS_COVERAGE);
     coverage.setStatus(Coverage.CoverageStatus.ACTIVE);
     coverage.setSubscriberId("1122334455");
     coverage.addIdentifier()
@@ -415,7 +415,7 @@ public class PasRequestBuilder {
   static PractitionerRole buildPractitionerRole() {
     PractitionerRole role = new PractitionerRole();
     role.setId(PRACTITIONER_ROLE_ID);
-    role.getMeta().addProfile(PasExtensions.PROFILE_PAS_PRACTITIONER_ROLE);
+    role.getMeta().addProfile(PasConstants.PROFILE_PAS_PRACTITIONER_ROLE);
     role.setPractitioner(new Reference("Practitioner/" + PRACTITIONER_ID));
     role.addTelecom().setSystem(
         org.hl7.fhir.r4.model.ContactPoint.ContactPointSystem.PHONE).setValue("4029993456");
@@ -425,7 +425,7 @@ public class PasRequestBuilder {
   static Practitioner buildPractitioner() {
     Practitioner practitioner = new Practitioner();
     practitioner.setId(PRACTITIONER_ID);
-    practitioner.getMeta().addProfile(PasExtensions.PROFILE_PAS_PRACTITIONER);
+    practitioner.getMeta().addProfile(PasConstants.PROFILE_PAS_PRACTITIONER);
     practitioner.addIdentifier().setSystem(NPI_SYSTEM).setValue("1234567893");
     practitioner.addName().setFamily("WATSON").addGiven("SUSAN");
     return practitioner;

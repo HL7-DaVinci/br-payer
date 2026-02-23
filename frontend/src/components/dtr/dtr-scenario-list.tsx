@@ -24,14 +24,14 @@ export function DtrScenarioList(props: DtrScenarioListProps) {
               variant="outline"
               className="text-[10px] shrink-0 border-amber-500/50 text-amber-600 dark:text-amber-400"
             >
-              Adaptive
+              {scenario.isAdaptiveSearch ? "Adaptive Search" : "Adaptive"}
             </Badge>
           )}
         </>
       )}
       getVariants={(s) => s.variants}
       shouldShowVariants={(s) => s.variants.length > 1}
-      variantLabel="Request Path"
+      variantLabel="Request Parameters"
     />
   );
 }

@@ -32,6 +32,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import static org.hl7.davinci.common.CrdConstants.DOC_REASON_SYSTEM;
+import static org.hl7.davinci.dtr.DtrConstants.*;
+
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
@@ -49,15 +52,6 @@ public class DtrResponseBuilder {
 
   private static final Logger logger = LoggerFactory.getLogger(DtrResponseBuilder.class);
 
-  private static final String QR_PROFILE = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse";
-  private static final String QR_ADAPT_PROFILE = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
-  private static final String Q_ADAPT_PROFILE = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt";
-  private static final String QR_COVERAGE_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage";
-  private static final String INTENDED_USE_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse";
-  private static final String QR_CONTEXT_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context";
-  private static final String CRD_DOC_REASON_SYSTEM = "http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp";
-  private static final String INFO_ORIGIN_EXT = "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin";
-  private static final String QUESTIONNAIRE_ADAPTIVE_EXT = "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
   private static final String DEFAULT_NEXT_QUESTION_URL = "http://localhost:8080/fhir/Questionnaire/$next-question";
 
   private final IQuestionnaireProcessorFactory questionnaireProcessorFactory;
@@ -89,7 +83,8 @@ public class DtrResponseBuilder {
     if (q.hasExtension(QUESTIONNAIRE_ADAPTIVE_EXT)) {
       return true;
     }
-    return q.getMeta().hasProfile(Q_ADAPT_PROFILE);
+    return q.getMeta().hasProfile(Q_ADAPT_PROFILE)
+        || q.getMeta().hasProfile(Q_ADAPT_SEARCH_PROFILE);
   }
 
   /**
@@ -149,39 +144,22 @@ public class DtrResponseBuilder {
 
   /**
    * Build an adaptive QuestionnaireResponse for questionnaires that use the
-   * dtr-questionnaire-adapt profile. Pre-populates answers via CQL if the
-   * questionnaire has items with initialExpression extensions.
+   * dtr-questionnaire-adapt profile. When initialItems is non-empty, the
+   * contained Questionnaire includes those items and the QR is pre-populated
+   * with CQL answers. When empty, the QR starts empty and pre-population
+   * happens in $next-question when items are actually delivered.
+   *
+   * @param initialItems items to include in the initial delivery (may be empty)
    */
   public PrepopulationResult buildAdaptiveResponse(
       Questionnaire questionnaire,
       Coverage coverage,
       DtrQuestionnaireResolver.ResolvedQuestionnaire provenance,
-      List<Resource> allOrders) {
+      List<Resource> allOrders,
+      List<Questionnaire.QuestionnaireItemComponent> initialItems) {
 
     List<String> warnings = new ArrayList<>();
-    QuestionnaireResponse qr = null;
-
-    // Attempt CQL pre-population if the questionnaire has items
-    if (questionnaire.hasItem()) {
-      try {
-        qr = executePopulate(questionnaire, coverage, allOrders);
-        if (qr != null) {
-          extractPopulateWarnings(qr, warnings);
-          clearItemText(qr.getItem());
-          addInformationOrigin(qr.getItem());
-        }
-      } catch (Exception e) {
-        String warning = "CQL pre-population failed for adaptive questionnaire "
-            + questionnaire.getUrl() + ": " + e.getMessage();
-        logger.warn(warning, e);
-        warnings.add(warning);
-        qr = null;
-      }
-    }
-
-    if (qr == null) {
-      qr = new QuestionnaireResponse();
-    }
+    QuestionnaireResponse qr = new QuestionnaireResponse();
 
     qr.setId(UUID.randomUUID().toString());
 
@@ -208,7 +186,7 @@ public class DtrResponseBuilder {
     Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
     CodeableConcept intendedUseCC = new CodeableConcept();
     intendedUseCC.addCoding(new Coding()
-        .setSystem(CRD_DOC_REASON_SYSTEM)
+        .setSystem(DOC_REASON_SYSTEM)
         .setCode("withorder")
         .setDisplay("Include with order"));
     intendedUseExt.setValue(intendedUseCC);
@@ -242,6 +220,35 @@ public class DtrResponseBuilder {
     }
     adaptiveExt.setValue(new UrlType(nextQuestionUrl));
     contained.addExtension(adaptiveExt);
+
+    // When initial items are provided, include them in the contained Q
+    // and pre-populate the QR with CQL answers
+    if (initialItems != null && !initialItems.isEmpty()) {
+      for (Questionnaire.QuestionnaireItemComponent item : initialItems) {
+        contained.addItem(item);
+      }
+
+      // Pre-populate answers for initial items
+      try {
+        Questionnaire scopedQ = questionnaire.copy();
+        scopedQ.setItem(new ArrayList<>());
+        for (Questionnaire.QuestionnaireItemComponent item : initialItems) {
+          scopedQ.addItem(item);
+        }
+        QuestionnaireResponse populated = executePopulate(scopedQ, coverage, allOrders);
+        if (populated != null) {
+          extractPopulateWarnings(populated, warnings);
+          clearItemText(populated.getItem());
+          addInformationOrigin(populated.getItem());
+          qr.setItem(populated.getItem());
+        }
+      } catch (Exception e) {
+        String warning = "Adaptive pre-population failed for initial items of "
+            + questionnaire.getUrl() + ": " + e.getMessage();
+        logger.warn(warning, e);
+        warnings.add(warning);
+      }
+    }
 
     qr.addContained(contained);
 
@@ -328,7 +335,7 @@ public class DtrResponseBuilder {
     Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
     CodeableConcept intendedUseCC = new CodeableConcept();
     intendedUseCC.addCoding(new Coding()
-        .setSystem(CRD_DOC_REASON_SYSTEM)
+        .setSystem(DOC_REASON_SYSTEM)
         .setCode("withorder")
         .setDisplay("Include with order"));
     intendedUseExt.setValue(intendedUseCC);

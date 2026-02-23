@@ -1,0 +1,36 @@
+{
+  "resourceType": "Library",
+  "id": "HomeHealthAssessmentPrepopulation",
+  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeHealthAssessmentPrepopulation",
+  "name": "HomeHealthAssessmentPrepopulation",
+  "version": "1.0.0",
+  "title": "Home Health Assessment DTR Prepopulation",
+  "status": "active",
+  "type": {
+    "coding": [{
+      "system": "http://terminology.hl7.org/CodeSystem/library-type",
+      "code": "logic-library"
+    }]
+  },
+  "relatedArtifact": [
+    {
+      "type": "depends-on",
+      "display": "FHIR Helpers",
+      "resource": "http://fhir.org/guides/cqf/common/Library/FHIRHelpers|4.0.1"
+    },
+    {
+      "type": "depends-on",
+      "display": "DTR Helpers",
+      "resource": "http://hl7.org/fhir/us/davinci-dtr/Library/DTRHelpers|1.0.0"
+    }
+  ],
+  "dataRequirement": [
+    {
+      "type": "ServiceRequest"
+    }
+  ],
+  "content": [{
+    "contentType": "text/cql",
+    "url": "HomeHealthAssessmentPrepopulation.cql"
+  }]
+}

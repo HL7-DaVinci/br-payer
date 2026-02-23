@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import static org.hl7.davinci.dtr.DtrConstants.*;
+
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 
 /**
@@ -26,12 +28,6 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 public class DtrSubQuestionnaireAssembler {
 
   private static final Logger logger = LoggerFactory.getLogger(DtrSubQuestionnaireAssembler.class);
-
-  private static final String SUB_QUESTIONNAIRE_EXT_URL =
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire";
-
-  private static final String CQF_LIBRARY_EXT_URL =
-      "http://hl7.org/fhir/StructureDefinition/cqf-library";
 
   private final DaoRegistry daoRegistry;
 
@@ -65,7 +61,7 @@ public class DtrSubQuestionnaireAssembler {
     for (int i = 0; i < items.size(); i++) {
       QuestionnaireItemComponent item = items.get(i);
 
-      Extension subQExt = item.getExtensionByUrl(SUB_QUESTIONNAIRE_EXT_URL);
+      Extension subQExt = item.getExtensionByUrl(SUB_QUESTIONNAIRE_EXT);
       if (subQExt != null && subQExt.hasValue()) {
         String canonical = subQExt.getValue().primitiveValue();
 
@@ -99,7 +95,7 @@ public class DtrSubQuestionnaireAssembler {
 
         // Replace the item's children with inlined items and remove the extension
         item.setItem(inlinedItems);
-        item.removeExtension(SUB_QUESTIONNAIRE_EXT_URL);
+        item.removeExtension(SUB_QUESTIONNAIRE_EXT);
 
         // Recursively process inlined items
         assembleItems(parent, inlinedItems, warnings, visited);
@@ -120,13 +116,13 @@ public class DtrSubQuestionnaireAssembler {
    */
   private void mergeCqfLibraryExtensions(Questionnaire parent, Questionnaire subQ) {
     Set<String> existingCanonicals = new HashSet<>();
-    for (Extension ext : parent.getExtensionsByUrl(CQF_LIBRARY_EXT_URL)) {
+    for (Extension ext : parent.getExtensionsByUrl(CQF_LIBRARY_EXT)) {
       if (ext.hasValue()) {
         existingCanonicals.add(ext.getValue().primitiveValue());
       }
     }
 
-    for (Extension ext : subQ.getExtensionsByUrl(CQF_LIBRARY_EXT_URL)) {
+    for (Extension ext : subQ.getExtensionsByUrl(CQF_LIBRARY_EXT)) {
       if (ext.hasValue()) {
         String canonical = ext.getValue().primitiveValue();
         if (canonical != null && !existingCanonicals.contains(canonical)) {
