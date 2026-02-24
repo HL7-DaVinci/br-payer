@@ -88,6 +88,72 @@ public class PasResponseBuilder {
     finalizePendedItems(claimResponse, PasConstants.REVIEW_CODE_A6, "Modified", authNumberPrefix);
   }
 
+  /**
+   * Applies coverage decisions to an existing ClaimResponse in-place. For existing items
+   * with a matching decision, replaces the reviewAction extension. For decisions targeting
+   * sequences not present in the CR, adds new response items.
+   */
+  public void applyItemDecisions(ClaimResponse claimResponse,
+      Map<Integer, CoverageDecision> itemDecisions, String authNumberPrefix) {
+
+    // Track which decision sequences were applied to existing items
+    java.util.Set<Integer> appliedSequences = new java.util.HashSet<>();
+
+    for (ClaimResponse.ItemComponent item : claimResponse.getItem()) {
+      int seq = item.getItemSequence();
+      CoverageDecision decision = itemDecisions.get(seq);
+      if (decision == null) {
+        continue;
+      }
+      appliedSequences.add(seq);
+
+      // Replace reviewAction on existing adjudication
+      for (ClaimResponse.AdjudicationComponent adj : item.getAdjudication()) {
+        adj.getExtension().removeIf(e -> PasConstants.REVIEW_ACTION.equals(e.getUrl()));
+
+        boolean isApproved = PasConstants.REVIEW_CODE_A1.equals(decision.reviewActionCode());
+        String authNumber = isApproved
+            ? authNumberPrefix + String.format("%04d", authCounter.incrementAndGet())
+            : null;
+        adj.addExtension(PasConstants.buildReviewActionExtension(
+            decision.reviewActionCode(), decision.reviewActionDisplay(), authNumber));
+
+        // Manage preAuthPeriod: add for approved, remove for non-approved
+        if (isApproved && item.getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD) == null) {
+          item.addExtension(buildDefaultPreAuthPeriod());
+        } else if (!isApproved) {
+          item.getExtension().removeIf(e -> PasConstants.ITEM_PREAUTH_PERIOD.equals(e.getUrl()));
+        }
+      }
+    }
+
+    // Add new items for decisions that didn't match existing items
+    for (Map.Entry<Integer, CoverageDecision> entry : itemDecisions.entrySet()) {
+      if (appliedSequences.contains(entry.getKey())) {
+        continue;
+      }
+
+      CoverageDecision decision = entry.getValue();
+      ClaimResponse.ItemComponent newItem = claimResponse.addItem();
+      newItem.setItemSequence(entry.getKey());
+
+      ClaimResponse.AdjudicationComponent adj = newItem.addAdjudication();
+      adj.setCategory(new CodeableConcept().addCoding(
+          new Coding(ADJUDICATION_SYSTEM, "submitted", "Submitted Amount")));
+
+      boolean isApproved = PasConstants.REVIEW_CODE_A1.equals(decision.reviewActionCode());
+      String authNumber = isApproved
+          ? authNumberPrefix + String.format("%04d", authCounter.incrementAndGet())
+          : null;
+      adj.addExtension(PasConstants.buildReviewActionExtension(
+          decision.reviewActionCode(), decision.reviewActionDisplay(), authNumber));
+
+      if (isApproved) {
+        newItem.addExtension(buildDefaultPreAuthPeriod());
+      }
+    }
+  }
+
   // ===== Internal =====
 
   private void finalizePendedItems(ClaimResponse claimResponse,
@@ -165,7 +231,7 @@ public class PasResponseBuilder {
     return cr;
   }
 
-  private Bundle wrapInResponseBundle(ClaimResponse claimResponse) {
+  Bundle wrapInResponseBundle(ClaimResponse claimResponse) {
     Bundle bundle = new Bundle();
     bundle.getMeta().addProfile(PasConstants.PROFILE_PAS_RESPONSE_BUNDLE);
     bundle.setType(Bundle.BundleType.COLLECTION);

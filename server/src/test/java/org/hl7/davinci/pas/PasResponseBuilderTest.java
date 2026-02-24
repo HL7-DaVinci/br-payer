@@ -12,6 +12,7 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.BeforeEach;
@@ -279,6 +280,71 @@ class PasResponseBuilderTest {
     assertNotNull(preAuthPeriod, "Modified items must have itemPreAuthPeriod");
   }
 
+  // ===== applyItemDecisions Tests =====
+
+  @Test
+  void applyItemDecisions_existingItemUpdatedWithNewDecision() {
+    // Build a CR with an existing item at seq 1 with A4
+    ClaimResponse cr = buildClaimResponseWithItems(
+        Map.of(1, PasConstants.REVIEW_CODE_A4));
+
+    // Apply A1 decision to seq 1
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+    builder.applyItemDecisions(cr, decisions, "AUTH");
+
+    ClaimResponse.ItemComponent item = cr.getItem().get(0);
+    String reviewCode = PasConstants.extractReviewActionCode(item);
+    assertEquals(PasConstants.REVIEW_CODE_A1, reviewCode);
+  }
+
+  @Test
+  void applyItemDecisions_newItemAddedToCR() {
+    // Build a CR with only item seq 1
+    ClaimResponse cr = buildClaimResponseWithItems(
+        Map.of(1, PasConstants.REVIEW_CODE_A1));
+
+    // Apply decision to seq 2 (not in original CR)
+    var decisions = Map.of(2,
+        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false));
+    builder.applyItemDecisions(cr, decisions, "AUTH");
+
+    assertEquals(2, cr.getItem().size());
+    assertEquals(2, cr.getItem().get(1).getItemSequence());
+    String newItemCode = PasConstants.extractReviewActionCode(cr.getItem().get(1));
+    assertEquals(PasConstants.REVIEW_CODE_A3, newItemCode);
+  }
+
+  @Test
+  void applyItemDecisions_approvedItemGetsPreAuthPeriod() {
+    ClaimResponse cr = buildClaimResponseWithItems(
+        Map.of(1, PasConstants.REVIEW_CODE_A4));
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+    builder.applyItemDecisions(cr, decisions, "AUTH");
+
+    Extension preAuthPeriod = cr.getItem().get(0).getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD);
+    assertNotNull(preAuthPeriod, "Approved items must have itemPreAuthPeriod");
+  }
+
+  @Test
+  void applyItemDecisions_nonApprovedItemDoesNotGetPreAuthPeriod() {
+    // Start with an approved item that has preAuthPeriod
+    ClaimResponse cr = buildClaimResponseWithItems(
+        Map.of(1, PasConstants.REVIEW_CODE_A1));
+    cr.getItem().get(0).addExtension(PasConstants.ITEM_PREAUTH_PERIOD,
+        new Period().setStart(new java.util.Date()));  // existing preAuthPeriod
+
+    // Apply A2 (denial) -- preAuthPeriod should be removed
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A2, "Not Certified", false));
+    builder.applyItemDecisions(cr, decisions, "AUTH");
+
+    Extension preAuthPeriod = cr.getItem().get(0).getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD);
+    assertNull(preAuthPeriod, "Denied items must not have itemPreAuthPeriod");
+  }
+
   // ===== Helpers =====
 
   private Claim buildClaim() {
@@ -294,5 +360,20 @@ class PasResponseBuilderTest {
         .setProductOrService(new CodeableConcept().addCoding(
             new Coding("http://example.com", "99213", "Office Visit")));
     return claim;
+  }
+
+  private ClaimResponse buildClaimResponseWithItems(Map<Integer, String> itemReviewCodes) {
+    ClaimResponse cr = new ClaimResponse();
+    cr.setId("test-cr");
+    cr.setStatus(ClaimResponse.ClaimResponseStatus.ACTIVE);
+    for (Map.Entry<Integer, String> entry : itemReviewCodes.entrySet()) {
+      ClaimResponse.ItemComponent item = cr.addItem();
+      item.setItemSequence(entry.getKey());
+      ClaimResponse.AdjudicationComponent adj = item.addAdjudication();
+      adj.setCategory(new CodeableConcept().addCoding(
+          new Coding("http://terminology.hl7.org/CodeSystem/adjudication", "submitted", "Submitted Amount")));
+      adj.addExtension(PasConstants.buildReviewActionExtension(entry.getValue(), "Display", null));
+    }
+    return cr;
   }
 }

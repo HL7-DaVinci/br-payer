@@ -67,11 +67,37 @@ class PasRequestBuilderTest {
   }
 
   @Test
+  void build_withFocusCodes_inquiryReusesInitialTraceNumber() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    PasScenario scenario = PasRequestBuilder.build(List.of(meta)).get(0);
+
+    Claim initialClaim = (Claim) scenario.variants().stream()
+        .filter(v -> "initial".equals(v.payloadType()))
+        .findFirst()
+        .orElseThrow()
+        .bundle()
+        .getEntryFirstRep()
+        .getResource();
+
+    Claim inquiryClaim = (Claim) scenario.variants().stream()
+        .filter(v -> "inquiry".equals(v.payloadType()))
+        .findFirst()
+        .orElseThrow()
+        .bundle()
+        .getEntryFirstRep()
+        .getResource();
+
+    assertEquals(initialClaim.getIdentifierFirstRep().getValue(),
+        inquiryClaim.getIdentifierFirstRep().getValue(),
+        "Inquiry Claim identifier must match the initial submission trace number");
+  }
+
+  @Test
   void buildSubmitBundle_firstEntryIsClaimWithPreauthorizationUse() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
     Coding focusCode = meta.focusCodes().get(0);
 
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, focusCode, seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, focusCode, seed, "I", "Initial", "test-trace");
 
     assertEquals(Bundle.BundleType.COLLECTION, bundle.getType());
     assertFalse(bundle.getEntry().isEmpty());
@@ -84,7 +110,7 @@ class PasRequestBuilderTest {
   void buildSubmitBundle_profileIsRequestBundle() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
 
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial", "test-trace");
 
     assertTrue(bundle.getMeta().hasProfile(PasRequestBuilder.PROFILE_PAS_REQUEST_BUNDLE));
   }
@@ -94,7 +120,7 @@ class PasRequestBuilderTest {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
     Coding focusCode = meta.focusCodes().get(0);
 
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, focusCode, seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, focusCode, seed, "I", "Initial", "test-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     assertFalse(claim.getItem().isEmpty());
@@ -108,7 +134,7 @@ class PasRequestBuilderTest {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
     Coding focusCode = meta.focusCodes().get(0);
 
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, focusCode, seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, focusCode, seed, "I", "Initial", "test-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     assertNotNull(claim.getPatient());
@@ -121,7 +147,7 @@ class PasRequestBuilderTest {
   @Test
   void buildSubmitBundle_itemHasCertificationTypeExtension() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial", "test-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     assertNotNull(claim.getItemFirstRep().getExtensionByUrl(PasConstants.CERTIFICATION_TYPE));
@@ -130,7 +156,7 @@ class PasRequestBuilderTest {
   @Test
   void buildSubmitBundle_renewalVariantHasCertTypeR() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "R", "Renewal");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "R", "Renewal", "test-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     Extension certTypeExt = claim.getItemFirstRep().getExtensionByUrl(PasConstants.CERTIFICATION_TYPE);
@@ -175,7 +201,7 @@ class PasRequestBuilderTest {
   @Test
   void buildSubmitBundle_patientSupportsBeneficiaryAndSubscriberProfiles() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial", "test-trace");
 
     Patient patient = bundle.getEntry().stream()
         .filter(e -> e.getResource() instanceof Patient)
@@ -228,18 +254,18 @@ class PasRequestBuilderTest {
   @Test
   void buildSubmitBundle_claimHasIdentifier() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial", "test-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     assertFalse(claim.getIdentifier().isEmpty(), "Claim must have an identifier");
-    assertEquals("oxygen", claim.getIdentifierFirstRep().getValue());
+    assertEquals("test-trace", claim.getIdentifierFirstRep().getValue());
   }
 
   @Test
   void buildSubmitBundle_nonPasFocusCodeFallsBackToX12RequestedServiceCode() {
     Coding snomedFocus = new Coding("http://snomed.info/sct", "394579002", "Cardiology");
     ScenarioMetadata meta = buildMetaWithFocus("cardio", "Cardiology", snomedFocus);
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, snomedFocus, seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, snomedFocus, seed, "I", "Initial", "test-trace");
 
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
     Coding claimCode = claim.getItemFirstRep().getProductOrService().getCodingFirstRep();
@@ -259,7 +285,8 @@ class PasRequestBuilderTest {
   @Test
   void buildSubmitBundle_pasAllowedFocusCodeClearsDisplay() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(
+        meta, meta.focusCodes().get(0), seed, "I", "Initial", "test-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
     Coding claimCode = claim.getItemFirstRep().getProductOrService().getCodingFirstRep();
 
@@ -273,13 +300,14 @@ class PasRequestBuilderTest {
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     assertFalse(claim.getIdentifier().isEmpty(), "Inquiry claim must have identifier (1..1 per profile)");
-    assertEquals("oxygen", claim.getIdentifierFirstRep().getValue());
+    assertNotNull(claim.getIdentifierFirstRep().getValue(),
+        "Inquiry claim identifier must have a non-null value");
   }
 
   @Test
   void buildUpdateBundle_itemHasInfoChangedExtension() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildUpdateBundle(meta, meta.focusCodes().get(0), seed);
+    Bundle bundle = PasRequestBuilder.buildUpdateBundle(meta, meta.focusCodes().get(0), seed, "initial-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     // infoChanged is a regular extension on each Claim.item per PAS IG
@@ -291,7 +319,7 @@ class PasRequestBuilderTest {
   @Test
   void buildCancelBundle_itemHasInfoCancelledModifierExtension() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildCancelBundle(meta, meta.focusCodes().get(0), seed);
+    Bundle bundle = PasRequestBuilder.buildCancelBundle(meta, meta.focusCodes().get(0), seed, "initial-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
     // infoCancelled is a modifier extension on each Claim.item per PAS IG
@@ -303,29 +331,74 @@ class PasRequestBuilderTest {
   }
 
   @Test
-  void buildUpdateBundle_claimHasPriorAuthIdentifier() {
+  void buildCancelBundle_claimHasClaimLevelCertificationType3() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildUpdateBundle(meta, meta.focusCodes().get(0), seed);
+    Bundle bundle = PasRequestBuilder.buildCancelBundle(meta, meta.focusCodes().get(0), seed, "initial-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
-    boolean hasPriorAuthId = claim.getIdentifier().stream()
-        .anyMatch(id -> "http://example.org/PATIENT_EVENT_TRACE_NUMBER".equals(id.getSystem()));
-    assertTrue(hasPriorAuthId, "Update bundle Claim must have a synthetic prior auth identifier");
-    assertFalse(claim.getRelated().isEmpty(), "Update bundle Claim must reference a prior claim");
+    Extension certTypeExt = claim.getExtensionByUrl(PasConstants.CERTIFICATION_TYPE);
+    assertNotNull(certTypeExt, "Cancel Claim must have Claim-level certificationType extension");
+    CodeableConcept cc = (CodeableConcept) certTypeExt.getValue();
+    assertEquals("3", cc.getCodingFirstRep().getCode(),
+        "Cancel Claim-level certificationType must be '3'");
+  }
+
+  @Test
+  void buildUpdateBundle_bundleContainsPriorClaimWithIdentifier() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildUpdateBundle(meta, meta.focusCodes().get(0), seed, "initial-trace");
+
+    Claim priorClaim = bundle.getEntry().stream()
+        .filter(e -> e.getResource() instanceof Claim)
+        .map(e -> (Claim) e.getResource())
+        .filter(c -> c.getId().contains("prior-auth-claim"))
+        .findFirst()
+        .orElse(null);
+    assertNotNull(priorClaim, "Update bundle must include the prior Claim resource");
+    assertTrue(priorClaim.hasIdentifier(),
+        "Prior Claim must have an identifier for payer-side lookup");
+    assertEquals("initial-trace", priorClaim.getIdentifierFirstRep().getValue(),
+        "Prior Claim identifier must match the initial submission trace number");
+  }
+
+  @Test
+  void buildCancelBundle_bundleContainsPriorClaimWithIdentifier() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildCancelBundle(meta, meta.focusCodes().get(0), seed, "initial-trace");
+
+    Claim priorClaim = bundle.getEntry().stream()
+        .filter(e -> e.getResource() instanceof Claim)
+        .map(e -> (Claim) e.getResource())
+        .filter(c -> c.getId().contains("prior-auth-claim"))
+        .findFirst()
+        .orElse(null);
+    assertNotNull(priorClaim, "Cancel bundle must include the prior Claim resource");
+    assertTrue(priorClaim.hasIdentifier(),
+        "Prior Claim must have an identifier for payer-side lookup");
+    assertEquals("initial-trace", priorClaim.getIdentifierFirstRep().getValue(),
+        "Prior Claim identifier must match the initial submission trace number");
+  }
+
+  @Test
+  void buildUpdateBundle_claimHasIdentifierAndRelatedReference() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildUpdateBundle(meta, meta.focusCodes().get(0), seed, "initial-trace");
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+
+    assertFalse(claim.getIdentifier().isEmpty(), "Update Claim must have its own trace identifier");
+    assertFalse(claim.getRelated().isEmpty(), "Update Claim must reference a prior claim");
     assertEquals("Claim/oxygen-prior-auth-claim", claim.getRelatedFirstRep().getClaim().getReference());
     assertEquals("prior", claim.getRelatedFirstRep().getRelationship().getCodingFirstRep().getCode());
   }
 
   @Test
-  void buildCancelBundle_claimHasPriorAuthIdentifier() {
+  void buildCancelBundle_claimHasIdentifierAndRelatedReference() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
-    Bundle bundle = PasRequestBuilder.buildCancelBundle(meta, meta.focusCodes().get(0), seed);
+    Bundle bundle = PasRequestBuilder.buildCancelBundle(meta, meta.focusCodes().get(0), seed, "initial-trace");
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
 
-    boolean hasPriorAuthId = claim.getIdentifier().stream()
-        .anyMatch(id -> "http://example.org/PATIENT_EVENT_TRACE_NUMBER".equals(id.getSystem()));
-    assertTrue(hasPriorAuthId, "Cancel bundle Claim must have a synthetic prior auth identifier");
-    assertFalse(claim.getRelated().isEmpty(), "Cancel bundle Claim must reference a prior claim");
+    assertFalse(claim.getIdentifier().isEmpty(), "Cancel Claim must have its own trace identifier");
+    assertFalse(claim.getRelated().isEmpty(), "Cancel Claim must reference a prior claim");
     assertEquals("Claim/oxygen-prior-auth-claim", claim.getRelatedFirstRep().getClaim().getReference());
     assertEquals("prior", claim.getRelatedFirstRep().getRelationship().getCodingFirstRep().getCode());
   }

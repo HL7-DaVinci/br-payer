@@ -48,6 +48,12 @@ public final class PasConstants {
   public static final String REVIEW_CODE_A4 = "A4"; // Pended
   public static final String REVIEW_CODE_A6 = "A6"; // Modified
 
+  // X12 1322 Certification Type codes (https://codesystem.x12.org/005010/1322)
+  public static final String X12_CERT_TYPE_SYSTEM = "https://codesystem.x12.org/005010/1322";
+  public static final String CERT_TYPE_INITIAL = "I";
+  public static final String CERT_TYPE_RENEWAL = "R";
+  public static final String CERT_TYPE_CANCEL = "3";
+
   // PAS Profile URLs
   public static final String PROFILE_PAS_REQUEST_BUNDLE = "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-pas-request-bundle";
   public static final String PROFILE_PAS_INQUIRY_REQUEST_BUNDLE = "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-pas-inquiry-request-bundle";
@@ -83,6 +89,27 @@ public final class PasConstants {
     }
 
     return reviewAction;
+  }
+
+  /**
+   * Extracts the X12 306 review action code from a ClaimResponse item's adjudication.
+   * Walks the item's adjudications looking for the reviewAction extension and returns
+   * the first review action code found, or null if none present.
+   */
+  public static String extractReviewActionCode(ClaimResponse.ItemComponent item) {
+    for (ClaimResponse.AdjudicationComponent adj : item.getAdjudication()) {
+      Extension reviewAction = adj.getExtensionByUrl(REVIEW_ACTION);
+      if (reviewAction == null) continue;
+
+      Extension codeExt = reviewAction.getExtensionByUrl(REVIEW_ACTION_CODE);
+      if (codeExt == null || !(codeExt.getValue() instanceof CodeableConcept cc)) continue;
+
+      Coding coding = cc.getCodingFirstRep();
+      if (coding != null && coding.hasCode()) {
+        return coding.getCode();
+      }
+    }
+    return null;
   }
 
   /**
