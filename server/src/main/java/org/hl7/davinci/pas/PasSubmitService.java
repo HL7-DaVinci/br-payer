@@ -58,16 +58,19 @@ public class PasSubmitService {
   private final PasCoverageEvaluator evaluator;
   private final PasResponseBuilder responseBuilder;
   private final DaoRegistry daoRegistry;
+  private final PasBundleReferenceResolver bundleReferenceResolver;
   private final PasProperties pasProperties;
   private final String serverBase;
 
   public PasSubmitService(PasBundleValidator validator, PasCoverageEvaluator evaluator,
-      PasResponseBuilder responseBuilder, DaoRegistry daoRegistry, AppProperties appProperties,
+      PasResponseBuilder responseBuilder, DaoRegistry daoRegistry,
+      PasBundleReferenceResolver bundleReferenceResolver, AppProperties appProperties,
       PasProperties pasProperties) {
     this.validator = validator;
     this.evaluator = evaluator;
     this.responseBuilder = responseBuilder;
     this.daoRegistry = daoRegistry;
+    this.bundleReferenceResolver = bundleReferenceResolver;
     this.pasProperties = pasProperties;
     String base = appProperties.getServer_address();
     this.serverBase = (base != null && base.endsWith("/"))
@@ -98,6 +101,9 @@ public class PasSubmitService {
     };
 
     String authPrefix = pasProperties.authorizationNumberPrefix();
+
+    // Resolve bundle resources to server-side resources before storing the Claim
+    bundleReferenceResolver.resolveAndStoreBundleResources(requestBundle, claim);
 
     // Store the incoming Claim for audit trail (all paths)
     claim.setId((String) null);
@@ -159,7 +165,7 @@ public class PasSubmitService {
       anyStillPended = existingCr.getItem().stream()
           .filter(item -> !coveredSequences.contains(item.getItemSequence()))
           .anyMatch(item -> PasConstants.REVIEW_CODE_A4.equals(
-              PasConstants.extractReviewActionCode(item)));
+              PasExtensions.extractReviewActionCode(item)));
     }
 
     if (anyStillPended && !hadPendedTag) {
@@ -267,7 +273,7 @@ public class PasSubmitService {
     // Build prior decision map by item sequence
     Map<Integer, String> priorDecisionMap = new LinkedHashMap<>();
     for (ClaimResponse.ItemComponent priorItem : prior.getItem()) {
-      String code = PasConstants.extractReviewActionCode(priorItem);
+      String code = PasExtensions.extractReviewActionCode(priorItem);
       if (code != null) {
         priorDecisionMap.put(priorItem.getItemSequence(), code);
       }
@@ -318,6 +324,12 @@ public class PasSubmitService {
           "Prior authorization ClaimResponse not found for the stored Claim");
     }
 
+    String priorOverallCode = getMostRestrictiveReviewCode(prior);
+    if (PasConstants.REVIEW_CODE_A2.equals(priorOverallCode)) {
+      throw new IllegalArgumentException(
+          "Cannot cancel a denied prior authorization (review action A2)");
+    }
+
     // Cancel all items in the existing authorization, not just items on the cancel Claim
     Map<Integer, CoverageDecision> itemDecisions = new LinkedHashMap<>();
     for (ClaimResponse.ItemComponent item : prior.getItem()) {
@@ -354,6 +366,8 @@ public class PasSubmitService {
     Identifier traceId = priorInBundle.getIdentifierFirstRep();
     SearchParameterMap params = new SearchParameterMap();
     params.add("identifier", new TokenParam(traceId.getSystem(), traceId.getValue()));
+    params.setSort(new ca.uhn.fhir.rest.api.SortSpec("_lastUpdated",
+        ca.uhn.fhir.rest.api.SortOrderEnum.DESC));
 
     IBundleProvider results = daoRegistry.getResourceDao(Claim.class)
         .search(params, new SystemRequestDetails());
@@ -421,7 +435,7 @@ public class PasSubmitService {
     int worstRank = 1;
 
     for (ClaimResponse.ItemComponent item : claimResponse.getItem()) {
-      String code = PasConstants.extractReviewActionCode(item);
+      String code = PasExtensions.extractReviewActionCode(item);
       if (code != null) {
         int rank = rankReviewCode(code);
         if (rank > worstRank) {

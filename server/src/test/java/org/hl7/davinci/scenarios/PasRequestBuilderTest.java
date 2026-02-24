@@ -67,7 +67,7 @@ class PasRequestBuilderTest {
   }
 
   @Test
-  void build_withFocusCodes_inquiryReusesInitialTraceNumber() {
+  void build_withFocusCodes_inquiryGetsOwnTraceNumber() {
     ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
     PasScenario scenario = PasRequestBuilder.build(List.of(meta)).get(0);
 
@@ -87,9 +87,31 @@ class PasRequestBuilderTest {
         .getEntryFirstRep()
         .getResource();
 
-    assertEquals(initialClaim.getIdentifierFirstRep().getValue(),
+    // Per PAS IG, inquiry Claim.identifier is its own TRN, not reused from the initial submission
+    assertNotEquals(initialClaim.getIdentifierFirstRep().getValue(),
         inquiryClaim.getIdentifierFirstRep().getValue(),
-        "Inquiry Claim identifier must match the initial submission trace number");
+        "Inquiry Claim identifier must be its own TRN, not the initial submission trace number");
+  }
+
+  @Test
+  void build_renewalSharesInitialTraceNumber() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    PasScenario scenario = PasRequestBuilder.build(List.of(meta)).get(0);
+
+    Claim initialClaim = (Claim) scenario.variants().stream()
+        .filter(v -> "initial".equals(v.payloadType()))
+        .findFirst().orElseThrow()
+        .bundle().getEntryFirstRep().getResource();
+
+    Claim renewalClaim = (Claim) scenario.variants().stream()
+        .filter(v -> "renewal".equals(v.payloadType()))
+        .findFirst().orElseThrow()
+        .bundle().getEntryFirstRep().getResource();
+
+    // Renewal shares the initial trace number so cancel/update can find it
+    assertEquals(initialClaim.getIdentifierFirstRep().getValue(),
+        renewalClaim.getIdentifierFirstRep().getValue(),
+        "Renewal must share initial trace number for cancel/update to resolve correctly");
   }
 
   @Test

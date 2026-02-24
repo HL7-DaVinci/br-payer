@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ResourcesIndexRouteImport } from './routes/resources/index'
+import { Route as PasIndexRouteImport } from './routes/pas/index'
 import { Route as HooksIndexRouteImport } from './routes/hooks/index'
 import { Route as DtrIndexRouteImport } from './routes/dtr/index'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const ResourcesIndexRoute = ResourcesIndexRouteImport.update({
   id: '/resources/',
   path: '/resources/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PasIndexRoute = PasIndexRouteImport.update({
+  id: '/pas/',
+  path: '/pas/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HooksIndexRoute = HooksIndexRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dtr/': typeof DtrIndexRoute
   '/hooks/': typeof HooksIndexRoute
+  '/pas/': typeof PasIndexRoute
   '/resources/': typeof ResourcesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dtr': typeof DtrIndexRoute
   '/hooks': typeof HooksIndexRoute
+  '/pas': typeof PasIndexRoute
   '/resources': typeof ResourcesIndexRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dtr/': typeof DtrIndexRoute
   '/hooks/': typeof HooksIndexRoute
+  '/pas/': typeof PasIndexRoute
   '/resources/': typeof ResourcesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dtr/' | '/hooks/' | '/resources/'
+  fullPaths: '/' | '/dtr/' | '/hooks/' | '/pas/' | '/resources/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dtr' | '/hooks' | '/resources'
-  id: '__root__' | '/' | '/dtr/' | '/hooks/' | '/resources/'
+  to: '/' | '/dtr' | '/hooks' | '/pas' | '/resources'
+  id: '__root__' | '/' | '/dtr/' | '/hooks/' | '/pas/' | '/resources/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DtrIndexRoute: typeof DtrIndexRoute
   HooksIndexRoute: typeof HooksIndexRoute
+  PasIndexRoute: typeof PasIndexRoute
   ResourcesIndexRoute: typeof ResourcesIndexRoute
 }
 
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/resources'
       fullPath: '/resources/'
       preLoaderRoute: typeof ResourcesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pas/': {
+      id: '/pas/'
+      path: '/pas'
+      fullPath: '/pas/'
+      preLoaderRoute: typeof PasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hooks/': {
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DtrIndexRoute: DtrIndexRoute,
   HooksIndexRoute: HooksIndexRoute,
+  PasIndexRoute: PasIndexRoute,
   ResourcesIndexRoute: ResourcesIndexRoute,
 }
 export const routeTree = rootRouteImport

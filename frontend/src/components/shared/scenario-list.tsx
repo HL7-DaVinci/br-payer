@@ -38,6 +38,10 @@ interface ScenarioListProps<
   variantLabel: string;
   /** Extra classes on the variant button container */
   variantContainerClassName?: string;
+  /** Optional custom rendering for variant button content */
+  renderVariant?: (variant: TVariant, isSelected: boolean) => ReactNode;
+  /** Optional action element rendered to the right of the card title */
+  headerAction?: ReactNode;
 }
 
 export function ScenarioList<
@@ -54,11 +58,16 @@ export function ScenarioList<
   shouldShowVariants,
   variantLabel,
   variantContainerClassName,
+  renderVariant,
+  headerAction,
 }: ScenarioListProps<TScenario, TVariant>) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm">Test Scenarios</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm">Test Scenarios</CardTitle>
+          {headerAction}
+        </div>
         <CardDescription className="text-xs">
           {scenarios.length} scenario(s) available
         </CardDescription>
@@ -118,7 +127,12 @@ export function ScenarioList<
                             }
                           `}
                         >
-                          {variant.label}
+                          {renderVariant
+                            ? renderVariant(
+                                variant,
+                                selectedVariant?.id === variant.id,
+                              )
+                            : variant.label}
                         </button>
                       ))}
                     </div>

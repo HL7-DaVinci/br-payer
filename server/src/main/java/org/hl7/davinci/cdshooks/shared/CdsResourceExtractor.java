@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import ca.uhn.fhir.util.BundleUtil;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.CareTeam;
 import org.hl7.fhir.r4.model.DeviceRequest;
@@ -79,7 +80,7 @@ public final class CdsResourceExtractor {
     // Per CRD IG: clients SHALL send only the primary coverage in prefetch
     Object coveragePrefetch = getPrefetchFlexible(request, "coverage");
     if (coveragePrefetch instanceof Bundle coverageBundle) {
-      List<Coverage> coverages = ResourceResolver.extractFromBundle(coverageBundle, Coverage.class);
+      List<Coverage> coverages = BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),coverageBundle, Coverage.class);
       context.setCoverageCount(coverages.size());
 
       if (!coverages.isEmpty()) {
@@ -200,7 +201,7 @@ public final class CdsResourceExtractor {
   private static void extractAppointments(CdsServiceRequestJson request, ResolvedResources context) {
     Object appointmentsContext = request.getContext().get("appointments");
     if (appointmentsContext instanceof Bundle appointmentsBundle) {
-      context.setAppointments(ResourceResolver.extractFromBundle(appointmentsBundle, Appointment.class));
+      context.setAppointments(BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),appointmentsBundle, Appointment.class));
     }
   }
 
@@ -233,7 +234,7 @@ public final class CdsResourceExtractor {
     if (practitionerPrefetch instanceof Practitioner practitioner) {
       context.addPractitioner(practitioner);
     } else if (practitionerPrefetch instanceof Bundle practitionerBundle) {
-      List<Practitioner> practitioners = ResourceResolver.extractFromBundle(practitionerBundle, Practitioner.class);
+      List<Practitioner> practitioners = BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),practitionerBundle, Practitioner.class);
       if (!practitioners.isEmpty()) {
         context.getPractitioners().addAll(practitioners);
       }
@@ -243,7 +244,7 @@ public final class CdsResourceExtractor {
     if (practitionerRolesPrefetch instanceof PractitionerRole practitionerRole) {
       context.addPractitionerRole(practitionerRole);
     } else if (practitionerRolesPrefetch instanceof Bundle rolesBundle) {
-      List<PractitionerRole> roles = ResourceResolver.extractFromBundle(rolesBundle, PractitionerRole.class);
+      List<PractitionerRole> roles = BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),rolesBundle, PractitionerRole.class);
       if (!roles.isEmpty()) {
         context.getPractitionerRoles().addAll(roles);
       }
@@ -252,7 +253,7 @@ public final class CdsResourceExtractor {
     // Device history
     Object deviceHistoryPrefetch = getPrefetchFlexible(request, "deviceHistory");
     if (deviceHistoryPrefetch instanceof Bundle deviceHistoryBundle) {
-      List<DeviceRequest> deviceRequests = ResourceResolver.extractFromBundle(deviceHistoryBundle, DeviceRequest.class);
+      List<DeviceRequest> deviceRequests = BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),deviceHistoryBundle, DeviceRequest.class);
       if (!deviceRequests.isEmpty()) {
         context.getDeviceHistory().addAll(deviceRequests);
       }
@@ -261,37 +262,37 @@ public final class CdsResourceExtractor {
     // Medications
     Object medicationsPrefetch = getPrefetchFlexible(request, "medications");
     if (medicationsPrefetch instanceof Bundle medicationsBundle) {
-      context.setMedicationStatements(ResourceResolver.extractFromBundle(medicationsBundle, MedicationStatement.class));
+      context.setMedicationStatements(BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),medicationsBundle, MedicationStatement.class));
     }
 
     // Medication history
     Object medicationHistoryPrefetch = getPrefetchFlexible(request, "medicationHistory");
     if (medicationHistoryPrefetch instanceof Bundle medicationHistoryBundle) {
-      context.setMedicationHistory(ResourceResolver.extractFromBundle(medicationHistoryBundle, MedicationRequest.class));
+      context.setMedicationHistory(BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),medicationHistoryBundle, MedicationRequest.class));
     }
 
     // Medication dispenses
     Object medicationDispensePrefetch = getPrefetchFlexible(request, "medicationDispense");
     if (medicationDispensePrefetch instanceof Bundle medicationDispenseBundle) {
       context.setMedicationDispenses(
-          ResourceResolver.extractFromBundle(medicationDispenseBundle, MedicationDispense.class));
+          BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),medicationDispenseBundle, MedicationDispense.class));
     }
 
     // Procedures
     Object proceduresPrefetch = getPrefetchFlexible(request, "procedures");
     if (proceduresPrefetch instanceof Bundle proceduresBundle) {
-      context.setProcedures(ResourceResolver.extractFromBundle(proceduresBundle, Procedure.class));
+      context.setProcedures(BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),proceduresBundle, Procedure.class));
     }
 
     // Service requests
     Object serviceRequestsPrefetch = getPrefetchFlexible(request, "serviceRequests");
     if (serviceRequestsPrefetch instanceof Bundle serviceRequestsBundle) {
-      context.setServiceRequests(ResourceResolver.extractFromBundle(serviceRequestsBundle, ServiceRequest.class));
+      context.setServiceRequests(BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),serviceRequestsBundle, ServiceRequest.class));
     }
 
     Object serviceHistoryPrefetch = getPrefetchFlexible(request, "serviceHistory");
     if (serviceHistoryPrefetch instanceof Bundle serviceHistoryBundle) {
-      List<ServiceRequest> serviceRequests = ResourceResolver.extractFromBundle(serviceHistoryBundle, ServiceRequest.class);
+      List<ServiceRequest> serviceRequests = BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),serviceHistoryBundle, ServiceRequest.class);
       if (!serviceRequests.isEmpty()) {
         context.getServiceRequests().addAll(serviceRequests);
       }
@@ -300,7 +301,7 @@ public final class CdsResourceExtractor {
     // Conditions
     Object conditionsPrefetch = getPrefetchFlexible(request, "conditions");
     if (conditionsPrefetch instanceof Bundle conditionsBundle) {
-      context.setConditions(ResourceResolver.extractFromBundle(conditionsBundle, Condition.class));
+      context.setConditions(BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),conditionsBundle, Condition.class));
     }
   }
 

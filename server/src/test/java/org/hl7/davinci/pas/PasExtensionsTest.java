@@ -2,7 +2,6 @@ package org.hl7.davinci.pas;
 
 import static org.junit.jupiter.api.Assertions.*;
 import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.StringType;
@@ -12,7 +11,7 @@ class PasExtensionsTest {
 
   @Test
   void buildReviewActionExtension_certifiedInTotal() {
-    Extension ext = PasConstants.buildReviewActionExtension(
+    Extension ext = PasExtensions.buildReviewActionExtension(
         PasConstants.REVIEW_CODE_A1, "Certified in total", "AUTH001");
 
     assertEquals(PasConstants.REVIEW_ACTION, ext.getUrl());
@@ -30,7 +29,7 @@ class PasExtensionsTest {
 
   @Test
   void buildReviewActionExtension_pendedNoAuthNumber() {
-    Extension ext = PasConstants.buildReviewActionExtension(
+    Extension ext = PasExtensions.buildReviewActionExtension(
         PasConstants.REVIEW_CODE_A4, "Pending", null);
 
     assertNull(ext.getExtensionByUrl("number"));
@@ -38,7 +37,7 @@ class PasExtensionsTest {
 
   @Test
   void buildPreAuthPeriodExtension_withDates() {
-    Extension ext = PasConstants.buildPreAuthPeriodExtension(new java.util.Date(), new java.util.Date());
+    Extension ext = PasExtensions.buildPreAuthPeriodExtension(new java.util.Date(), new java.util.Date());
     assertEquals(PasConstants.ITEM_PREAUTH_PERIOD, ext.getUrl());
     assertInstanceOf(Period.class, ext.getValue());
   }

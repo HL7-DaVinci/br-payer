@@ -19,6 +19,7 @@ import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.StringType;
 import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.starter.AppProperties;
@@ -34,6 +35,7 @@ public class PasResponseBuilder {
   private static final String ADJUDICATION_SYSTEM = "http://terminology.hl7.org/CodeSystem/adjudication";
 
   private final AtomicLong authCounter = new AtomicLong(0);
+  private final AtomicLong pendCounter = new AtomicLong(0);
   private final String serverBase;
 
   public PasResponseBuilder(AppProperties appProperties) {
@@ -115,7 +117,7 @@ public class PasResponseBuilder {
         String authNumber = isApproved
             ? authNumberPrefix + String.format("%04d", authCounter.incrementAndGet())
             : null;
-        adj.addExtension(PasConstants.buildReviewActionExtension(
+        adj.addExtension(PasExtensions.buildReviewActionExtension(
             decision.reviewActionCode(), decision.reviewActionDisplay(), authNumber));
 
         // Manage preAuthPeriod: add for approved, remove for non-approved
@@ -124,6 +126,16 @@ public class PasResponseBuilder {
         } else if (!isApproved) {
           item.getExtension().removeIf(e -> PasConstants.ITEM_PREAUTH_PERIOD.equals(e.getUrl()));
         }
+      }
+
+      // Manage adminRefNumber: add for pended items, remove for non-pended
+      if (PasConstants.REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
+        if (item.getExtensionByUrl(PasConstants.ADMIN_REF_NUMBER) == null) {
+          String adminRef = authNumberPrefix + "PEND" + String.format("%04d", pendCounter.incrementAndGet());
+          item.addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType(adminRef));
+        }
+      } else {
+        item.getExtension().removeIf(e -> PasConstants.ADMIN_REF_NUMBER.equals(e.getUrl()));
       }
     }
 
@@ -145,11 +157,16 @@ public class PasResponseBuilder {
       String authNumber = isApproved
           ? authNumberPrefix + String.format("%04d", authCounter.incrementAndGet())
           : null;
-      adj.addExtension(PasConstants.buildReviewActionExtension(
+      adj.addExtension(PasExtensions.buildReviewActionExtension(
           decision.reviewActionCode(), decision.reviewActionDisplay(), authNumber));
 
       if (isApproved) {
         newItem.addExtension(buildDefaultPreAuthPeriod());
+      }
+
+      if (PasConstants.REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
+        String adminRef = authNumberPrefix + "PEND" + String.format("%04d", pendCounter.incrementAndGet());
+        newItem.addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType(adminRef));
       }
     }
   }
@@ -167,12 +184,15 @@ public class PasResponseBuilder {
 
         adj.getExtension().removeIf(e -> PasConstants.REVIEW_ACTION.equals(e.getUrl()));
         String authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
-        adj.addExtension(PasConstants.buildReviewActionExtension(targetCode, targetDisplay, authNumber));
+        adj.addExtension(PasExtensions.buildReviewActionExtension(targetCode, targetDisplay, authNumber));
         itemWasFinalized = true;
       }
 
-      if (itemWasFinalized && item.getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD) == null) {
-        item.addExtension(buildDefaultPreAuthPeriod());
+      if (itemWasFinalized) {
+        item.getExtension().removeIf(e -> PasConstants.ADMIN_REF_NUMBER.equals(e.getUrl()));
+        if (item.getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD) == null) {
+          item.addExtension(buildDefaultPreAuthPeriod());
+        }
       }
     }
   }
@@ -219,12 +239,18 @@ public class PasResponseBuilder {
         authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
       }
 
-      adj.addExtension(PasConstants.buildReviewActionExtension(
+      adj.addExtension(PasExtensions.buildReviewActionExtension(
           decision.reviewActionCode(), decision.reviewActionDisplay(), authNumber));
 
       // Approved items get additional extensions per PAS IG
       if (isApproved) {
         responseItem.addExtension(buildDefaultPreAuthPeriod());
+      }
+
+      // Pended items get an administrationReferenceNumber for inquiry matching
+      if (PasConstants.REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
+        String adminRef = authNumberPrefix + "PEND" + String.format("%04d", pendCounter.incrementAndGet());
+        responseItem.addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType(adminRef));
       }
     }
 

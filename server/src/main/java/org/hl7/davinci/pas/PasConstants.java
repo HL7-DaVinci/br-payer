@@ -1,10 +1,7 @@
 package org.hl7.davinci.pas;
 
-import org.hl7.fhir.r4.model.*;
-import java.util.Date;
-
 /**
- * PAS IG extension URLs and review action code constants.
+ * PAS IG extension URLs, review action codes, and profile URL constants.
  */
 public final class PasConstants {
 
@@ -72,55 +69,8 @@ public final class PasConstants {
   public static final String PROFILE_PAS_PRACTITIONER = PAS_BASE + "profile-practitioner";
   public static final String PROFILE_PAS_SERVICE_REQUEST = PAS_BASE + "profile-servicerequest";
 
-  /**
-   * Builds a reviewAction extension with the given X12 306 code and optional auth
-   * number.
-   */
-  public static Extension buildReviewActionExtension(String reviewCode, String displayText, String authNumber) {
-    Extension reviewAction = new Extension(REVIEW_ACTION);
-
-    Extension codeExt = new Extension(REVIEW_ACTION_CODE);
-    codeExt.setValue(new CodeableConcept().addCoding(
-        new Coding(X12_REVIEW_CODE_SYSTEM, reviewCode, displayText)));
-    reviewAction.addExtension(codeExt);
-
-    if (authNumber != null) {
-      reviewAction.addExtension("number", new StringType(authNumber));
-    }
-
-    return reviewAction;
-  }
-
-  /**
-   * Extracts the X12 306 review action code from a ClaimResponse item's adjudication.
-   * Walks the item's adjudications looking for the reviewAction extension and returns
-   * the first review action code found, or null if none present.
-   */
-  public static String extractReviewActionCode(ClaimResponse.ItemComponent item) {
-    for (ClaimResponse.AdjudicationComponent adj : item.getAdjudication()) {
-      Extension reviewAction = adj.getExtensionByUrl(REVIEW_ACTION);
-      if (reviewAction == null) continue;
-
-      Extension codeExt = reviewAction.getExtensionByUrl(REVIEW_ACTION_CODE);
-      if (codeExt == null || !(codeExt.getValue() instanceof CodeableConcept cc)) continue;
-
-      Coding coding = cc.getCodingFirstRep();
-      if (coding != null && coding.hasCode()) {
-        return coding.getCode();
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Builds an itemPreAuthPeriod extension for the given start/end dates.
-   */
-  public static Extension buildPreAuthPeriodExtension(Date start, Date end) {
-    Period period = new Period();
-    if (start != null)
-      period.setStart(start);
-    if (end != null)
-      period.setEnd(end);
-    return new Extension(ITEM_PREAUTH_PERIOD, period);
-  }
+  // Identifier systems used for bundle resource resolution
+  public static final String NPI_SYSTEM = "http://hl7.org/fhir/sid/us-npi";
+  public static final String MB_TYPE_SYSTEM = "http://terminology.hl7.org/CodeSystem/v2-0203";
+  public static final String MB_TYPE_CODE = "MB";
 }

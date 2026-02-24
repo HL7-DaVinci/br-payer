@@ -299,10 +299,16 @@ function CdsHooksPage() {
             <div className="flex items-center gap-3">
               <Tabs value={mode} onValueChange={handleModeChange}>
                 <TabsList className="h-7">
-                  <TabsTrigger value="scenarios" className="text-xs px-3 h-6 cursor-pointer">
+                  <TabsTrigger
+                    value="scenarios"
+                    className="text-xs px-3 h-6 cursor-pointer"
+                  >
                     Scenarios
                   </TabsTrigger>
-                  <TabsTrigger value="manual" className="text-xs px-3 h-6 cursor-pointer">
+                  <TabsTrigger
+                    value="manual"
+                    className="text-xs px-3 h-6 cursor-pointer"
+                  >
                     Manual
                   </TabsTrigger>
                 </TabsList>
@@ -558,7 +564,7 @@ function CdsHooksPage() {
                   const cdsError = hookError as CdsError;
                   openViewer(
                     cdsError.operationOutcome ??
-                    cdsError.body ?? { message: cdsError.message },
+                      cdsError.body ?? { message: cdsError.message },
                     "CDS Hook Error",
                     `HTTP ${cdsError.status ?? "Error"}`,
                   );

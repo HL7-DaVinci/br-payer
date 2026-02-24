@@ -280,6 +280,71 @@ class PasResponseBuilderTest {
     assertNotNull(preAuthPeriod, "Modified items must have itemPreAuthPeriod");
   }
 
+  // ===== administrationReferenceNumber lifecycle =====
+
+  @Test
+  void buildSubmitResponse_pendedItemGetsAdminRefNumber() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+    ClaimResponse.ItemComponent item = cr.getItem().get(0);
+
+    Extension adminRef = item.getExtensionByUrl(PasConstants.ADMIN_REF_NUMBER);
+    assertNotNull(adminRef, "Pended items must have administrationReferenceNumber");
+    assertTrue(((StringType) adminRef.getValue()).getValue().startsWith("AUTH"));
+    assertTrue(((StringType) adminRef.getValue()).getValue().contains("PEND"));
+  }
+
+  @Test
+  void buildSubmitResponse_approvedItemDoesNotGetAdminRefNumber() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+    ClaimResponse.ItemComponent item = cr.getItem().get(0);
+
+    assertNull(item.getExtensionByUrl(PasConstants.ADMIN_REF_NUMBER),
+        "Approved items must not have administrationReferenceNumber");
+  }
+
+  @Test
+  void resolvePendedItems_removesAdminRefNumber() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+    Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
+
+    // Verify admin ref is present before finalization
+    assertNotNull(pendedCr.getItem().get(0).getExtensionByUrl(PasConstants.ADMIN_REF_NUMBER));
+
+    builder.resolvePendedItems(pendedCr, "AUTH");
+
+    assertNull(pendedCr.getItem().get(0).getExtensionByUrl(PasConstants.ADMIN_REF_NUMBER),
+        "Finalized items must not retain administrationReferenceNumber");
+  }
+
+  @Test
+  void applyItemDecisions_cancelledItemRemovesAdminRefNumber() {
+    // Start with a pended item that has adminRefNumber
+    ClaimResponse cr = buildClaimResponseWithItems(
+        Map.of(1, PasConstants.REVIEW_CODE_A4));
+    cr.getItem().get(0).addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType("PEND0001"));
+
+    // Apply A2 (denial/cancel) -- adminRefNumber should be removed
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A2, "Not Certified", false));
+    builder.applyItemDecisions(cr, decisions, "AUTH");
+
+    assertNull(cr.getItem().get(0).getExtensionByUrl(PasConstants.ADMIN_REF_NUMBER),
+        "Cancelled items must not retain administrationReferenceNumber");
+  }
+
   // ===== applyItemDecisions Tests =====
 
   @Test
@@ -294,7 +359,7 @@ class PasResponseBuilderTest {
     builder.applyItemDecisions(cr, decisions, "AUTH");
 
     ClaimResponse.ItemComponent item = cr.getItem().get(0);
-    String reviewCode = PasConstants.extractReviewActionCode(item);
+    String reviewCode = PasExtensions.extractReviewActionCode(item);
     assertEquals(PasConstants.REVIEW_CODE_A1, reviewCode);
   }
 
@@ -311,7 +376,7 @@ class PasResponseBuilderTest {
 
     assertEquals(2, cr.getItem().size());
     assertEquals(2, cr.getItem().get(1).getItemSequence());
-    String newItemCode = PasConstants.extractReviewActionCode(cr.getItem().get(1));
+    String newItemCode = PasExtensions.extractReviewActionCode(cr.getItem().get(1));
     assertEquals(PasConstants.REVIEW_CODE_A3, newItemCode);
   }
 
@@ -372,7 +437,7 @@ class PasResponseBuilderTest {
       ClaimResponse.AdjudicationComponent adj = item.addAdjudication();
       adj.setCategory(new CodeableConcept().addCoding(
           new Coding("http://terminology.hl7.org/CodeSystem/adjudication", "submitted", "Submitted Amount")));
-      adj.addExtension(PasConstants.buildReviewActionExtension(entry.getValue(), "Display", null));
+      adj.addExtension(PasExtensions.buildReviewActionExtension(entry.getValue(), "Display", null));
     }
     return cr;
   }

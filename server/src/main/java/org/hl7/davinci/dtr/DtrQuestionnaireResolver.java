@@ -350,7 +350,8 @@ public class DtrQuestionnaireResolver {
 
       // Handle contained references (e.g., "#payor-org")
       if (ref.startsWith("#")) {
-        Organization org = ResourceResolver.findInContained(ref.substring(1), Organization.class, coverage);
+        Resource contained = coverage.getContained(ref);
+        Organization org = contained instanceof Organization castOrg ? castOrg : null;
         if (org != null) {
           PayorIdentifierUtil.addValidIdentifiers(identifiers, org);
         }
@@ -385,7 +386,7 @@ public class DtrQuestionnaireResolver {
       String reference = itemRef.getReference();
 
       if (reference.startsWith("#") && order instanceof DomainResource domainResource) {
-        return ResourceResolver.findInContained(reference.substring(1), Resource.class, domainResource);
+        return domainResource.getContained(reference);
       }
 
       try {

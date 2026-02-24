@@ -30,6 +30,7 @@ class PasSubmitServiceTest {
   private PasBundleValidator validator;
   private PasCoverageEvaluator evaluator;
   private PasResponseBuilder responseBuilder;
+  private PasBundleReferenceResolver bundleReferenceResolver;
   private DaoRegistry daoRegistry;
   private PasSubmitService service;
 
@@ -39,6 +40,7 @@ class PasSubmitServiceTest {
     validator = mock(PasBundleValidator.class);
     evaluator = mock(PasCoverageEvaluator.class);
     responseBuilder = mock(PasResponseBuilder.class);
+    bundleReferenceResolver = mock(PasBundleReferenceResolver.class);
     daoRegistry = mock(DaoRegistry.class);
 
     IFhirResourceDao<ClaimResponse> crDao = mock(IFhirResourceDao.class);
@@ -54,11 +56,30 @@ class PasSubmitServiceTest {
     when(claimDao.create(any(), any(RequestDetails.class))).thenReturn(claimOutcome);
     when(daoRegistry.getResourceDao(Claim.class)).thenReturn(claimDao);
 
+    IFhirResourceDao<Patient> patientDao = mock(IFhirResourceDao.class);
+    DaoMethodOutcome patientOutcome = new DaoMethodOutcome();
+    patientOutcome.setId(new IdType("Patient/server-patient-id"));
+    when(patientDao.update(any(), any(RequestDetails.class))).thenReturn(patientOutcome);
+    when(daoRegistry.getResourceDao(Patient.class)).thenReturn(patientDao);
+
+    IFhirResourceDao<Organization> orgDao = mock(IFhirResourceDao.class);
+    DaoMethodOutcome orgOutcome = new DaoMethodOutcome();
+    orgOutcome.setId(new IdType("Organization/server-org-id"));
+    when(orgDao.update(any(), any(RequestDetails.class))).thenReturn(orgOutcome);
+    when(daoRegistry.getResourceDao(Organization.class)).thenReturn(orgDao);
+
+    IFhirResourceDao<Coverage> coverageDao = mock(IFhirResourceDao.class);
+    DaoMethodOutcome coverageOutcome = new DaoMethodOutcome();
+    coverageOutcome.setId(new IdType("Coverage/server-coverage-id"));
+    when(coverageDao.update(any(), any(RequestDetails.class))).thenReturn(coverageOutcome);
+    when(daoRegistry.getResourceDao(Coverage.class)).thenReturn(coverageDao);
+
     AppProperties appProperties = mock(AppProperties.class);
     when(appProperties.getServer_address()).thenReturn(SERVER_BASE);
 
     PasProperties pasProperties = new PasProperties(30, "AUTH-");
-    service = new PasSubmitService(validator, evaluator, responseBuilder, daoRegistry, appProperties, pasProperties);
+    service = new PasSubmitService(validator, evaluator, responseBuilder, daoRegistry,
+        bundleReferenceResolver, appProperties, pasProperties);
   }
 
   @Test
@@ -530,6 +551,19 @@ class PasSubmitServiceTest {
   }
 
   @Test
+  void submit_cancelPriorDenied_throws() {
+    Bundle requestBundle = buildCancelBundle("prior-claim-id");
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    mockStoredClaimSearch(buildStoredPriorClaim());
+    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A2, "Not Certified"));
+
+    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        () -> service.submit(requestBundle));
+    assertTrue(ex.getMessage().contains("denied"));
+  }
+
+  @Test
   void submit_updateOnPendedCR_removesPendedTagIfNoLongerPended() {
     Bundle requestBundle = buildUpdateBundle("prior-claim-id");
     Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
@@ -575,6 +609,89 @@ class PasSubmitServiceTest {
     verify(crDao, never()).update(any(), any(RequestDetails.class));
     verify(responseBuilder).buildSubmitResponse(any(), any(), any(), any());
     verify(responseBuilder, never()).applyItemDecisions(any(), any(), any());
+  }
+
+  // ===== Bundle Resource Resolution Tests =====
+
+  @Test
+  void submit_resolvesPatientByMemberIdentifier() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+
+    // Stub resolver to simulate resolving patient to a server-side resource
+    doAnswer(inv -> {
+      Claim c = inv.getArgument(1);
+      c.setPatient(new Reference("Patient/server-patient-123"));
+      return null;
+    }).when(bundleReferenceResolver).resolveAndStoreBundleResources(eq(requestBundle), eq(claim));
+
+    mockValidatorAndResponseBuilder(requestBundle, claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+
+    service.submit(requestBundle);
+
+    assertEquals("Patient/server-patient-123", claim.getPatient().getReference());
+    verify(bundleReferenceResolver).resolveAndStoreBundleResources(requestBundle, claim);
+  }
+
+  @Test
+  void submit_delegatesBundleReferenceResolution() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+
+    mockValidatorAndResponseBuilder(requestBundle, claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+
+    service.submit(requestBundle);
+
+    verify(bundleReferenceResolver).resolveAndStoreBundleResources(requestBundle, claim);
+  }
+
+  @Test
+  void submit_resolvesOrganizationByNpi() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+
+    // Stub resolver to simulate resolving insurer and provider
+    doAnswer(inv -> {
+      Claim c = inv.getArgument(1);
+      c.setInsurer(new Reference("Organization/server-insurer-id"));
+      c.setProvider(new Reference("Organization/server-provider-id"));
+      return null;
+    }).when(bundleReferenceResolver).resolveAndStoreBundleResources(eq(requestBundle), eq(claim));
+
+    mockValidatorAndResponseBuilder(requestBundle, claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+
+    service.submit(requestBundle);
+
+    assertEquals("Organization/server-insurer-id", claim.getInsurer().getReference());
+    assertEquals("Organization/server-provider-id", claim.getProvider().getReference());
+  }
+
+  @Test
+  void submit_resolvesCoverageByIdentifier() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+
+    // Stub resolver to simulate resolving coverage
+    doAnswer(inv -> {
+      Claim c = inv.getArgument(1);
+      c.getInsuranceFirstRep().setCoverage(new Reference("Coverage/server-coverage-456"));
+      return null;
+    }).when(bundleReferenceResolver).resolveAndStoreBundleResources(eq(requestBundle), eq(claim));
+
+    mockValidatorAndResponseBuilder(requestBundle, claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+
+    service.submit(requestBundle);
+
+    assertEquals("Coverage/server-coverage-456",
+        claim.getInsuranceFirstRep().getCoverage().getReference());
   }
 
   // ===== Test Helpers =====
@@ -725,7 +842,7 @@ class PasSubmitServiceTest {
     ClaimResponse.AdjudicationComponent adj = item.addAdjudication();
     adj.setCategory(new CodeableConcept().addCoding(
         new Coding("http://terminology.hl7.org/CodeSystem/adjudication", "submitted", "Submitted")));
-    adj.addExtension(PasConstants.buildReviewActionExtension(reviewCode, displayText, authNumber));
+    adj.addExtension(PasExtensions.buildReviewActionExtension(reviewCode, displayText, authNumber));
 
     return cr;
   }

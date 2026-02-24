@@ -321,9 +321,10 @@ class ResourceResolverTest {
       contained.setId("contained-prac");
       parent.addContained(contained);
 
-      Practitioner found = ResourceResolver.findInContained("contained-prac", Practitioner.class, parent);
+      Resource found = parent.getContained("#contained-prac");
 
       assertNotNull(found);
+      assertInstanceOf(Practitioner.class, found);
       assertEquals("contained-prac", found.getIdElement().getIdPart());
     }
 
@@ -336,10 +337,9 @@ class ResourceResolverTest {
       contained.setId("contained-prac");
       parent.addContained(contained);
 
-      // Looking for Organization but contained is Practitioner
-      Organization found = ResourceResolver.findInContained("contained-prac", Organization.class, parent);
-
-      assertNull(found);
+      Resource found = parent.getContained("#contained-prac");
+      assertNotNull(found);
+      assertFalse(found instanceof Organization);
     }
 
     @Test
@@ -351,7 +351,7 @@ class ResourceResolverTest {
       contained.setId("existing-id");
       parent.addContained(contained);
 
-      Practitioner found = ResourceResolver.findInContained("non-existent-id", Practitioner.class, parent);
+      Resource found = parent.getContained("#non-existent-id");
 
       assertNull(found);
     }

@@ -4,6 +4,7 @@ import {
   FlameIcon,
   Form,
   LayoutDashboard,
+  ShieldCheck,
   Webhook,
 } from "lucide-react";
 import type * as React from "react";
@@ -46,6 +47,11 @@ const data = {
           title: "DTR",
           url: "/dtr",
           icon: Form,
+        },
+        {
+          title: "PAS",
+          url: "/pas",
+          icon: ShieldCheck,
         },
       ],
     },

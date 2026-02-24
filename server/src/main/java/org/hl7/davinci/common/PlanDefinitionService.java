@@ -200,7 +200,9 @@ public class PlanDefinitionService {
           .filter(CarePlan.CarePlanActivityComponent::hasReference)
           .map(activity -> activity.getReference().getReference())
           .filter(ref -> ref != null && ref.startsWith("#"))
-          .map(ref -> FhirUtil.findInContained(ref.substring(1), RequestGroup.class, carePlan))
+          .map(carePlan::getContained)
+          .filter(RequestGroup.class::isInstance)
+          .map(RequestGroup.class::cast)
           .filter(java.util.Objects::nonNull)
           .findFirst()
           .orElse(null);

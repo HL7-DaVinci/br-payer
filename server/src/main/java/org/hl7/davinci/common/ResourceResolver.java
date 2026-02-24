@@ -3,6 +3,7 @@ package org.hl7.davinci.common;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
@@ -28,6 +29,7 @@ import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestAuthorizationJson;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.interceptor.BearerTokenAuthInterceptor;
+import ca.uhn.fhir.util.BundleUtil;
 
 /**
  * Utility class for generic FHIR resource reference resolution.
@@ -35,6 +37,7 @@ import ca.uhn.fhir.rest.client.interceptor.BearerTokenAuthInterceptor;
 public class ResourceResolver {
 
   private static final Logger logger = LoggerFactory.getLogger(ResourceResolver.class);
+  private static final FhirContext R4_CTX = FhirContext.forR4Cached();
 
   /**
    * Resolves a resource reference using all available strategies in this order:
@@ -53,9 +56,9 @@ public class ResourceResolver {
 
     // Check contained resources
     if (reference.startsWith("#") && parentResource != null) {
-      T resource = findInContained(reference.substring(1), resourceType, parentResource);
-      if (resource != null) {
-        return resource;
+      Resource contained = parentResource.getContained(reference);
+      if (resourceType.isInstance(contained)) {
+        return resourceType.cast(contained);
       }
     }
 
@@ -73,15 +76,6 @@ public class ResourceResolver {
 
     logger.warn("Could not resolve {} reference: {}", resourceType.getSimpleName(), reference);
     return null;
-  }
-
-  /**
-   * Finds a resource in the parent's contained resources.
-   * @see FhirUtil#findInContained(String, Class, DomainResource)
-   */
-  public static <T extends IBaseResource> T findInContained(String containedId, Class<T> resourceType,
-      DomainResource parentResource) {
-    return FhirUtil.findInContained(containedId, resourceType, parentResource);
   }
 
   /**
@@ -121,18 +115,30 @@ public class ResourceResolver {
    * Finds a resource in a bundle.
    */
   public static <T extends IBaseResource> T findInBundle(String reference, Class<T> resourceType, Bundle bundle) {
-    if (bundle == null || !bundle.hasEntry()) {
+    if (reference == null || reference.isBlank() || bundle == null || !bundle.hasEntry()) {
       return null;
     }
 
+    IBase resolved = BundleUtil.getReferenceInBundle(R4_CTX, reference, bundle);
+    if (resourceType.isInstance(resolved)) {
+      return resourceType.cast(resolved);
+    }
+
     for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-      if (resourceType.isInstance(entry.getResource())) {
-        if (referencesMatchResource(reference, entry.getResource()) ||
-            (entry.hasFullUrl() && reference.equals(entry.getFullUrl()))) {
-          return resourceType.cast(entry.getResource());
-        }
+      if (!resourceType.isInstance(entry.getResource())) {
+        continue;
+      }
+      if (entry.hasFullUrl() && reference.equals(entry.getFullUrl())) {
+        return resourceType.cast(entry.getResource());
       }
     }
+
+    for (T resource : BundleUtil.toListOfResourcesOfType(R4_CTX, bundle, resourceType)) {
+      if (resource instanceof Resource castResource && referencesMatchResource(reference, castResource)) {
+        return resource;
+      }
+    }
+
     return null;
   }
 
@@ -147,16 +153,21 @@ public class ResourceResolver {
     if (reference1.equals(reference2)) {
       return true;
     }
-    IdType id1 = new IdType(reference1);
-    IdType id2 = new IdType(reference2);
-    String resourceType1 = id1.getResourceType();
-    String resourceType2 = id2.getResourceType();
-    String idPart1 = id1.getIdPart();
-    String idPart2 = id2.getIdPart();
-    if (resourceType1 == null || resourceType2 == null || idPart1 == null || idPart2 == null) {
+
+    IdType id1;
+    IdType id2;
+    try {
+      id1 = new IdType(reference1).toUnqualifiedVersionless();
+      id2 = new IdType(reference2).toUnqualifiedVersionless();
+    } catch (Exception e) {
       return false;
     }
-    return resourceType1.equals(resourceType2) && idPart1.equals(idPart2);
+
+    if (!id1.hasResourceType() || !id2.hasResourceType() || !id1.hasIdPart() || !id2.hasIdPart()) {
+      return false;
+    }
+
+    return id1.equalsIgnoreBase(id2);
   }
 
   /**
@@ -192,8 +203,14 @@ public class ResourceResolver {
       return reference;
     }
 
-    IdType idType = new IdType(reference);
-    if (idType.getResourceType() == null || idType.getIdPart() == null) {
+    IdType idType;
+    try {
+      idType = new IdType(reference);
+    } catch (Exception e) {
+      return reference;
+    }
+
+    if (!idType.hasResourceType() || !idType.hasIdPart()) {
       return reference;
     }
 
@@ -231,18 +248,23 @@ public class ResourceResolver {
       return null;
     }
 
-    String idPart = normalizeReferenceId(reference, expectedType);
-    if (idPart == null || idPart.isBlank() || idPart.equals(reference)) {
+    IdType idType;
+    try {
+      idType = new IdType(reference);
+    } catch (Exception e) {
       return null;
     }
 
-    IdType idType = new IdType(reference);
+    if (!expectedType.equals(idType.getResourceType()) || !idType.hasIdPart()) {
+      return null;
+    }
+
     String versionless = idType.toVersionless().getValue();
     if (versionless != null && !versionless.isBlank()) {
       return versionless;
     }
 
-    return expectedType + "/" + idPart;
+    return expectedType + "/" + idType.getIdPart();
   }
 
   /**
@@ -261,7 +283,7 @@ public class ResourceResolver {
         return null;
       }
 
-      IGenericClient client = FhirContext.forR4Cached().newRestfulGenericClient(fhirServerBase);
+      IGenericClient client = R4_CTX.newRestfulGenericClient(fhirServerBase);
 
       CdsServiceRequestAuthorizationJson authorization = request.getServiceRequestAuthorizationJson();
       if (authorization != null && authorization.getAccessToken() != null) {
@@ -281,22 +303,6 @@ public class ResourceResolver {
   }
 
   /**
-   * Extracts all resources from a bundle matching the given type.
-   */
-  public static <T extends IBaseResource> List<T> extractFromBundle(Bundle bundle, Class<T> resourceType) {
-    List<T> resources = new ArrayList<>();
-    if (bundle != null && bundle.hasEntry()) {
-      for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-        if (resourceType.isInstance(entry.getResource())) {
-          T resource = resourceType.cast(entry.getResource());
-          resources.add(resource);
-        }
-      }
-    }
-    return resources;
-  }
-
-  /**
    * Strips urn:uuid: prefix from an ID string if present.
    */
   public static String normalizeId(String id) {
@@ -304,14 +310,6 @@ public class ResourceResolver {
       return id.substring("urn:uuid:".length());
     }
     return id;
-  }
-
-  /**
-   * Returns the URL with swapped protocol (https↔http), or null if not http/https.
-   * @see FhirUtil#getAlternateProtocolUrl(String)
-   */
-  public static String getAlternateProtocolUrl(String url) {
-    return FhirUtil.getAlternateProtocolUrl(url);
   }
 
   /**
@@ -433,11 +431,12 @@ public class ResourceResolver {
    */
   public static List<Resource> extractOrders(Bundle bundle) {
     List<Resource> orders = new ArrayList<>();
-    if (bundle != null && bundle.hasEntry()) {
-      for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-        if (isOrderResource(entry.getResource())) {
-          orders.add(entry.getResource());
-        }
+    if (bundle == null) {
+      return orders;
+    }
+    for (IBaseResource resource : BundleUtil.toListOfResources(R4_CTX, bundle)) {
+      if (resource instanceof Resource castResource && isOrderResource(castResource)) {
+        orders.add(castResource);
       }
     }
     return orders;

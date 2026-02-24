@@ -101,7 +101,7 @@ public class PasRequestBuilder {
           buildSubmitBundle(meta, focusCode, seed, "I", "Initial", initialTraceNumber)));
       variants.add(new PasVariant(
           meta.id() + "-renewal", "Renewal", "$submit", "renewal",
-          buildSubmitBundle(meta, focusCode, seed, "R", "Renewal", UUID.randomUUID().toString())));
+          buildSubmitBundle(meta, focusCode, seed, "R", "Renewal", initialTraceNumber)));
       variants.add(new PasVariant(
           meta.id() + "-update", "Update", "$submit", "update",
           buildUpdateBundle(meta, focusCode, seed, initialTraceNumber)));
@@ -109,9 +109,10 @@ public class PasRequestBuilder {
           meta.id() + "-cancel", "Cancel", "$submit", "cancel",
           buildCancelBundle(meta, focusCode, seed, initialTraceNumber)));
       // $inquire variant -- targets the Claim/$inquire endpoint
+      // Inquiry gets its own TRN per PAS IG; item trace numbers still link to the original
       variants.add(new PasVariant(
           meta.id() + "-inquiry", "Inquiry", "$inquire", "inquiry",
-          buildInquiryBundle(meta, focusCode, seed, initialTraceNumber)));
+          buildInquiryBundle(meta, focusCode, seed)));
 
       result.add(new PasScenario(meta.id(), meta.name(), description,
           meta.orderType() != null ? meta.orderType() : "ServiceRequest",

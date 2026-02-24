@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 import static org.hl7.davinci.dtr.DtrConstants.*;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.util.UrlUtil;
 
 /**
  * Resolves Library resources referenced by Questionnaire cqf-library extensions.
@@ -185,9 +186,9 @@ public class DtrLibraryResolver {
     if (!library.hasUrl()) {
       return;
     }
-    String[] parsed = DtrFhirUtil.parseCanonical(library.getUrl());
-    if (parsed.length > 0 && parsed[0] != null && !parsed[0].isBlank()) {
-      library.setUrl(parsed[0]);
+    String normalized = UrlUtil.normalizeCanonicalUrlForComparison(library.getUrl());
+    if (normalized != null && !normalized.isBlank()) {
+      library.setUrl(normalized);
     }
   }
 }

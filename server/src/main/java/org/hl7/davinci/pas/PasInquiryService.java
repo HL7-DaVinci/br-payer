@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.r4.model.Bundle;
@@ -14,6 +15,7 @@ import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.StringType;
 import org.springframework.stereotype.Service;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
@@ -35,12 +37,14 @@ public class PasInquiryService {
   private final PasBundleValidator validator;
   private final DaoRegistry daoRegistry;
   private final PasResponseBuilder responseBuilder;
+  private final PasBundleReferenceResolver bundleReferenceResolver;
 
   public PasInquiryService(PasBundleValidator validator, DaoRegistry daoRegistry,
-      PasResponseBuilder responseBuilder) {
+      PasResponseBuilder responseBuilder, PasBundleReferenceResolver bundleReferenceResolver) {
     this.validator = validator;
     this.daoRegistry = daoRegistry;
     this.responseBuilder = responseBuilder;
+    this.bundleReferenceResolver = bundleReferenceResolver;
   }
 
   /**
@@ -53,6 +57,7 @@ public class PasInquiryService {
    */
   public Parameters inquire(Bundle requestBundle) {
     Claim claim = validator.validateInquiryBundle(requestBundle);
+    bundleReferenceResolver.resolveInquiryReferences(requestBundle, claim);
     List<ClaimResponse> matches = searchClaimResponses(claim);
     return responseBuilder.buildInquiryResponse(matches);
   }
@@ -96,10 +101,13 @@ public class PasInquiryService {
     if (!hasCoverageMatch(requestedClaim, inquiryCoverageRefs)) {
       return false;
     }
-    if (!hasIdentifierMatch(inquiryClaim, requestedClaim)) {
+    if (!hasReferenceNumberMatch(inquiryClaim, candidateResponse)) {
       return false;
     }
-    return hasItemTraceNumberMatch(inquiryClaim, requestedClaim);
+    if (!hasItemTraceNumberMatch(inquiryClaim, requestedClaim)) {
+      return false;
+    }
+    return hasProductOrServiceMatch(inquiryClaim, requestedClaim);
   }
 
   private Claim readRequestedClaim(ClaimResponse claimResponse) {
@@ -144,25 +152,38 @@ public class PasInquiryService {
         .anyMatch(inquiryCoverageRefs::contains);
   }
 
-  private boolean hasIdentifierMatch(Claim inquiryClaim, Claim requestedClaim) {
-    List<Identifier> inquiryIds = inquiryClaim.getIdentifier().stream()
-        .filter(id -> id.hasSystem() || id.hasValue())
-        .collect(Collectors.toList());
-    if (inquiryIds.isEmpty()) {
+  /**
+   * Matches inquiry Claim extensions (authorizationNumber, administrationReferenceNumber)
+   * against the candidate ClaimResponse's item-level auth/admin ref numbers.
+   * If the inquiry has neither extension, the filter is skipped (matches by other criteria only).
+   */
+  private boolean hasReferenceNumberMatch(Claim inquiryClaim, ClaimResponse candidateResponse) {
+    Set<String> inquiryAuthNumbers = extractClaimExtensionValues(inquiryClaim, PasConstants.AUTHORIZATION_NUMBER);
+    Set<String> inquiryAdminRefs = extractClaimExtensionValues(inquiryClaim, PasConstants.ADMIN_REF_NUMBER);
+
+    if (inquiryAuthNumbers.isEmpty() && inquiryAdminRefs.isEmpty()) {
       return true;
     }
-    return inquiryIds.stream().anyMatch(inquiryId -> requestedClaim.getIdentifier().stream()
-        .anyMatch(storedId -> matchesIdentifier(storedId, inquiryId)));
+
+    Set<String> crAuthNumbers = PasExtensions.extractAllAuthorizationNumbers(candidateResponse);
+    Set<String> crAdminRefs = PasExtensions.extractAllAdminRefNumbers(candidateResponse);
+
+    boolean authMatch = inquiryAuthNumbers.stream().anyMatch(crAuthNumbers::contains);
+    boolean adminMatch = inquiryAdminRefs.stream().anyMatch(crAdminRefs::contains);
+    return authMatch || adminMatch;
   }
 
-  private boolean matchesIdentifier(Identifier storedId, Identifier inquiryId) {
-    if (inquiryId.hasSystem() && !inquiryId.getSystem().equals(storedId.getSystem())) {
-      return false;
-    }
-    if (inquiryId.hasValue() && !inquiryId.getValue().equals(storedId.getValue())) {
-      return false;
-    }
-    return true;
+  private Set<String> extractClaimExtensionValues(Claim claim, String extensionUrl) {
+    Stream<Extension> claimLevelExtensions = claim.getExtensionsByUrl(extensionUrl).stream();
+    Stream<Extension> itemLevelExtensions = claim.getItem().stream()
+        .flatMap(item -> item.getExtensionsByUrl(extensionUrl).stream());
+
+    return Stream.concat(claimLevelExtensions, itemLevelExtensions)
+        .map(Extension::getValue)
+        .filter(v -> v instanceof StringType)
+        .map(v -> ((StringType) v).getValue())
+        .filter(v -> v != null && !v.isBlank())
+        .collect(Collectors.toSet());
   }
 
   /**
@@ -188,6 +209,40 @@ public class PasInquiryService {
         .map(v -> ((Identifier) v).getValue())
         .filter(Objects::nonNull)
         .filter(v -> !v.isBlank())
+        .collect(Collectors.toSet());
+  }
+
+  private static final String DATA_ABSENT_REASON_SYSTEM =
+      "http://terminology.hl7.org/CodeSystem/data-absent-reason";
+  private static final String NOT_APPLICABLE_CODE = "not-applicable";
+
+  /**
+   * Query-by-example productOrService matching per PAS IG spec-43.
+   * If the inquiry Claim items have specific productOrService codes, at least one
+   * must match a code on the stored Claim's items. If all inquiry items use the
+   * "not-applicable" code or have no items, the filter is skipped (wildcard).
+   */
+  private boolean hasProductOrServiceMatch(Claim inquiryClaim, Claim storedClaim) {
+    Set<String> inquiryCodes = extractProductOrServiceCodes(inquiryClaim);
+    if (inquiryCodes.isEmpty()) {
+      return true;
+    }
+    Set<String> storedCodes = extractProductOrServiceCodes(storedClaim);
+    return inquiryCodes.stream().anyMatch(storedCodes::contains);
+  }
+
+  /**
+   * Extracts productOrService coding values as "system|code" strings, excluding
+   * the "not-applicable" data-absent-reason code which acts as a wildcard.
+   */
+  private Set<String> extractProductOrServiceCodes(Claim claim) {
+    return claim.getItem().stream()
+        .filter(item -> item.hasProductOrService())
+        .flatMap(item -> item.getProductOrService().getCoding().stream())
+        .filter(coding -> coding.hasSystem() && coding.hasCode())
+        .filter(coding -> !(DATA_ABSENT_REASON_SYSTEM.equals(coding.getSystem())
+            && NOT_APPLICABLE_CODE.equals(coding.getCode())))
+        .map(coding -> coding.getSystem() + "|" + coding.getCode())
         .collect(Collectors.toSet());
   }
 

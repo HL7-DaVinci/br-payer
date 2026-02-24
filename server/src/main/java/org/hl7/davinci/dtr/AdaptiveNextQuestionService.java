@@ -336,7 +336,7 @@ public class AdaptiveNextQuestionService {
     }
 
     if (reference.startsWith("#")) {
-      return ResourceResolver.findInContained(reference.substring(1), Resource.class, qr);
+      return qr.getContained(reference);
     }
 
     for (Resource contained : qr.getContained()) {

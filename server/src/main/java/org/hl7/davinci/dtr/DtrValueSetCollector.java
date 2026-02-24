@@ -19,6 +19,7 @@ import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDaoValueSet;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
+import ca.uhn.fhir.util.UrlUtil;
 
 /**
  * Collects ValueSet resources referenced by Questionnaire items and Library data requirements.
@@ -256,9 +257,9 @@ public class DtrValueSetCollector {
     if (!vs.hasUrl()) {
       return;
     }
-    String[] parsed = DtrFhirUtil.parseCanonical(vs.getUrl());
-    if (parsed.length > 0 && parsed[0] != null && !parsed[0].isBlank()) {
-      vs.setUrl(parsed[0]);
+    String normalized = UrlUtil.normalizeCanonicalUrlForComparison(vs.getUrl());
+    if (normalized != null && !normalized.isBlank()) {
+      vs.setUrl(normalized);
     }
   }
 
