@@ -83,10 +83,11 @@ public final class CoverageInfoUtil {
   }
 
   private static String normalizeBase(String fhirBase) {
-    if (fhirBase == null || fhirBase.isBlank()) {
+    String normalized = FhirUtil.normalizeServerBase(fhirBase);
+    if (normalized == null || normalized.isBlank()) {
       return null;
     }
-    return fhirBase.endsWith("/") ? fhirBase.substring(0, fhirBase.length() - 1) : fhirBase;
+    return normalized;
   }
 
   private static void normalizeQuestionnaireCanonicals(Extension coverageInfoExt, String fhirBase) {
@@ -111,4 +112,3 @@ public final class CoverageInfoUtil {
     }
   }
 }
-

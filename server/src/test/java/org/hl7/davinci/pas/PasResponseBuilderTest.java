@@ -1,5 +1,6 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
@@ -36,7 +37,7 @@ class PasResponseBuilderTest {
   void buildSubmitResponse_approved_hasA1AndAuthNumber() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
 
@@ -75,7 +76,7 @@ class PasResponseBuilderTest {
   void buildSubmitResponse_approved_hasPreAuthPeriod() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
@@ -89,7 +90,7 @@ class PasResponseBuilderTest {
   void buildSubmitResponse_pended_hasA4NoAuthNumber() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
 
@@ -110,7 +111,7 @@ class PasResponseBuilderTest {
   void buildSubmitResponse_denied_hasA2() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A2, "Not Certified", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A2, "Not Certified", false));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
 
@@ -128,8 +129,8 @@ class PasResponseBuilderTest {
     claim.addItem().setSequence(2).setProductOrService(
         new CodeableConcept().addCoding(new Coding("http://example.com", "99214", "Office Visit")));
     var decisions = Map.of(
-        1, new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false),
-        2, new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false));
+        1, new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false),
+        2, new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A3, "Not Required", false));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
@@ -144,7 +145,7 @@ class PasResponseBuilderTest {
     Claim claim = buildClaim();
     claim.setId("test-claim");
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A3, "Not Required", false));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
@@ -159,7 +160,7 @@ class PasResponseBuilderTest {
   void buildSubmitResponse_adjudicationCategoryIsSubmitted() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
@@ -195,7 +196,7 @@ class PasResponseBuilderTest {
   void resolvePendedItems_upgradesA4ToA1() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
     Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
 
@@ -218,8 +219,8 @@ class PasResponseBuilderTest {
         new CodeableConcept().addCoding(new Coding("http://example.com", "99214", "Office Visit")));
 
     var decisions = Map.of(
-        1, new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true),
-        2, new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A2, "Not Certified", false));
+        1, new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true),
+        2, new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A2, "Not Certified", false));
     Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
 
@@ -248,7 +249,7 @@ class PasResponseBuilderTest {
   void modifyPendedItems_upgradesA4ToA6WithAuthNumber() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
     Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
 
@@ -270,7 +271,7 @@ class PasResponseBuilderTest {
   void modifyPendedItems_addsPreAuthPeriod() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
     Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
 
@@ -286,7 +287,7 @@ class PasResponseBuilderTest {
   void buildSubmitResponse_pendedItemGetsAdminRefNumber() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
@@ -302,7 +303,7 @@ class PasResponseBuilderTest {
   void buildSubmitResponse_approvedItemDoesNotGetAdminRefNumber() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
@@ -316,7 +317,7 @@ class PasResponseBuilderTest {
   void resolvePendedItems_removesAdminRefNumber() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
     Bundle pendedResponse = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse pendedCr = (ClaimResponse) pendedResponse.getEntryFirstRep().getResource();
 
@@ -333,12 +334,12 @@ class PasResponseBuilderTest {
   void applyItemDecisions_cancelledItemRemovesAdminRefNumber() {
     // Start with a pended item that has adminRefNumber
     ClaimResponse cr = buildClaimResponseWithItems(
-        Map.of(1, PasConstants.REVIEW_CODE_A4));
+        Map.of(1, REVIEW_CODE_A4));
     cr.getItem().get(0).addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType("PEND0001"));
 
     // Apply A2 (denial/cancel) -- adminRefNumber should be removed
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A2, "Not Certified", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A2, "Not Certified", false));
     builder.applyItemDecisions(cr, decisions, "AUTH");
 
     assertNull(cr.getItem().get(0).getExtensionByUrl(PasConstants.ADMIN_REF_NUMBER),
@@ -351,42 +352,42 @@ class PasResponseBuilderTest {
   void applyItemDecisions_existingItemUpdatedWithNewDecision() {
     // Build a CR with an existing item at seq 1 with A4
     ClaimResponse cr = buildClaimResponseWithItems(
-        Map.of(1, PasConstants.REVIEW_CODE_A4));
+        Map.of(1, REVIEW_CODE_A4));
 
     // Apply A1 decision to seq 1
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
     builder.applyItemDecisions(cr, decisions, "AUTH");
 
     ClaimResponse.ItemComponent item = cr.getItem().get(0);
     String reviewCode = PasExtensions.extractReviewActionCode(item);
-    assertEquals(PasConstants.REVIEW_CODE_A1, reviewCode);
+    assertEquals(REVIEW_CODE_A1, reviewCode);
   }
 
   @Test
   void applyItemDecisions_newItemAddedToCR() {
     // Build a CR with only item seq 1
     ClaimResponse cr = buildClaimResponseWithItems(
-        Map.of(1, PasConstants.REVIEW_CODE_A1));
+        Map.of(1, REVIEW_CODE_A1));
 
     // Apply decision to seq 2 (not in original CR)
     var decisions = Map.of(2,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A3, "Not Required", false));
     builder.applyItemDecisions(cr, decisions, "AUTH");
 
     assertEquals(2, cr.getItem().size());
     assertEquals(2, cr.getItem().get(1).getItemSequence());
     String newItemCode = PasExtensions.extractReviewActionCode(cr.getItem().get(1));
-    assertEquals(PasConstants.REVIEW_CODE_A3, newItemCode);
+    assertEquals(REVIEW_CODE_A3, newItemCode);
   }
 
   @Test
   void applyItemDecisions_approvedItemGetsPreAuthPeriod() {
     ClaimResponse cr = buildClaimResponseWithItems(
-        Map.of(1, PasConstants.REVIEW_CODE_A4));
+        Map.of(1, REVIEW_CODE_A4));
 
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
     builder.applyItemDecisions(cr, decisions, "AUTH");
 
     Extension preAuthPeriod = cr.getItem().get(0).getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD);
@@ -397,13 +398,13 @@ class PasResponseBuilderTest {
   void applyItemDecisions_nonApprovedItemDoesNotGetPreAuthPeriod() {
     // Start with an approved item that has preAuthPeriod
     ClaimResponse cr = buildClaimResponseWithItems(
-        Map.of(1, PasConstants.REVIEW_CODE_A1));
+        Map.of(1, REVIEW_CODE_A1));
     cr.getItem().get(0).addExtension(PasConstants.ITEM_PREAUTH_PERIOD,
         new Period().setStart(new java.util.Date()));  // existing preAuthPeriod
 
     // Apply A2 (denial) -- preAuthPeriod should be removed
     var decisions = Map.of(1,
-        new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A2, "Not Certified", false));
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A2, "Not Certified", false));
     builder.applyItemDecisions(cr, decisions, "AUTH");
 
     Extension preAuthPeriod = cr.getItem().get(0).getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD);

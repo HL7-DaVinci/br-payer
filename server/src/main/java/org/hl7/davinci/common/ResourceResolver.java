@@ -5,26 +5,20 @@ import java.util.List;
 
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.Appointment;
+import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.CommunicationRequest;
-import org.hl7.fhir.r4.model.DeviceRequest;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Encounter;
-import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Coverage;
-import org.hl7.fhir.r4.model.MedicationRequest;
-import org.hl7.fhir.r4.model.NutritionOrder;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.ServiceRequest;
-import org.hl7.fhir.r4.model.SupplyRequest;
-import org.hl7.fhir.r4.model.VisionPrescription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestAuthorizationJson;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
@@ -268,6 +262,147 @@ public class ResourceResolver {
   }
 
   /**
+   * Resolves a typed reference from inline/contained resources or the local DAO
+   * registry.
+   */
+  public static <T extends Resource> T resolveTypedReferenceFromDao(
+      Reference reference,
+      Class<T> resourceType,
+      DomainResource parentResource,
+      DaoRegistry daoRegistry) {
+
+    if (reference == null || resourceType == null) {
+      return null;
+    }
+
+    if (resourceType.isInstance(reference.getResource())) {
+      return resourceType.cast(reference.getResource());
+    }
+
+    if (!reference.hasReference()) {
+      return null;
+    }
+
+    String ref = reference.getReference();
+    if (ref == null || ref.isBlank()) {
+      return null;
+    }
+
+    if (ref.startsWith("#") && parentResource != null) {
+      Resource contained = parentResource.getContained(ref);
+      if (resourceType.isInstance(contained)) {
+        return resourceType.cast(contained);
+      }
+      return null;
+    }
+
+    if (parentResource != null) {
+      for (Resource contained : parentResource.getContained()) {
+        if (resourceType.isInstance(contained) && referencesMatchResource(ref, contained)) {
+          return resourceType.cast(contained);
+        }
+      }
+    }
+
+    if (daoRegistry == null) {
+      return null;
+    }
+
+    IIdType idType = reference.getReferenceElement();
+    String resolvedType = idType.getResourceType();
+    if (resolvedType == null || resolvedType.isBlank()) {
+      resolvedType = resourceType.getSimpleName();
+    }
+    if (!resourceType.getSimpleName().equals(resolvedType)) {
+      return null;
+    }
+
+    String idPart = normalizeId(idType.getIdPart());
+    if (idPart == null || idPart.isBlank()) {
+      return null;
+    }
+
+    try {
+      IBaseResource resource = daoRegistry.getResourceDao(resourceType)
+          .read(new IdType(resolvedType, idPart), new SystemRequestDetails());
+      if (resourceType.isInstance(resource)) {
+        return resourceType.cast(resource);
+      }
+    } catch (Exception e) {
+      logger.debug("Could not resolve {} reference {} from DAO: {}",
+          resourceType.getSimpleName(), ref, e.getMessage());
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolves an untyped reference from inline/contained resources or the local DAO
+   * registry.
+   */
+  public static Resource resolveReferenceFromDao(
+      Reference reference,
+      DomainResource parentResource,
+      DaoRegistry daoRegistry) {
+
+    if (reference == null) {
+      return null;
+    }
+
+    if (reference.getResource() instanceof Resource inline) {
+      return inline;
+    }
+
+    if (!reference.hasReference()) {
+      return null;
+    }
+
+    String ref = reference.getReference();
+    if (ref == null || ref.isBlank()) {
+      return null;
+    }
+
+    if (ref.startsWith("#") && parentResource != null) {
+      return parentResource.getContained(ref);
+    }
+
+    if (parentResource != null) {
+      for (Resource contained : parentResource.getContained()) {
+        if (referencesMatchResource(ref, contained)) {
+          return contained;
+        }
+      }
+    }
+
+    if (daoRegistry == null) {
+      return null;
+    }
+
+    IIdType idType = reference.getReferenceElement();
+    String resourceType = idType.getResourceType();
+    if (resourceType == null || resourceType.isBlank()) {
+      return null;
+    }
+
+    String idPart = normalizeId(idType.getIdPart());
+    if (idPart == null || idPart.isBlank()) {
+      return null;
+    }
+
+    try {
+      IBaseResource resource = daoRegistry.getResourceDao(resourceType)
+          .read(new IdType(resourceType, idPart), new SystemRequestDetails());
+      if (resource instanceof Resource castResource) {
+        return castResource;
+      }
+    } catch (Exception e) {
+      logger.debug("Could not resolve reference {} from DAO: {}", ref, e.getMessage());
+    }
+
+    return null;
+  }
+
+  /**
    * Resolves a resource from the FHIR server.
    */
   public static <T extends IBaseResource> T resolveFromServer(String resourceId, Class<T> resourceType,
@@ -364,18 +499,12 @@ public class ResourceResolver {
       return null;
     }
 
-    return switch (resourceType) {
-      case "CommunicationRequest" -> resolveReference(ref, CommunicationRequest.class, null, request);
-      case "DeviceRequest" -> resolveReference(ref, DeviceRequest.class, null, request);
-      case "MedicationRequest" -> resolveReference(ref, MedicationRequest.class, null, request);
-      case "NutritionOrder" -> resolveReference(ref, NutritionOrder.class, null, request);
-      case "ServiceRequest" -> resolveReference(ref, ServiceRequest.class, null, request);
-      case "SupplyRequest" -> resolveReference(ref, SupplyRequest.class, null, request);
-      case "VisionPrescription" -> resolveReference(ref, VisionPrescription.class, null, request);
-      case "Appointment" -> resolveReference(ref, Appointment.class, null, request);
-      case "Encounter" -> resolveReference(ref, Encounter.class, null, request);
-      default -> null;
-    };
+    Class<? extends Resource> resourceClass = OrderResourceTypes.resourceClassFor(resourceType);
+    if (resourceClass == null) {
+      return null;
+    }
+
+    return resolveReference(ref, resourceClass, null, request);
   }
 
   /**
@@ -415,15 +544,7 @@ public class ResourceResolver {
    *      Bundle of Request Resources</a>
    */
   public static boolean isOrderResource(Resource resource) {
-    return resource instanceof Appointment ||
-        resource instanceof CommunicationRequest ||
-        resource instanceof DeviceRequest ||
-        resource instanceof Encounter ||
-        resource instanceof MedicationRequest ||
-        resource instanceof NutritionOrder ||
-        resource instanceof ServiceRequest ||
-        resource instanceof SupplyRequest ||
-        resource instanceof VisionPrescription;
+    return OrderResourceTypes.isSupported(resource);
   }
 
   /**

@@ -88,9 +88,8 @@ public class CdsHooksTestUtils {
         JsonNode contextNode = rootNode.get("context");
         CdsServiceRequestContextJson context = new CdsServiceRequestContextJson();
 
-        Iterator<Map.Entry<String, JsonNode>> fields = contextNode.fields();
-        while (fields.hasNext()) {
-          Map.Entry<String, JsonNode> field = fields.next();
+        Set<Map.Entry<String, JsonNode>> fields = contextNode.properties();
+        for (Map.Entry<String, JsonNode> field : fields) {
           String key = field.getKey();
           JsonNode value = field.getValue();
 
@@ -128,9 +127,8 @@ public class CdsHooksTestUtils {
       // Parse prefetch - each value is a FHIR resource
       if (rootNode.has("prefetch")) {
         JsonNode prefetchNode = rootNode.get("prefetch");
-        Iterator<Map.Entry<String, JsonNode>> prefetchFields = prefetchNode.fields();
-        while (prefetchFields.hasNext()) {
-          Map.Entry<String, JsonNode> field = prefetchFields.next();
+        Set<Map.Entry<String, JsonNode>> prefetchFields = prefetchNode.properties();
+        for (Map.Entry<String, JsonNode> field : prefetchFields) {
           String key = field.getKey();
           JsonNode value = field.getValue();
 

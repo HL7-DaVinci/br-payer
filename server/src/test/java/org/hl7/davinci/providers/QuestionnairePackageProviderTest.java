@@ -1,6 +1,7 @@
 package org.hl7.davinci.providers;
 
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
+import org.hl7.davinci.common.OrderResourceTypes;
 import org.hl7.davinci.dtr.DtrPackageService;
 import org.hl7.fhir.instance.model.api.IAnyResource;
 import org.hl7.fhir.r4.model.*;
@@ -64,6 +65,25 @@ class QuestionnairePackageProviderTest {
 
       assertNotNull(result);
       verify(mockPackageService).generatePackages(eq(testCoverage), anyList(), isNull(), isNull(), isNull());
+    }
+
+    @Test
+    @DisplayName("All shared supported order types are accepted")
+    void allSharedSupportedOrderTypes_areAccepted() {
+      List<IAnyResource> orders = OrderResourceTypes.supportedTypes().stream()
+          .map(QuestionnairePackageProviderTest::buildOrderResource)
+          .map(IAnyResource.class::cast)
+          .toList();
+
+      Parameters result = provider.questionnairePackage(
+          testCoverage, orders, null, null, null);
+
+      assertNotNull(result);
+      assertFalse(result.hasParameter("outcome"));
+      verify(mockPackageService).generatePackages(
+          eq(testCoverage),
+          argThat(validOrders -> validOrders.size() == orders.size()),
+          isNull(), isNull(), isNull());
     }
 
     @Test
@@ -246,5 +266,20 @@ class QuestionnairePackageProviderTest {
       // Should have both service-level and provider-level warnings
       assertTrue(outcome.getIssue().size() >= 2);
     }
+  }
+
+  private static Resource buildOrderResource(String resourceType) {
+    return switch (resourceType) {
+      case "Appointment" -> new Appointment();
+      case "CommunicationRequest" -> new CommunicationRequest();
+      case "DeviceRequest" -> new DeviceRequest();
+      case "Encounter" -> new Encounter();
+      case "MedicationRequest" -> new MedicationRequest();
+      case "NutritionOrder" -> new NutritionOrder();
+      case "ServiceRequest" -> new ServiceRequest();
+      case "SupplyRequest" -> new SupplyRequest();
+      case "VisionPrescription" -> new VisionPrescription();
+      default -> throw new IllegalArgumentException("Unsupported order type in test: " + resourceType);
+    };
   }
 }

@@ -48,11 +48,22 @@ public class DtrScenarioService {
   }
 
   public Optional<Parameters> findVariantParameters(String scenarioId, String variantId) {
-    String fullId = scenarioId + "-" + variantId;
+    if (variantId == null || variantId.isBlank()) {
+      return Optional.empty();
+    }
+
+    String scenarioPrefix = scenarioId + "-";
+    String normalizedVariantId = variantId.startsWith(scenarioPrefix)
+        ? variantId.substring(scenarioPrefix.length())
+        : variantId;
+    String prefixedVariantId = scenarioPrefix + normalizedVariantId;
+
     return buildScenarios().stream()
         .filter(s -> s.id().equals(scenarioId))
         .flatMap(s -> s.variants().stream())
-        .filter(v -> v.id().equals(fullId) || v.id().equals(variantId))
+        .filter(v -> v.id().equals(variantId)
+            || v.id().equals(normalizedVariantId)
+            || v.id().equals(prefixedVariantId))
         .map(DtrVariant::parameters)
         .findFirst();
   }

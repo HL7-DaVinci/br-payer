@@ -17,7 +17,4 @@ public final class CrdConstants {
 
   public static final String DOC_REASON_SYSTEM =
       "http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp";
-
-  public static final String CARD_TYPE_SYSTEM =
-      "http://terminology.hl7.org/CodeSystem/cdshooks-card-type";
 }

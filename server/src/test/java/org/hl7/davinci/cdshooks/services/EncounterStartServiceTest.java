@@ -70,12 +70,6 @@ class EncounterStartServiceTest {
   class HookNameValidation {
 
     @Test
-    @DisplayName("Should return hook name 'encounter-start'")
-    void testGetHookName() {
-      assertEquals("encounter-start", encounterStartService.getHookName());
-    }
-
-    @Test
     @DisplayName("Should throw 400 when hook name doesn't match")
     void testWrongHookName_Returns400() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest(
@@ -142,58 +136,6 @@ class EncounterStartServiceTest {
       assertEquals(1, selected.size());
       assertTrue(selected.get(0) instanceof Encounter);
       assertEquals("enc-001", selected.get(0).getIdElement().getIdPart());
-    }
-  }
-
-  @Nested
-  @DisplayName("Secondary Hook Classification")
-  class SecondaryHookClassification {
-
-    @Test
-    @DisplayName("encounter-start is NOT a primary hook")
-    void testIsNotPrimaryHook() {
-      String hookName = encounterStartService.getHookName();
-      assertFalse(
-          hookName.equals("order-sign") ||
-          hookName.equals("order-dispatch") ||
-          hookName.equals("appointment-book"),
-          "encounter-start should NOT be a primary hook");
-    }
-  }
-
-  @Nested
-  @DisplayName("Encounter Code Extraction")
-  class EncounterCodeExtraction {
-
-    @Test
-    @DisplayName("Should handle encounter with class code")
-    void testEncounterWithClassCode() {
-      Encounter encounter = new Encounter();
-      encounter.setId("test-enc");
-      encounter.setClass_(new Coding()
-          .setSystem("http://terminology.hl7.org/CodeSystem/v3-ActCode")
-          .setCode("IMP")
-          .setDisplay("Inpatient encounter"));
-
-      assertNotNull(encounter.getClass_());
-      assertEquals("IMP", encounter.getClass_().getCode());
-    }
-
-    @Test
-    @DisplayName("Should handle encounter with type codes")
-    void testEncounterWithTypeCodes() {
-      Encounter encounter = new Encounter();
-      encounter.setId("test-enc");
-
-      CodeableConcept type = new CodeableConcept();
-      type.addCoding()
-          .setSystem("http://terminology.hl7.org/CodeSystem/v3-ActCode")
-          .setCode("IMP")
-          .setDisplay("Inpatient");
-      encounter.addType(type);
-
-      assertFalse(encounter.getType().isEmpty());
-      assertEquals("IMP", encounter.getType().get(0).getCodingFirstRep().getCode());
     }
   }
 }

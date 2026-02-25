@@ -1,5 +1,6 @@
 package org.hl7.davinci.pas;
 
+import org.hl7.davinci.common.FhirConstants;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.Coding;
@@ -14,10 +15,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class PasBundleValidator {
-
-  private static final String MB_IDENTIFIER_SYSTEM =
-      "http://terminology.hl7.org/CodeSystem/v2-0203";
-  private static final String MB_IDENTIFIER_CODE = "MB";
 
   /**
    * Validates a $submit request bundle and extracts the Claim.
@@ -117,8 +114,8 @@ public class PasBundleValidator {
       for (Identifier identifier : patient.getIdentifier()) {
         if (identifier.hasType()) {
           for (Coding coding : identifier.getType().getCoding()) {
-            if (MB_IDENTIFIER_SYSTEM.equals(coding.getSystem())
-                && MB_IDENTIFIER_CODE.equals(coding.getCode())) {
+            if (FhirConstants.IDENTIFIER_TYPE_SYSTEM.equals(coding.getSystem())
+                && FhirConstants.MB_TYPE_CODE.equals(coding.getCode())) {
               return;
             }
           }

@@ -38,7 +38,7 @@ import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseCodingJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseLinkJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 
-import static org.hl7.davinci.common.CrdConstants.CARD_TYPE_SYSTEM;
+import static org.hl7.davinci.common.FhirConstants.CARD_TYPE_SYSTEM;
 import static org.hl7.davinci.common.CrdConstants.COVERAGE_INFO_EXT;
 
 /**

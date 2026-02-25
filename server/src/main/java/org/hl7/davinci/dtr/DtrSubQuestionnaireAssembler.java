@@ -12,8 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import static org.hl7.davinci.dtr.DtrConstants.*;
-
+import static org.hl7.davinci.common.FhirConstants.*;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 
 /**

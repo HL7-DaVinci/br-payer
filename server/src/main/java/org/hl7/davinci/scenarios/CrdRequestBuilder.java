@@ -22,6 +22,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import static org.hl7.davinci.common.FhirConstants.*;
+
 import ca.uhn.fhir.context.FhirContext;
 
 /**
@@ -217,7 +219,7 @@ public class CrdRequestBuilder {
     coverage.setSubscriberId("10A3D58WH456");
     coverage.setBeneficiary(new Reference("Patient/" + PATIENT_ID));
     coverage.getRelationship().addCoding()
-        .setSystem("http://terminology.hl7.org/CodeSystem/subscriber-relationship")
+        .setSystem(SUBSCRIBER_RELATIONSHIP_SYSTEM)
         .setCode("self").setDisplay("Self");
     coverage.addPayor(new Reference("Organization/cms-payer"));
 

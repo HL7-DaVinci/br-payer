@@ -267,6 +267,43 @@ class DtrQuestionnaireResolverTest {
     assertEquals("pat-abs", subjectParam.getIdPart());
   }
 
+    @Test
+    @DisplayName("External payor references resolve Organization identifiers via DAO")
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    void externalPayorReference_resolvesIdentifiersFromDao() {
+        IFhirResourceDao organizationDao = mock(IFhirResourceDao.class);
+        when(daoRegistry.getResourceDao(Organization.class)).thenReturn(organizationDao);
+
+        Organization payor = new Organization();
+        payor.setId("Organization/org-external");
+        payor.addIdentifier()
+                .setSystem("urn:oid:2.16.840.1.113883.6.300")
+                .setValue("00002");
+        when(organizationDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(payor);
+
+        DeviceRequest order = new DeviceRequest();
+        order.setId("DeviceRequest/dr-ext-payor");
+        order.setCode(new CodeableConcept().addCoding(new Coding()
+                .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+                .setCode("E0424")));
+
+        when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+                .thenReturn(List.of());
+
+        Coverage coverage = new Coverage();
+        coverage.setId("Coverage/cov-ext-payor");
+        coverage.setBeneficiary(new Reference("Patient/pat-1"));
+        coverage.addPayor(new Reference("Organization/org-external"));
+
+        resolver.resolve(null, List.of(order), coverage);
+
+        ArgumentCaptor<List<org.hl7.fhir.r4.model.Identifier>> payorCaptor = ArgumentCaptor.forClass(List.class);
+        verify(planDefinitionService).findPlanDefinitions(any(Coding.class), payorCaptor.capture(), isNull());
+
+        assertFalse(payorCaptor.getValue().isEmpty());
+        assertEquals("00002", payorCaptor.getValue().get(0).getValue());
+    }
+
   @Test
   @DisplayName("Only dataRequirement-declared types trigger clinical data queries")
   @SuppressWarnings("rawtypes")

@@ -1,5 +1,7 @@
 package org.hl7.davinci.config;
 
+import static org.hl7.davinci.common.FhirConstants.VSAC_VALUESET_PREFIX;
+
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.context.support.ValidationSupportContext;
@@ -33,8 +35,6 @@ import org.springframework.context.annotation.Configuration;
 public class VsacTerminologyConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(VsacTerminologyConfig.class);
-
-    private static final String VSAC_VALUESET_PREFIX = "http://cts.nlm.nih.gov/fhir/ValueSet/";
 
     @Bean
     public IValidationSupport vsacValidationSupport(

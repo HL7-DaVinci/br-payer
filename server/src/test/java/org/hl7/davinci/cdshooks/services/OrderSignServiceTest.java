@@ -71,12 +71,6 @@ class OrderSignServiceTest {
   class HookNameValidation {
 
     @Test
-    @DisplayName("Should return hook name 'order-sign'")
-    void testGetHookName() {
-      assertEquals("order-sign", orderSignService.getHookName());
-    }
-
-    @Test
     @DisplayName("Should throw 400 when hook name doesn't match")
     void testWrongHookName_Returns400() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest(
@@ -143,55 +137,6 @@ class OrderSignServiceTest {
       assertTrue(selected.contains(dr1));
       assertTrue(selected.contains(dr2));
       assertTrue(selected.contains(mr1));
-    }
-  }
-
-  @Nested
-  @DisplayName("Primary Hook Requirements")
-  class PrimaryHookRequirements {
-
-    @Test
-    @DisplayName("order-sign is a primary hook")
-    void testIsPrimaryHook() {
-      String hookName = orderSignService.getHookName();
-      assertTrue(
-          "order-sign".equals(hookName) ||
-              "order-dispatch".equals(hookName) ||
-              "appointment-book".equals(hookName),
-          "order-sign should be a primary hook");
-    }
-  }
-
-  @Nested
-  @DisplayName("Error Response Codes")
-  class ErrorResponseCodes {
-
-    @Test
-    @DisplayName("BadRequestException should indicate HTTP 400")
-    void testBadRequestException_Is400() {
-      CdsHooksException.BadRequestException ex = new CdsHooksException.BadRequestException("Test error");
-
-      // Per CRD spec: 400 - Bad Request for missing/invalid Coverage, unhandled payor, etc.
-      assertEquals(400, ex.getStatusCode());
-    }
-
-    @Test
-    @DisplayName("PreconditionFailedException should indicate HTTP 412")
-    void testPreconditionFailedException_Is412() {
-      CdsHooksException.PreconditionFailedException ex = new CdsHooksException.PreconditionFailedException(
-          "Prefetch missing");
-
-      assertEquals(412, ex.getStatusCode());
-    }
-
-    @Test
-    @DisplayName("UnprocessableEntityException should indicate HTTP 422")
-    void testUnprocessableEntityException_Is422() {
-      CdsHooksException.UnprocessableEntityException ex = new CdsHooksException.UnprocessableEntityException(
-          "Invalid profile");
-
-      // Per CRD spec: 422 - valid JSON but not conformant to CDS Hooks/FHIR/profiles
-      assertEquals(422, ex.getStatusCode());
     }
   }
 }

@@ -1,5 +1,7 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.X12_REVIEW_CODE_SYSTEM;
+
 import org.hl7.fhir.r4.model.*;
 
 import java.util.Date;
@@ -24,7 +26,7 @@ public final class PasExtensions {
 
     Extension codeExt = new Extension(PasConstants.REVIEW_ACTION_CODE);
     codeExt.setValue(new CodeableConcept().addCoding(
-        new Coding(PasConstants.X12_REVIEW_CODE_SYSTEM, reviewCode, displayText)));
+        new Coding(X12_REVIEW_CODE_SYSTEM, reviewCode, displayText)));
     reviewAction.addExtension(codeExt);
 
     if (authNumber != null) {

@@ -1,6 +1,8 @@
 package org.hl7.davinci.pas;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,6 +38,38 @@ class PasScenarioServiceTest {
     assertEquals(2, callCount.get());
   }
 
+  @Test
+  void findScenarioAndVariants_supportMissingAndShortVariantIds() {
+    ScenarioMetadataProvider metadataProvider = new ScenarioMetadataProvider(null) {
+      @Override
+      public List<ScenarioMetadata> getMetadata() {
+        return List.of(scenario("oxygen", "Home Oxygen"));
+      }
+    };
+    PasScenarioService service = new PasScenarioService(metadataProvider, FhirContext.forR4Cached());
+
+    assertTrue(service.findScenario("oxygen").isPresent());
+    assertTrue(service.findScenario("missing").isEmpty());
+    assertTrue(service.findVariantBundle("oxygen", "initial").isPresent());
+    assertTrue(service.findVariantBundle("oxygen", "oxygen-initial").isPresent());
+    assertTrue(service.findVariantBundle("oxygen", "does-not-exist").isEmpty());
+  }
+
+  @Test
+  void findVariantBundle_returnsEmptyForNullOrBlankVariantId() {
+    ScenarioMetadataProvider metadataProvider = new ScenarioMetadataProvider(null) {
+      @Override
+      public List<ScenarioMetadata> getMetadata() {
+        return List.of(scenario("oxygen", "Home Oxygen"));
+      }
+    };
+    PasScenarioService service = new PasScenarioService(metadataProvider, FhirContext.forR4Cached());
+
+    assertTrue(service.findVariantBundle("oxygen", null).isEmpty());
+    assertTrue(service.findVariantBundle("oxygen", "").isEmpty());
+    assertFalse(service.findVariantBundle("oxygen", "initial").isEmpty());
+  }
+
   private ScenarioMetadata scenario(String id, String name) {
     Coding focus = new Coding(
         "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", "E0424", "Stationary Oxygen");
@@ -47,6 +81,8 @@ class PasScenarioServiceTest {
         List.of("order-select"),
         "ServiceRequest",
         List.of(),
-        false, false, false);
+        false,
+        false,
+        false);
   }
 }

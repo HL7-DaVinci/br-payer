@@ -72,12 +72,6 @@ class OrderSelectServiceTest {
   class HookNameValidation {
 
     @Test
-    @DisplayName("Should return hook name 'order-select'")
-    void testGetHookName() {
-      assertEquals("order-select", orderSelectService.getHookName());
-    }
-
-    @Test
     @DisplayName("Should throw 400 when hook name doesn't match")
     void testWrongHookName_Returns400() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest(
@@ -132,22 +126,6 @@ class OrderSelectServiceTest {
   }
 
   @Nested
-  @DisplayName("Secondary Hook Behavior")
-  class SecondaryHookBehavior {
-
-    @Test
-    @DisplayName("order-select is NOT a primary hook")
-    void testIsSecondaryHook() {
-      String hookName = orderSelectService.getHookName();
-      assertFalse(
-          hookName.equals("order-sign") ||
-              hookName.equals("order-dispatch") ||
-              hookName.equals("appointment-book"),
-          "order-select should NOT be a primary hook");
-    }
-  }
-
-  @Nested
   @DisplayName("Selection Matching Logic")
   class SelectionMatchingLogic {
 
@@ -158,33 +136,64 @@ class OrderSelectServiceTest {
       DeviceRequest dr1 = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
       DeviceRequest dr2 = CdsHooksTestUtils.createTestDeviceRequest("dr-2", "E0251", "patient1");
       context.setOrders(List.of(dr1, dr2));
+      context.setSelections(List.of("DeviceRequest/dr-1"));
 
-      // Simulate selections set by handleRequest
-      // The actual matching happens in selectContextResources using the stored selections
-
-      List<Resource> allOrders = context.getOrders();
-      assertEquals(2, allOrders.size());
+      List<Resource> selected = orderSelectService.selectContextResources(context);
+      assertEquals(1, selected.size());
+      assertSame(dr1, selected.get(0));
     }
 
     @Test
     @DisplayName("Should match selections by full URL")
     void testSelectionsByFullUrl() {
-      // Selections can be full URLs like "http://example.org/fhir/MedicationRequest/1111"
-      // The service should match these to orders in draftOrders
-
       ResolvedResources context = new ResolvedResources();
       MedicationRequest mr1 = CdsHooksTestUtils.createTestMedicationRequest("1111", "1049502", "patient1");
       MedicationRequest mr2 = CdsHooksTestUtils.createTestMedicationRequest("2222", "1049504", "patient1");
       context.setOrders(List.of(mr1, mr2));
+      context.setSelections(List.of("http://example.org/fhir/MedicationRequest/1111"));
 
-      // Service should be able to match "http://example.org/fhir/MedicationRequest/1111"
-      // to the MedicationRequest with id "1111"
-      List<Resource> orders = context.getOrders();
-      assertEquals(2, orders.size());
+      List<Resource> selected = orderSelectService.selectContextResources(context);
+      assertEquals(1, selected.size());
+      assertEquals("1111", selected.get(0).getIdElement().getIdPart());
+    }
 
-      // Verify IDs are accessible
-      assertEquals("1111", mr1.getIdElement().getIdPart());
-      assertEquals("2222", mr2.getIdElement().getIdPart());
+    @Test
+    @DisplayName("Should match selections by versioned full URL")
+    void testSelectionsByVersionedFullUrl() {
+      ResolvedResources context = new ResolvedResources();
+      MedicationRequest mr1 = CdsHooksTestUtils.createTestMedicationRequest("1111", "1049502", "patient1");
+      context.setOrders(List.of(mr1));
+      context.setSelections(List.of("http://example.org/fhir/MedicationRequest/1111/_history/3"));
+
+      List<Resource> selected = orderSelectService.selectContextResources(context);
+      assertEquals(1, selected.size());
+      assertEquals("1111", selected.get(0).getIdElement().getIdPart());
+    }
+
+    @Test
+    @DisplayName("Should match selections against urn:uuid order ids")
+    void testSelectionsAgainstUrnUuidOrderId() {
+      ResolvedResources context = new ResolvedResources();
+      DeviceRequest dr1 = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
+      dr1.setId("urn:uuid:dr-1");
+      context.setOrders(List.of(dr1));
+      context.setSelections(List.of("DeviceRequest/dr-1"));
+
+      List<Resource> selected = orderSelectService.selectContextResources(context);
+      assertEquals(1, selected.size());
+      assertSame(dr1, selected.get(0));
+    }
+
+    @Test
+    @DisplayName("Should ignore selections that do not match any draft order")
+    void testNoMatchingSelections() {
+      ResolvedResources context = new ResolvedResources();
+      DeviceRequest dr1 = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
+      context.setOrders(List.of(dr1));
+      context.setSelections(List.of("DeviceRequest/dr-99"));
+
+      List<Resource> selected = orderSelectService.selectContextResources(context);
+      assertTrue(selected.isEmpty());
     }
   }
 

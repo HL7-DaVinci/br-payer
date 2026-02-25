@@ -1,5 +1,6 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -390,12 +391,9 @@ class PasInquiryServiceTest {
     verify(claimResponseDao).search(paramsCaptor.capture(), any());
     SearchParameterMap searchParams = paramsCaptor.getValue();
 
-    String patientParam = searchParams.get("patient").get(0).get(0)
-        .getValueAsQueryToken(null);
-    String insurerParam = searchParams.get("insurer").get(0).get(0)
-        .getValueAsQueryToken(null);
-    String requestorParam = searchParams.get("requestor").get(0).get(0)
-        .getValueAsQueryToken(null);
+    String patientParam = searchParams.get("patient").get(0).get(0).getValueAsQueryToken();
+    String insurerParam = searchParams.get("insurer").get(0).get(0).getValueAsQueryToken();
+    String requestorParam = searchParams.get("requestor").get(0).get(0).getValueAsQueryToken();
 
     assertEquals("Patient/SubscriberExample", patientParam,
         "Patient reference should be resolved to server-side resource");
@@ -488,7 +486,7 @@ class PasInquiryServiceTest {
     ClaimResponse.AdjudicationComponent adj = item.addAdjudication();
     adj.setCategory(new CodeableConcept().addCoding(
         new Coding("http://terminology.hl7.org/CodeSystem/adjudication", "submitted", "Submitted Amount")));
-    adj.addExtension(PasExtensions.buildReviewActionExtension(PasConstants.REVIEW_CODE_A1, "Certified", authNumber));
+    adj.addExtension(PasExtensions.buildReviewActionExtension(REVIEW_CODE_A1, "Certified", authNumber));
     return response;
   }
 
@@ -500,7 +498,7 @@ class PasInquiryServiceTest {
     ClaimResponse.AdjudicationComponent adj = item.addAdjudication();
     adj.setCategory(new CodeableConcept().addCoding(
         new Coding("http://terminology.hl7.org/CodeSystem/adjudication", "submitted", "Submitted Amount")));
-    adj.addExtension(PasExtensions.buildReviewActionExtension(PasConstants.REVIEW_CODE_A4, "Pended", null));
+    adj.addExtension(PasExtensions.buildReviewActionExtension(REVIEW_CODE_A4, "Pended", null));
     item.addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType(adminRef));
     return response;
   }

@@ -1,5 +1,7 @@
 package org.hl7.davinci.scenarios;
 
+import static org.hl7.davinci.common.FhirConstants.*;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -35,23 +37,8 @@ import org.hl7.fhir.r4.model.ServiceRequest;
  */
 public class PasRequestBuilder {
 
-  // Profile URLs referenced from PasExtensions for request/inquiry bundles
-  static final String PROFILE_PAS_REQUEST_BUNDLE = PasConstants.PROFILE_PAS_REQUEST_BUNDLE;
-  static final String PROFILE_PAS_INQUIRY_REQUEST_BUNDLE = PasConstants.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE;
-
-  // X12 code systems
-  static final String X12_CERT_TYPE_SYSTEM = "https://codesystem.x12.org/005010/1322";
-  static final String X12_SERVICE_TYPE_SYSTEM = "https://codesystem.x12.org/005010/1525";
-  static final String X12_REQUESTED_SERVICE_SYSTEM = "https://codesystem.x12.org/005010/1365";
-  static final String CPT_SYSTEM = "http://www.ama-assn.org/go/cpt";
-  static final String HCPCS_SYSTEM = "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets";
-  static final String ICD9CM_SYSTEM = "http://terminology.hl7.org/CodeSystem/icd9cm";
-  static final String ICD10_SYSTEM = "http://www.cms.gov/Medicare/Coding/ICD10";
-  static final String NDC_SYSTEM = "http://hl7.org/fhir/sid/ndc";
-  static final String DATA_ABSENT_REASON_SYSTEM = "http://terminology.hl7.org/CodeSystem/data-absent-reason";
   static final String DEFAULT_REQUESTED_SERVICE_CODE = "3";
   static final String MEMBER_ID_SYSTEM = "http://example.org/MIN";
-  static final String V2_IDENTIFIER_TYPE_SYSTEM = "http://terminology.hl7.org/CodeSystem/v2-0203";
   private static final Set<String> PAS_REQUESTED_SERVICE_SYSTEMS = Set.of(
       X12_REQUESTED_SERVICE_SYSTEM,
       CPT_SYSTEM,
@@ -60,9 +47,6 @@ public class PasRequestBuilder {
       ICD10_SYSTEM,
       NDC_SYSTEM,
       DATA_ABSENT_REASON_SYSTEM);
-
-  // NPI system
-  static final String NPI_SYSTEM = "http://hl7.org/fhir/sid/us-npi";
 
   // Shared resource IDs matching examples-pas seed data
   static final String PATIENT_ID = "BeneficiaryExample";
@@ -129,7 +113,7 @@ public class PasRequestBuilder {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
     Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, certTypeCode, certTypeDisplay, traceNumber);
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM);
-    return wrapInBundle(PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
+    return wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
   }
 
   static Bundle buildInquiryBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed) {
@@ -142,7 +126,7 @@ public class PasRequestBuilder {
     Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, "I", "Initial",
         traceNumber);
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_INQUIRY);
-    return wrapInBundle(PROFILE_PAS_INQUIRY_REQUEST_BUNDLE, claim, seed, true, serviceRequest);
+    return wrapInBundle(PasConstants.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE, claim, seed, true, serviceRequest);
   }
 
   static Bundle buildUpdateBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
@@ -158,7 +142,7 @@ public class PasRequestBuilder {
     for (Claim.ItemComponent item : claim.getItem()) {
       item.addExtension(new Extension(PasConstants.INFO_CHANGED, new CodeType("changed")));
     }
-    Bundle bundle = wrapInBundle(PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
+    Bundle bundle = wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
     addPriorClaimToBundle(bundle, priorClaimId, initialTraceNumber);
     return bundle;
   }
@@ -179,7 +163,7 @@ public class PasRequestBuilder {
       item.addModifierExtension(
           new Extension(PasConstants.INFO_CANCELLED, new org.hl7.fhir.r4.model.BooleanType(true)));
     }
-    Bundle bundle = wrapInBundle(PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
+    Bundle bundle = wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
     addPriorClaimToBundle(bundle, priorClaimId, initialTraceNumber);
     return bundle;
   }
@@ -203,9 +187,9 @@ public class PasRequestBuilder {
 
     // Professional claim type
     claim.setType(new CodeableConcept().addCoding(new Coding(
-        "http://terminology.hl7.org/CodeSystem/claim-type", "professional", "Professional")));
+        CLAIM_TYPE_SYSTEM, "professional", "Professional")));
     claim.setPriority(new CodeableConcept().addCoding(new Coding(
-        "http://terminology.hl7.org/CodeSystem/processpriority", "normal", "Normal")));
+        PROCESS_PRIORITY_SYSTEM, "normal", "Normal")));
 
     // Required references
     claim.setPatient(new Reference("Patient/" + PATIENT_ID));
@@ -228,10 +212,10 @@ public class PasRequestBuilder {
     Claim.ItemComponent item = claim.addItem();
     item.setSequence(1);
     item.setCategory(new CodeableConcept().addCoding(new Coding(
-        "https://codesystem.x12.org/005010/1365", "3", "Consultation")));
+        X12_REQUESTED_SERVICE_SYSTEM, "3", "Consultation")));
     item.setCareTeamSequence(List.of(new org.hl7.fhir.r4.model.PositiveIntType(1)));
     item.setLocation(new CodeableConcept().addCoding(new Coding(
-        "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set", "11", "Office")));
+        CMS_PLACE_OF_SERVICE_SYSTEM, "11", "Office")));
     item.setProductOrService(new CodeableConcept().addCoding(normalizeRequestedServiceCoding(focusCode)));
 
     item.addExtension(PasConstants.CERTIFICATION_TYPE,
@@ -286,7 +270,7 @@ public class PasRequestBuilder {
     claim.addRelated()
         .setClaim(new Reference("Claim/" + priorClaimId))
         .setRelationship(new CodeableConcept().addCoding(new Coding(
-            "http://terminology.hl7.org/CodeSystem/ex-relatedclaimrelationship", "prior",
+            RELATED_CLAIM_RELATIONSHIP_SYSTEM, "prior",
             "Prior Claim")));
   }
 
@@ -423,15 +407,15 @@ public class PasRequestBuilder {
     coverage.setBeneficiary(new Reference("Patient/" + PATIENT_ID));
     coverage.getRelationship()
         .addCoding(new Coding(
-            "http://terminology.hl7.org/CodeSystem/subscriber-relationship", "self", "Self"));
+            SUBSCRIBER_RELATIONSHIP_SYSTEM, "self", "Self"));
 
     coverage.addClass_()
         .setType(new CodeableConcept().addCoding(new Coding(
-            "http://terminology.hl7.org/CodeSystem/coverage-class", "group", "Group")))
+            COVERAGE_CLASS_SYSTEM, "group", "Group")))
         .setValue("GRP-001");
     coverage.addClass_()
         .setType(new CodeableConcept().addCoding(new Coding(
-            "http://terminology.hl7.org/CodeSystem/coverage-class", "plan", "Plan")))
+            COVERAGE_CLASS_SYSTEM, "plan", "Plan")))
         .setValue("PLAN-001");
 
     coverage.addPayor(new Reference("Organization/" + INSURER_ID));
@@ -465,8 +449,8 @@ public class PasRequestBuilder {
   private static CodeableConcept buildMemberIdType() {
     // Keep MB for PAS slicing and add MR to satisfy IdentifierType terminology checks.
     return new CodeableConcept()
-        .addCoding(new Coding(V2_IDENTIFIER_TYPE_SYSTEM, "MB", "Member Number"))
-        .addCoding(new Coding(V2_IDENTIFIER_TYPE_SYSTEM, "MR", "Medical record number"));
+        .addCoding(new Coding(IDENTIFIER_TYPE_SYSTEM, "MB", "Member Number"))
+        .addCoding(new Coding(IDENTIFIER_TYPE_SYSTEM, "MR", "Medical record number"));
   }
 
   // ===== DTOs =====

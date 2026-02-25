@@ -345,37 +345,10 @@ public class DtrQuestionnaireResolver {
       if (!payorRef.hasReference()) {
         continue;
       }
-
-      String ref = payorRef.getReference();
-
-      // Handle contained references (e.g., "#payor-org")
-      if (ref.startsWith("#")) {
-        Resource contained = coverage.getContained(ref);
-        Organization org = contained instanceof Organization castOrg ? castOrg : null;
-        if (org != null) {
-          PayorIdentifierUtil.addValidIdentifiers(identifiers, org);
-        }
-        continue;
-      }
-
-      // Handle external references
-      try {
-        String idPart = ResourceResolver.normalizeReferenceId(ref, "Organization");
-        if (idPart == null || idPart.isBlank() || idPart.equals(ref)) {
-          // Fall back for id-only references.
-          idPart = new org.hl7.fhir.r4.model.IdType(ref).getIdPart();
-        }
-        if (idPart == null || idPart.isBlank()) {
-          continue;
-        }
-        Organization org = daoRegistry.getResourceDao(Organization.class)
-            .read(new org.hl7.fhir.r4.model.IdType("Organization", idPart),
-                new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
-        if (org != null) {
-          PayorIdentifierUtil.addValidIdentifiers(identifiers, org);
-        }
-      } catch (Exception e) {
-        logger.warn("Could not resolve payor organization {}: {}", ref, e.getMessage());
+      Organization org = ResourceResolver.resolveTypedReferenceFromDao(
+          payorRef, Organization.class, coverage, daoRegistry);
+      if (org != null) {
+        PayorIdentifierUtil.addValidIdentifiers(identifiers, org);
       }
     }
     return identifiers;
@@ -383,27 +356,8 @@ public class DtrQuestionnaireResolver {
 
   private Resource resolveItemReference(Resource order) {
     return FhirCodeExtractor.resolveReferencedItem(order, itemRef -> {
-      String reference = itemRef.getReference();
-
-      if (reference.startsWith("#") && order instanceof DomainResource domainResource) {
-        return domainResource.getContained(reference);
-      }
-
-      try {
-        String resourceType = ResourceResolver.getReferenceResourceType(reference);
-        String idPart =
-            resourceType != null ? ResourceResolver.normalizeReferenceId(reference, resourceType) : null;
-        if (resourceType == null || idPart == null || idPart.isBlank() || idPart.equals(reference)) {
-          return null;
-        }
-        return (Resource) daoRegistry.getResourceDao(resourceType)
-            .read(new org.hl7.fhir.r4.model.IdType(resourceType, idPart),
-                new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
-      } catch (Exception e) {
-        logger.debug("Could not resolve item reference {} for order {}: {}", reference,
-            order.getIdElement().toUnqualifiedVersionless().getValue(), e.getMessage());
-        return null;
-      }
+      DomainResource parent = order instanceof DomainResource domainResource ? domainResource : null;
+      return ResourceResolver.resolveReferenceFromDao(itemRef, parent, daoRegistry);
     });
   }
 

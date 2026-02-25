@@ -1,7 +1,5 @@
 package org.hl7.davinci.dtr;
 
-import java.util.Set;
-
 /**
  * Shared FHIR URL constants for the DTR implementation.
  * Profiles, extensions, and canonical prefixes used across multiple DTR classes.
@@ -41,25 +39,6 @@ public final class DtrConstants {
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/intendedUse";
   public static final String ALT_EXPRESSION_EXT =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression";
-
-  // ===== SDC Extensions =====
-
-  public static final String QUESTIONNAIRE_ADAPTIVE_EXT =
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
-  public static final String SUB_QUESTIONNAIRE_EXT =
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire";
-
-  public static final Set<String> CQL_EXPRESSION_EXT_URLS = Set.of(
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-candidateExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-contextExpression",
-      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-enableWhenExpression");
-
-  // ===== FHIR Core Extensions =====
-
-  public static final String CQF_LIBRARY_EXT =
-      "http://hl7.org/fhir/StructureDefinition/cqf-library";
 
   // ===== Custom Headers =====
 

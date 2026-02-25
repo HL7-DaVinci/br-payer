@@ -1,5 +1,7 @@
 package org.hl7.davinci.dtr;
 
+import static org.hl7.davinci.common.FhirConstants.VSAC_VALUESET_PREFIX;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,8 +31,6 @@ import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 public class ValueSetWarmupService {
 
   private static final Logger logger = LoggerFactory.getLogger(ValueSetWarmupService.class);
-
-  private static final String VSAC_PREFIX = "http://cts.nlm.nih.gov/fhir/ValueSet/";
 
   private final DaoRegistry daoRegistry;
   private final DtrValueSetCollector valueSetCollector;
@@ -125,7 +125,7 @@ public class ValueSetWarmupService {
           continue;
         }
         for (DataRequirement.DataRequirementCodeFilterComponent cf : dr.getCodeFilter()) {
-          if (cf.hasValueSet() && cf.getValueSet().startsWith(VSAC_PREFIX)) {
+          if (cf.hasValueSet() && cf.getValueSet().startsWith(VSAC_VALUESET_PREFIX)) {
             urls.add(cf.getValueSet());
           }
         }

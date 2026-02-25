@@ -1,5 +1,7 @@
 package org.hl7.davinci.dtr;
 
+import static org.hl7.davinci.common.FhirConstants.SNOMED_SYSTEM;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -214,7 +216,7 @@ public class DtrValueSetCollector {
     }
 
     for (ValueSet.ConceptSetComponent include : vs.getCompose().getInclude()) {
-      if (!"http://snomed.info/sct".equals(include.getSystem()) || !include.hasFilter()) {
+      if (!SNOMED_SYSTEM.equals(include.getSystem()) || !include.hasFilter()) {
         continue;
       }
 

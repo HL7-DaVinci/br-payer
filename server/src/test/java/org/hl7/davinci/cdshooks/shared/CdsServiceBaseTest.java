@@ -1,9 +1,11 @@
 package org.hl7.davinci.cdshooks.shared;
 
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
+import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestContextJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.*;
 import org.hl7.davinci.cdshooks.CdsHooksTestUtils;
-import org.hl7.davinci.common.CrdConstants;
+import org.hl7.davinci.cdshooks.error.CdsHooksException;
+import org.hl7.davinci.common.FhirConstants;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,11 +17,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for CdsServiceBase shared logic.
@@ -87,6 +89,30 @@ class CdsServiceBaseTest {
 
     public void setHookName(String name) {
       this.hookName = name;
+    }
+
+    public void exposeApplyClientConfiguration(CdsServiceResponseJson response, CdsServiceRequestJson request) {
+      applyClientConfiguration(response, request);
+    }
+
+    public void exposeRequireString(
+        CdsServiceRequestContextJson context, String hook, String key, boolean required) {
+      requireString(context, hook, key, required);
+    }
+
+    public void exposeRequireStringList(
+        CdsServiceRequestContextJson context, String hook, String key, boolean required) {
+      requireStringList(context, hook, key, required);
+    }
+
+    public void exposeRequireObject(
+        CdsServiceRequestContextJson context, String hook, String key, boolean required) {
+      requireObject(context, hook, key, required);
+    }
+
+    public void exposeRequireObjectList(
+        CdsServiceRequestContextJson context, String hook, String key, boolean required) {
+      requireObjectList(context, hook, key, required);
     }
   }
 
@@ -243,41 +269,6 @@ class CdsServiceBaseTest {
   }
 
   @Nested
-  @DisplayName("Primary/Secondary Hook Detection")
-  class HookCategoryDetection {
-
-    @Test
-    @DisplayName("order-sign is a primary hook")
-    void testIsPrimaryHook_OrderSign() {
-      assertTrue(CrdConformanceEnforcer.isPrimaryHook("order-sign"));
-    }
-
-    @Test
-    @DisplayName("order-dispatch is a primary hook")
-    void testIsPrimaryHook_OrderDispatch() {
-      assertTrue(CrdConformanceEnforcer.isPrimaryHook("order-dispatch"));
-    }
-
-    @Test
-    @DisplayName("appointment-book is a primary hook")
-    void testIsPrimaryHook_AppointmentBook() {
-      assertTrue(CrdConformanceEnforcer.isPrimaryHook("appointment-book"));
-    }
-
-    @Test
-    @DisplayName("order-select is NOT a primary hook")
-    void testIsPrimaryHook_OrderSelect_False() {
-      assertFalse(CrdConformanceEnforcer.isPrimaryHook("order-select"));
-    }
-
-    @Test
-    @DisplayName("encounter-start is NOT a primary hook")
-    void testIsPrimaryHook_EncounterStart_False() {
-      assertFalse(CrdConformanceEnforcer.isPrimaryHook("encounter-start"));
-    }
-  }
-
-  @Nested
   @DisplayName("Card Consolidation")
   class CardConsolidation {
 
@@ -364,12 +355,12 @@ class CdsServiceBaseTest {
     void testConsolidateDuplicateCards_DifferentTopics() {
       CdsServiceResponseCardJson card1 = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.INFO);
       card1.getSource().setTopic(new CdsServiceResponseCodingJson()
-          .setSystem(CrdConstants.CARD_TYPE_SYSTEM)
+          .setSystem(FhirConstants.CARD_TYPE_SYSTEM)
           .setCode("coverage-info"));
 
       CdsServiceResponseCardJson card2 = createTestCard("Summary", "Detail", CdsServiceIndicatorEnum.INFO);
       card2.getSource().setTopic(new CdsServiceResponseCodingJson()
-          .setSystem(CrdConstants.CARD_TYPE_SYSTEM)
+          .setSystem(FhirConstants.CARD_TYPE_SYSTEM)
           .setCode("insurance"));
 
       List<CdsServiceResponseCardJson> consolidated = realCardConverter.consolidateDuplicateCards(List.of(card1, card2));
@@ -547,39 +538,123 @@ class CdsServiceBaseTest {
   }
 
   @Nested
-  @DisplayName("Payor Handled Check")
-  class PayorHandledCheck {
+  @DisplayName("Client Configuration")
+  class ClientConfiguration {
 
     @Test
-    @DisplayName("Should return true when PlanDefinition exists for payor")
-    void testIsPayorHandled_True() {
-      Identifier payorId = new Identifier();
-      payorId.setSystem(CdsHooksTestUtils.CMS_PAYOR_SYSTEM);
-      payorId.setValue(CdsHooksTestUtils.CMS_PAYOR_VALUE);
+    @DisplayName("coverage-info false removes coverage-info cards and service actions")
+    void disableCoverageInfo_removesCoverageInfoArtifacts() {
+      CdsServiceResponseJson response = new CdsServiceResponseJson();
+      response.addCard(createCardWithTopic("Coverage", "coverage-info"));
+      response.addCard(createCardWithTopic("Insurance", "insurance"));
 
-      when(planDefinitionService.isPayorHandled(any())).thenReturn(true);
+      DeviceRequest order = CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0250", "patient1");
+      order.addExtension(new Extension(CdsHooksTestUtils.COVERAGE_INFO_EXT_URL));
+      CdsServiceResponseSystemActionJson action = new CdsServiceResponseSystemActionJson();
+      action.setType("update");
+      action.setResource(order);
+      response.addServiceAction(action);
 
-      boolean handled = planDefinitionService.isPayorHandled(List.of(payorId));
+      CdsServiceRequestJson request = requestWithConfiguration(Map.of("coverage-info", false));
 
-      assertTrue(handled);
+      testService.exposeApplyClientConfiguration(response, request);
+
+      assertEquals(1, response.getCards().size());
+      assertEquals("insurance", response.getCards().get(0).getSource().getTopic().getCode());
+      assertTrue(response.getServiceActions().isEmpty());
     }
 
     @Test
-    @DisplayName("Should return false when no PlanDefinition exists for payor")
-    void testIsPayorHandled_False() {
-      Identifier payorId = new Identifier();
-      payorId.setSystem("http://unknown-system");
-      payorId.setValue("unknown-value");
+    @DisplayName("max-cards limits card count")
+    void maxCards_limitsCards() {
+      CdsServiceResponseJson response = new CdsServiceResponseJson();
+      response.addCard(createCardWithTopic("Card 1", "insurance"));
+      response.addCard(createCardWithTopic("Card 2", "cost"));
+      response.addCard(createCardWithTopic("Card 3", "network"));
 
-      when(planDefinitionService.isPayorHandled(any())).thenReturn(false);
+      CdsServiceRequestJson request = requestWithConfiguration(Map.of("max-cards", 2));
+      testService.exposeApplyClientConfiguration(response, request);
 
-      boolean handled = planDefinitionService.isPayorHandled(List.of(payorId));
+      assertEquals(2, response.getCards().size());
+      assertEquals("Card 1", response.getCards().get(0).getSummary());
+      assertEquals("Card 2", response.getCards().get(1).getSummary());
+    }
+  }
 
-      assertFalse(handled);
+  @Nested
+  @DisplayName("Context Validation Helpers")
+  class ContextValidationHelpers {
+
+    @Test
+    @DisplayName("requireString throws for missing required field")
+    void requireString_missingFieldThrows() {
+      CdsServiceRequestContextJson context = new CdsServiceRequestContextJson();
+
+      CdsHooksException.BadRequestException exception = assertThrows(
+          CdsHooksException.BadRequestException.class,
+          () -> testService.exposeRequireString(context, "order-sign", "patientId", true));
+
+      assertTrue(exception.getMessage().contains("patientId"));
+    }
+
+    @Test
+    @DisplayName("requireStringList throws for non-string entries")
+    void requireStringList_wrongItemTypeThrows() {
+      CdsServiceRequestContextJson context = new CdsServiceRequestContextJson();
+      context.put("selections", List.of("DeviceRequest/dr-1", 123));
+
+      CdsHooksException.BadRequestException exception = assertThrows(
+          CdsHooksException.BadRequestException.class,
+          () -> testService.exposeRequireStringList(context, "order-select", "selections", true));
+
+      assertTrue(exception.getMessage().contains("selections"));
+    }
+
+    @Test
+    @DisplayName("requireObject accepts map and resource values")
+    void requireObject_acceptsMapAndResource() {
+      CdsServiceRequestContextJson context = new CdsServiceRequestContextJson();
+      context.put("draftOrders", Map.of("resourceType", "Bundle"));
+      assertDoesNotThrow(() -> testService.exposeRequireObject(context, "order-sign", "draftOrders", true));
+
+      CdsServiceRequestContextJson contextWithResource = new CdsServiceRequestContextJson();
+      contextWithResource.put("draftOrders", new Bundle());
+      assertDoesNotThrow(() ->
+          testService.exposeRequireObject(contextWithResource, "order-sign", "draftOrders", true));
+    }
+
+    @Test
+    @DisplayName("requireObjectList throws for scalar entries")
+    void requireObjectList_rejectsScalars() {
+      CdsServiceRequestContextJson context = new CdsServiceRequestContextJson();
+      context.put("fulfillmentTasks", List.of("not-an-object"));
+
+      CdsHooksException.BadRequestException exception = assertThrows(
+          CdsHooksException.BadRequestException.class,
+          () -> testService.exposeRequireObjectList(context, "order-dispatch", "fulfillmentTasks", true));
+
+      assertTrue(exception.getMessage().contains("fulfillmentTasks"));
     }
   }
 
   // Helper methods
+
+  private CdsServiceRequestJson requestWithConfiguration(Map<String, Object> configuration) {
+    CdsServiceRequestJson request = new CdsServiceRequestJson();
+    CrdRequestExtension extension = new CrdRequestExtension();
+    extension.setConfiguration(new HashMap<>(configuration));
+    request.setExtension(extension);
+    return request;
+  }
+
+  private CdsServiceResponseCardJson createCardWithTopic(String summary, String topicCode) {
+    CdsServiceResponseCardJson card = createTestCard(summary, "Detail", CdsServiceIndicatorEnum.INFO);
+    CdsServiceResponseCardSourceJson source = card.getSource();
+    source.setTopic(new CdsServiceResponseCodingJson()
+        .setSystem(FhirConstants.CARD_TYPE_SYSTEM)
+        .setCode(topicCode));
+    return card;
+  }
 
   private CdsServiceResponseCardJson createTestCard(String summary, String detail, CdsServiceIndicatorEnum indicator) {
     CdsServiceResponseCardJson card = new CdsServiceResponseCardJson();

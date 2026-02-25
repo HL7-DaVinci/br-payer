@@ -1,5 +1,7 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.*;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -212,8 +214,6 @@ public class PasInquiryService {
         .collect(Collectors.toSet());
   }
 
-  private static final String DATA_ABSENT_REASON_SYSTEM =
-      "http://terminology.hl7.org/CodeSystem/data-absent-reason";
   private static final String NOT_APPLICABLE_CODE = "not-applicable";
 
   /**

@@ -84,13 +84,7 @@ public class OrderSelectService extends CdsServiceBase {
     List<String> selections = context.getSelections();
 
     for (Resource order : context.getOrders()) {
-      String resourceRef = ResourceResolver.toRelativeReference(order);
-      String resourceId = order.getIdElement().getValue();
-      if (resourceRef != null && selections.stream().anyMatch(sel ->
-          ResourceResolver.referencesMatch(sel, resourceRef)
-          || ResourceResolver.referencesMatchResource(sel, order)
-          || sel.equals(resourceId)
-          || sel.equals(resourceRef))) {
+      if (selections.stream().anyMatch(sel -> ResourceResolver.referencesMatchResource(sel, order))) {
         selectedOrders.add(order);
       }
     }

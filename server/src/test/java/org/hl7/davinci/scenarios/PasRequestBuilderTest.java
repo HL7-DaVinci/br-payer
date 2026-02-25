@@ -1,5 +1,6 @@
 package org.hl7.davinci.scenarios;
 
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
@@ -134,7 +135,7 @@ class PasRequestBuilderTest {
 
     Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, meta.focusCodes().get(0), seed, "I", "Initial", "test-trace");
 
-    assertTrue(bundle.getMeta().hasProfile(PasRequestBuilder.PROFILE_PAS_REQUEST_BUNDLE));
+    assertTrue(bundle.getMeta().hasProfile(PasConstants.PROFILE_PAS_REQUEST_BUNDLE));
   }
 
   @Test
@@ -194,7 +195,7 @@ class PasRequestBuilderTest {
 
     Bundle bundle = PasRequestBuilder.buildInquiryBundle(meta, meta.focusCodes().get(0), seed);
 
-    assertTrue(bundle.getMeta().hasProfile(PasRequestBuilder.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE));
+    assertTrue(bundle.getMeta().hasProfile(PasConstants.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE));
   }
 
   @Test
@@ -291,7 +292,7 @@ class PasRequestBuilderTest {
 
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
     Coding claimCode = claim.getItemFirstRep().getProductOrService().getCodingFirstRep();
-    assertEquals(PasRequestBuilder.X12_REQUESTED_SERVICE_SYSTEM, claimCode.getSystem());
+    assertEquals(X12_REQUESTED_SERVICE_SYSTEM, claimCode.getSystem());
     assertEquals(PasRequestBuilder.DEFAULT_REQUESTED_SERVICE_CODE, claimCode.getCode());
 
     ServiceRequest serviceRequest = bundle.getEntry().stream()
@@ -300,7 +301,7 @@ class PasRequestBuilderTest {
         .findFirst()
         .orElseThrow();
     Coding serviceRequestCode = serviceRequest.getCode().getCodingFirstRep();
-    assertEquals(PasRequestBuilder.X12_REQUESTED_SERVICE_SYSTEM, serviceRequestCode.getSystem());
+    assertEquals(X12_REQUESTED_SERVICE_SYSTEM, serviceRequestCode.getSystem());
     assertEquals(PasRequestBuilder.DEFAULT_REQUESTED_SERVICE_CODE, serviceRequestCode.getCode());
   }
 

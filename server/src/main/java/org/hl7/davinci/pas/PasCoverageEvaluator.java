@@ -1,5 +1,7 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.*;
+
 import java.util.List;
 
 import org.hl7.davinci.common.CoverageInfoUtil;
@@ -57,7 +59,7 @@ public class PasCoverageEvaluator {
         orderCode, payorIdentifiers, null);
 
     if (plans.isEmpty()) {
-      return new CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false);
+      return new CoverageDecision(REVIEW_CODE_A3, "Not Required", false);
     }
 
     CoverageDecision best = null;
@@ -80,7 +82,7 @@ public class PasCoverageEvaluator {
 
     // If all plans returned null coverage extensions, default to A3
     if (best == null) {
-      return new CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false);
+      return new CoverageDecision(REVIEW_CODE_A3, "Not Required", false);
     }
 
     return best;
@@ -92,9 +94,9 @@ public class PasCoverageEvaluator {
    */
   private int rankDecision(String reviewActionCode) {
     return switch (reviewActionCode) {
-      case PasConstants.REVIEW_CODE_A2 -> 4;
-      case PasConstants.REVIEW_CODE_A4 -> 3;
-      case PasConstants.REVIEW_CODE_A1 -> 2;
+      case REVIEW_CODE_A2 -> 4;
+      case REVIEW_CODE_A4 -> 3;
+      case REVIEW_CODE_A1 -> 2;
       default -> 1; // A3
     };
   }
@@ -108,20 +110,20 @@ public class PasCoverageEvaluator {
     String paNeeded = CoverageInfoUtil.subExtensionCode(coverageInfoExt, "pa-needed");
 
     if ("not-covered".equals(covered)) {
-      return new CoverageDecision(PasConstants.REVIEW_CODE_A2, "Not Certified", false);
+      return new CoverageDecision(REVIEW_CODE_A2, "Not Certified", false);
     }
     if ("conditional".equals(covered)) {
-      return new CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true);
+      return new CoverageDecision(REVIEW_CODE_A4, "Pending", true);
     }
     String docNeeded = CoverageInfoUtil.subExtensionCode(coverageInfoExt, "doc-needed");
     if ("auth-needed".equals(paNeeded)) {
       if ("no-doc".equals(docNeeded)) {
-        return new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified in total", false);
+        return new CoverageDecision(REVIEW_CODE_A1, "Certified in total", false);
       }
-      return new CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true);
+      return new CoverageDecision(REVIEW_CODE_A4, "Pending", true);
     }
     // no-auth or no pa-needed value
-    return new CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false);
+    return new CoverageDecision(REVIEW_CODE_A3, "Not Required", false);
   }
 
 }

@@ -1,5 +1,7 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.*;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -149,8 +151,8 @@ public class PasBundleReferenceResolver {
     for (Identifier identifier : patient.getIdentifier()) {
       if (identifier.hasType()) {
         for (Coding coding : identifier.getType().getCoding()) {
-          if (PasConstants.MB_TYPE_SYSTEM.equals(coding.getSystem())
-              && PasConstants.MB_TYPE_CODE.equals(coding.getCode())) {
+          if (IDENTIFIER_TYPE_SYSTEM.equals(coding.getSystem())
+              && MB_TYPE_CODE.equals(coding.getCode())) {
             return identifier;
           }
         }
@@ -161,7 +163,7 @@ public class PasBundleReferenceResolver {
 
   static Identifier findNpiIdentifier(Organization organization) {
     for (Identifier identifier : organization.getIdentifier()) {
-      if (PasConstants.NPI_SYSTEM.equals(identifier.getSystem())) {
+      if (NPI_SYSTEM.equals(identifier.getSystem())) {
         return identifier;
       }
     }

@@ -2,10 +2,10 @@ package org.hl7.davinci.providers;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import org.hl7.davinci.cdshooks.error.OperationOutcomeBuilder;
 import org.hl7.davinci.common.BaseProvider;
+import org.hl7.davinci.common.OrderResourceTypes;
 import org.hl7.davinci.dtr.DtrConstants;
 import org.hl7.davinci.dtr.DtrPackageService;
 import org.hl7.fhir.instance.model.api.IAnyResource;
@@ -38,20 +38,6 @@ import jakarta.servlet.http.HttpServletRequest;
 public class QuestionnairePackageProvider extends BaseProvider {
 
   private static final Logger logger = LoggerFactory.getLogger(QuestionnairePackageProvider.class);
-
-  /**
-   * DTR-allowed order resource types per OperationDefinition.
-   */
-  private static final Set<String> SUPPORTED_ORDER_TYPES = Set.of(
-      "Appointment",
-      "CommunicationRequest",
-      "DeviceRequest",
-      "Encounter",
-      "MedicationRequest",
-      "NutritionOrder",
-      "ServiceRequest",
-      "SupplyRequest",
-      "VisionPrescription");
 
   private final DtrPackageService dtrPackageService;
 
@@ -113,7 +99,7 @@ public class QuestionnairePackageProvider extends BaseProvider {
 
       for (IAnyResource order : theOrders) {
         String resourceType = ((Resource) order).fhirType();
-        if (SUPPORTED_ORDER_TYPES.contains(resourceType)) {
+        if (OrderResourceTypes.isSupported(resourceType)) {
           validOrders.add((Resource) order);
         } else {
           unsupportedTypes.add(resourceType);

@@ -18,6 +18,7 @@ import org.hl7.fhir.r4.model.UsageContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.hl7.davinci.dtr.DtrConstants.*;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -31,17 +32,14 @@ public class LibraryScenarioScanner {
 
   private static final Logger logger = LoggerFactory.getLogger(LibraryScenarioScanner.class);
 
-  private static final String USAGE_CONTEXT_TYPE_SYSTEM =
-      "http://terminology.hl7.org/CodeSystem/usage-context-type";
-
   private static final Set<String> SUB_QUESTIONNAIRE_NAMES = Set.of("PatientInfo");
 
   static final Map<String, String> SYSTEM_TO_ORDER_TYPE = Map.of(
-      "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", "DeviceRequest",
+      HCPCS_SYSTEM, "DeviceRequest",
       "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", "DeviceRequest",
-      "http://www.nlm.nih.gov/research/umls/rxnorm", "MedicationRequest",
-      "http://www.ama-assn.org/go/cpt", "Appointment",
-      "http://snomed.info/sct", "Appointment");
+      RXNORM_SYSTEM, "MedicationRequest",
+      CPT_SYSTEM, "Appointment",
+      SNOMED_SYSTEM, "Appointment");
 
   private LibraryScenarioScanner() {}
 

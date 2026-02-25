@@ -72,12 +72,6 @@ class AppointmentBookServiceTest {
   class HookNameValidation {
 
     @Test
-    @DisplayName("Should return hook name 'appointment-book'")
-    void testGetHookName() {
-      assertEquals("appointment-book", appointmentBookService.getHookName());
-    }
-
-    @Test
     @DisplayName("Should throw 400 when hook name doesn't match")
     void testWrongHookName_Returns400() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest(
@@ -141,63 +135,6 @@ class AppointmentBookServiceTest {
       assertEquals(2, selected.size(), "appointment-book should process ALL appointments");
       assertTrue(selected.contains(appt1));
       assertTrue(selected.contains(appt2));
-    }
-  }
-
-  @Nested
-  @DisplayName("Primary Hook Requirements")
-  class PrimaryHookRequirements {
-
-    @Test
-    @DisplayName("appointment-book IS a primary hook")
-    void testIsPrimaryHook() {
-      String hookName = appointmentBookService.getHookName();
-      assertTrue(
-          hookName.equals("order-sign") ||
-              hookName.equals("order-dispatch") ||
-              hookName.equals("appointment-book"),
-          "appointment-book should be a primary hook");
-    }
-  }
-
-  @Nested
-  @DisplayName("Appointment Code Extraction")
-  class AppointmentCodeExtraction {
-
-    @Test
-    @DisplayName("Should extract serviceType codes from appointment")
-    void testExtractsServiceTypeCodes() {
-      Appointment appointment = new Appointment();
-      appointment.setId("test-appt");
-
-      CodeableConcept serviceType = new CodeableConcept();
-      serviceType.addCoding()
-          .setSystem("http://snomed.info/sct")
-          .setCode("394579002")
-          .setDisplay("Cardiology");
-      appointment.addServiceType(serviceType);
-
-      // Verify serviceType is accessible
-      assertFalse(appointment.getServiceType().isEmpty());
-      assertEquals("394579002", appointment.getServiceType().get(0).getCodingFirstRep().getCode());
-    }
-
-    @Test
-    @DisplayName("Should extract reasonCode codes from appointment")
-    void testExtractsReasonCodes() {
-      Appointment appointment = new Appointment();
-      appointment.setId("test-appt");
-
-      CodeableConcept reasonCode = new CodeableConcept();
-      reasonCode.addCoding()
-          .setSystem("http://snomed.info/sct")
-          .setCode("789718008")
-          .setDisplay("Cardiology service");
-      appointment.addReasonCode(reasonCode);
-
-      // Verify reasonCode is accessible
-      assertFalse(appointment.getReasonCode().isEmpty());
-      assertEquals("789718008", appointment.getReasonCode().get(0).getCodingFirstRep().getCode());
     }
   }
 }

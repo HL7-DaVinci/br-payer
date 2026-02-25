@@ -13,6 +13,7 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.hl7.davinci.dtr.DtrConstants.*;
 
 /**
@@ -120,7 +121,7 @@ public class DtrRequestBuilder {
         .setSystem("urn:oid:2.16.840.1.113883.6.300").setValue("00001");
     payorOrg.setActive(true);
     payorOrg.addType().addCoding()
-        .setSystem("http://terminology.hl7.org/CodeSystem/organization-type")
+        .setSystem(ORGANIZATION_TYPE_SYSTEM)
         .setCode("pay").setDisplay("Payer");
     payorOrg.setName("Centers for Medicare and Medicaid Services");
     coverage.addContained(payorOrg);
@@ -129,7 +130,7 @@ public class DtrRequestBuilder {
     coverage.setSubscriberId("10A3D58WH456");
     coverage.setBeneficiary(new Reference("Patient/example"));
     coverage.getRelationship().addCoding()
-        .setSystem("http://terminology.hl7.org/CodeSystem/subscriber-relationship")
+        .setSystem(SUBSCRIBER_RELATIONSHIP_SYSTEM)
         .setCode("self").setDisplay("Self");
     coverage.getPeriod().setStartElement(new DateTimeType("2025-01-01"));
     coverage.getPeriod().setEndElement(new DateTimeType("2026-12-31"));

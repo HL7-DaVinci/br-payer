@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.hl7.davinci.dtr.DtrConstants.*;
 
 /**
@@ -134,8 +135,8 @@ public class DtrPackageService {
     List<String> subQWarnings = subQuestionnaireAssembler.assemble(questionnaire);
     warnings.addAll(subQWarnings);
 
-    // Normalize after assembly so imported item expressions are also sanitized.
-    sanitizeQuestionnaireForValidation(questionnaire, warnings, isAdaptiveQuestionnaire);
+    // Normalize $next-question URL if necessary
+    normalizeAdaptiveQuestionnaireUrl(questionnaire);
 
     // Resolve libraries
     DtrLibraryResolver.LibraryResolution libraryResult = libraryResolver.resolveLibraries(questionnaire);
@@ -260,16 +261,7 @@ public class DtrPackageService {
     return params;
   }
 
-  /**
-   * Applies necessary runtime transformations to the questionnaire before packaging.
-   * Source files are expected to be conformant; only deployment-specific adjustments are made here.
-   */
-  private void sanitizeQuestionnaireForValidation(
-      Questionnaire questionnaire, List<String> warnings, boolean adaptiveMode) {
-    normalizeAdaptiveQuestionnaireUrl(questionnaire, warnings);
-  }
-
-  private void normalizeAdaptiveQuestionnaireUrl(Questionnaire questionnaire, List<String> warnings) {
+  private void normalizeAdaptiveQuestionnaireUrl(Questionnaire questionnaire) {
     Extension adaptiveExt = questionnaire.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT);
     if (adaptiveExt == null) {
       return;
@@ -286,8 +278,7 @@ public class DtrPackageService {
     }
 
     adaptiveExt.setValue(new UrlType(targetUrl));
-    warnings.add("Questionnaire " + questionnaire.getUrl()
-        + " had an incompatible questionnaireAdaptive URL; normalized to " + targetUrl + ".");
+    logger.info("Normalized adaptive questionnaire URL from {} to {}", currentUrl, targetUrl);
   }
 
   /**

@@ -3,6 +3,7 @@ package org.hl7.davinci.dtr;
 import java.util.List;
 import java.util.Set;
 
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Library;
@@ -13,6 +14,7 @@ import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.springframework.stereotype.Component;
 
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.hl7.davinci.dtr.DtrConstants.*;
 
 import ca.uhn.fhir.jpa.starter.AppProperties;
@@ -96,9 +98,10 @@ public class DtrBundleAssembler {
     entry.setResource(resource);
 
     // Stable fullUrl using server base
-    String idPart = resource.getIdElement().getIdPart();
-    if (idPart != null && serverBase != null) {
-      entry.setFullUrl(serverBase + "/" + resourceType + "/" + idPart);
+    String fullUrl = FhirUtil.buildVersionlessResourceUrl(
+        serverBase, resourceType, resource.getIdElement().getIdPart());
+    if (fullUrl != null) {
+      entry.setFullUrl(fullUrl);
     }
   }
 
@@ -162,10 +165,6 @@ public class DtrBundleAssembler {
   }
 
   private String getServerBase() {
-    String base = appProperties.getServer_address();
-    if (base != null && base.endsWith("/")) {
-      base = base.substring(0, base.length() - 1);
-    }
-    return base;
+    return FhirUtil.normalizeServerBase(appProperties.getServer_address());
   }
 }

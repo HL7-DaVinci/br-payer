@@ -10,6 +10,7 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Parameters;
@@ -343,6 +344,88 @@ class AdaptiveNextQuestionServiceTest {
       assertTrue(hasTransientOrder,
           "Data bundle should include transient qr-context resource from contained QR");
     }
+
+      @Test
+      @DisplayName("Pre-population resolves external qr-context resources through DAO")
+      @SuppressWarnings({ "rawtypes" })
+      void prepopulation_resolvesExternalQrContextFromDao() {
+        Questionnaire sourceQ = buildSimpleQuestionnaire();
+        QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
+        qr.setSubject(new Reference("Patient/example"));
+
+        Extension contextExt = new Extension(
+          "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-context");
+        contextExt.setValue(new Reference("MedicationRequest/med-rx-2"));
+        qr.addExtension(contextExt);
+
+        IFhirResourceDao medicationRequestDao = mock(IFhirResourceDao.class);
+        MedicationRequest persistedOrder = new MedicationRequest();
+        persistedOrder.setId("MedicationRequest/med-rx-2");
+
+        when(daoRegistry.getResourceDao("MedicationRequest")).thenReturn(medicationRequestDao);
+        when(medicationRequestDao.read(any(), any())).thenReturn(persistedOrder);
+
+        stubDao(sourceQ);
+        when(questionnaireProcessorFactory.create(any())).thenReturn(questionnaireProcessor);
+        when(questionnaireProcessor.populate(
+          any(IBaseResource.class), any(), any(), any(), any(), any()))
+          .thenReturn(new QuestionnaireResponse());
+
+        service.processNextQuestion(qr);
+
+        var bundleCaptor = org.mockito.ArgumentCaptor.forClass(Bundle.class);
+        verify(questionnaireProcessor).populate(
+          any(IBaseResource.class), any(), any(), any(), bundleCaptor.capture(), any());
+
+        boolean hasResolvedOrder = bundleCaptor.getValue().getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .anyMatch(resource -> resource instanceof MedicationRequest
+            && "med-rx-2".equals(resource.getIdElement().getIdPart()));
+
+        assertTrue(hasResolvedOrder,
+          "Data bundle should include DAO-resolved qr-context resource");
+      }
+
+      @Test
+      @DisplayName("Pre-population resolves external qr-coverage resources through DAO")
+      @SuppressWarnings({ "rawtypes" })
+      void prepopulation_resolvesExternalCoverageFromDao() {
+        Questionnaire sourceQ = buildSimpleQuestionnaire();
+        QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
+        qr.setSubject(new Reference("Patient/example"));
+
+        Extension coverageExt = new Extension(
+          "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/qr-coverage");
+        coverageExt.setValue(new Reference("Coverage/cov-2"));
+        qr.addExtension(coverageExt);
+
+        IFhirResourceDao coverageDao = mock(IFhirResourceDao.class);
+        Coverage persistedCoverage = new Coverage();
+        persistedCoverage.setId("Coverage/cov-2");
+
+        when(daoRegistry.getResourceDao("Coverage")).thenReturn(coverageDao);
+        when(coverageDao.read(any(), any())).thenReturn(persistedCoverage);
+
+        stubDao(sourceQ);
+        when(questionnaireProcessorFactory.create(any())).thenReturn(questionnaireProcessor);
+        when(questionnaireProcessor.populate(
+          any(IBaseResource.class), any(), any(), any(), any(), any()))
+          .thenReturn(new QuestionnaireResponse());
+
+        service.processNextQuestion(qr);
+
+        var bundleCaptor = org.mockito.ArgumentCaptor.forClass(Bundle.class);
+        verify(questionnaireProcessor).populate(
+          any(IBaseResource.class), any(), any(), any(), bundleCaptor.capture(), any());
+
+        boolean hasResolvedCoverage = bundleCaptor.getValue().getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .anyMatch(resource -> resource instanceof Coverage
+            && "cov-2".equals(resource.getIdElement().getIdPart()));
+
+        assertTrue(hasResolvedCoverage,
+          "Data bundle should include DAO-resolved qr-coverage resource");
+      }
 
     @Test
     @DisplayName("Pre-population preserves nested item structure when merging answers")

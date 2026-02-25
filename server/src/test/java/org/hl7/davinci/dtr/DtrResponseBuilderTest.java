@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
@@ -341,7 +340,6 @@ class DtrResponseBuilderTest {
           "Answer item descendants should have information-origin");
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     @DisplayName("Patient in repository: no Patient in data bundle (avoids duplicate with repository)")
     void populateSuccess_patientInRepo_notInBundle() {

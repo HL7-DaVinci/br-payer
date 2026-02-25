@@ -1,5 +1,7 @@
 package org.hl7.davinci.scenarios;
 
+import static org.hl7.davinci.common.FhirConstants.*;
+
 import java.util.Date;
 
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
@@ -99,13 +101,13 @@ public final class ScenarioResourceUtil {
         practitioner.setId("appointment-practitioner");
         practitioner.getMeta().addProfile(CRD_PRACTITIONER_PROFILE);
         practitioner.addIdentifier()
-            .setSystem("http://hl7.org/fhir/sid/us-npi")
+            .setSystem(NPI_SYSTEM)
             .setValue("1234567893");
         practitioner.addName().setFamily("Provider").addGiven("Primary");
         practitioner.addQualification()
             .getCode()
             .addCoding(new Coding(
-                "http://terminology.hl7.org/CodeSystem/v2-0360",
+                V2_DEGREE_SYSTEM,
                 "MD",
                 "Doctor of Medicine"));
 
@@ -122,7 +124,7 @@ public final class ScenarioResourceUtil {
             .setStatus(Appointment.ParticipationStatus.ACCEPTED);
         appt.addParticipant()
             .addType(new CodeableConcept().addCoding(new Coding(
-                "http://terminology.hl7.org/CodeSystem/v3-ParticipationType", "PPRF", null)))
+                V3_PARTICIPATION_TYPE_SYSTEM, "PPRF", null)))
             .setActor(new Reference("#appointment-practitioner"))
             .setStatus(Appointment.ParticipationStatus.ACCEPTED);
         return appt;

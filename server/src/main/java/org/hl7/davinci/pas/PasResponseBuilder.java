@@ -1,5 +1,7 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.*;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -7,6 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.pas.PasCoverageEvaluator.CoverageDecision;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
@@ -32,16 +35,12 @@ import ca.uhn.fhir.jpa.starter.AppProperties;
 @Component
 public class PasResponseBuilder {
 
-  private static final String ADJUDICATION_SYSTEM = "http://terminology.hl7.org/CodeSystem/adjudication";
-
   private final AtomicLong authCounter = new AtomicLong(0);
   private final AtomicLong pendCounter = new AtomicLong(0);
   private final String serverBase;
 
   public PasResponseBuilder(AppProperties appProperties) {
-    String base = appProperties.getServer_address();
-    this.serverBase = (base != null && base.endsWith("/"))
-        ? base.substring(0, base.length() - 1) : base;
+    this.serverBase = FhirUtil.normalizeServerBase(appProperties.getServer_address());
   }
 
   /**
@@ -80,14 +79,14 @@ public class PasResponseBuilder {
    * Finalizes pended adjudications in-place, transitioning A4 to A1 (Certified).
    */
   public void resolvePendedItems(ClaimResponse claimResponse, String authNumberPrefix) {
-    finalizePendedItems(claimResponse, PasConstants.REVIEW_CODE_A1, "Certified in total", authNumberPrefix);
+    finalizePendedItems(claimResponse, REVIEW_CODE_A1, "Certified in total", authNumberPrefix);
   }
 
   /**
    * Finalizes pended adjudications in-place, transitioning A4 to A6 (Modified).
    */
   public void modifyPendedItems(ClaimResponse claimResponse, String authNumberPrefix) {
-    finalizePendedItems(claimResponse, PasConstants.REVIEW_CODE_A6, "Modified", authNumberPrefix);
+    finalizePendedItems(claimResponse, REVIEW_CODE_A6, "Modified", authNumberPrefix);
   }
 
   /**
@@ -113,7 +112,7 @@ public class PasResponseBuilder {
       for (ClaimResponse.AdjudicationComponent adj : item.getAdjudication()) {
         adj.getExtension().removeIf(e -> PasConstants.REVIEW_ACTION.equals(e.getUrl()));
 
-        boolean isApproved = PasConstants.REVIEW_CODE_A1.equals(decision.reviewActionCode());
+        boolean isApproved = REVIEW_CODE_A1.equals(decision.reviewActionCode());
         String authNumber = isApproved
             ? authNumberPrefix + String.format("%04d", authCounter.incrementAndGet())
             : null;
@@ -129,7 +128,7 @@ public class PasResponseBuilder {
       }
 
       // Manage adminRefNumber: add for pended items, remove for non-pended
-      if (PasConstants.REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
+      if (REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
         if (item.getExtensionByUrl(PasConstants.ADMIN_REF_NUMBER) == null) {
           String adminRef = authNumberPrefix + "PEND" + String.format("%04d", pendCounter.incrementAndGet());
           item.addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType(adminRef));
@@ -153,7 +152,7 @@ public class PasResponseBuilder {
       adj.setCategory(new CodeableConcept().addCoding(
           new Coding(ADJUDICATION_SYSTEM, "submitted", "Submitted Amount")));
 
-      boolean isApproved = PasConstants.REVIEW_CODE_A1.equals(decision.reviewActionCode());
+      boolean isApproved = REVIEW_CODE_A1.equals(decision.reviewActionCode());
       String authNumber = isApproved
           ? authNumberPrefix + String.format("%04d", authCounter.incrementAndGet())
           : null;
@@ -164,7 +163,7 @@ public class PasResponseBuilder {
         newItem.addExtension(buildDefaultPreAuthPeriod());
       }
 
-      if (PasConstants.REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
+      if (REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
         String adminRef = authNumberPrefix + "PEND" + String.format("%04d", pendCounter.incrementAndGet());
         newItem.addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType(adminRef));
       }
@@ -223,7 +222,7 @@ public class PasResponseBuilder {
     for (Claim.ItemComponent requestItem : requestClaim.getItem()) {
       int seq = requestItem.getSequence();
       CoverageDecision decision = itemDecisions.getOrDefault(seq,
-          new CoverageDecision(PasConstants.REVIEW_CODE_A3, "Not Required", false));
+          new CoverageDecision(REVIEW_CODE_A3, "Not Required", false));
 
       ClaimResponse.ItemComponent responseItem = cr.addItem();
       responseItem.setItemSequence(seq);
@@ -233,7 +232,7 @@ public class PasResponseBuilder {
       adj.setCategory(new CodeableConcept().addCoding(
           new Coding(ADJUDICATION_SYSTEM, "submitted", "Submitted Amount")));
 
-      boolean isApproved = PasConstants.REVIEW_CODE_A1.equals(decision.reviewActionCode());
+      boolean isApproved = REVIEW_CODE_A1.equals(decision.reviewActionCode());
       String authNumber = null;
       if (isApproved) {
         authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
@@ -248,7 +247,7 @@ public class PasResponseBuilder {
       }
 
       // Pended items get an administrationReferenceNumber for inquiry matching
-      if (PasConstants.REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
+      if (REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
         String adminRef = authNumberPrefix + "PEND" + String.format("%04d", pendCounter.incrementAndGet());
         responseItem.addExtension(PasConstants.ADMIN_REF_NUMBER, new StringType(adminRef));
       }
@@ -272,9 +271,13 @@ public class PasResponseBuilder {
       claimResponse.setId(idPart);
     }
 
-    bundle.addEntry()
-        .setFullUrl(serverBase + "/ClaimResponse/" + idPart)
+    Bundle.BundleEntryComponent entry = bundle.addEntry()
         .setResource(claimResponse);
+
+    String fullUrl = FhirUtil.buildVersionlessResourceUrl(serverBase, "ClaimResponse", idPart);
+    if (fullUrl != null) {
+      entry.setFullUrl(fullUrl);
+    }
 
     return bundle;
   }
@@ -291,7 +294,7 @@ public class PasResponseBuilder {
     }
 
     return codeableConcept.getCoding().stream()
-        .anyMatch(coding -> PasConstants.REVIEW_CODE_A4.equals(coding.getCode()));
+        .anyMatch(coding -> REVIEW_CODE_A4.equals(coding.getCode()));
   }
 
   private Extension buildDefaultPreAuthPeriod() {

@@ -276,7 +276,7 @@ public class AdaptiveNextQuestionService {
       return;
     }
 
-    Resource resolved = resolveReference(ref, qr);
+    Resource resolved = ResourceResolver.resolveReferenceFromDao(ref, qr, daoRegistry);
     if (resolved == null) {
       return;
     }
@@ -320,44 +320,6 @@ public class AdaptiveNextQuestionService {
 
   private void addResource(Bundle bundle, Set<String> seen, Resource resource) {
     BundleResourceUtil.addByVersionlessIdentity(bundle, seen, resource);
-  }
-
-  private Resource resolveReference(Reference ref, QuestionnaireResponse qr) {
-    if (ref.getResource() instanceof Resource inline) {
-      return inline;
-    }
-    if (!ref.hasReference()) {
-      return null;
-    }
-
-    String reference = ref.getReference();
-    if (reference == null || reference.isBlank()) {
-      return null;
-    }
-
-    if (reference.startsWith("#")) {
-      return qr.getContained(reference);
-    }
-
-    for (Resource contained : qr.getContained()) {
-      if (ResourceResolver.referencesMatchResource(reference, contained)) {
-        return contained;
-      }
-    }
-
-    try {
-      String resourceType = ResourceResolver.getReferenceResourceType(reference);
-      String idPart =
-          resourceType != null ? ResourceResolver.normalizeReferenceId(reference, resourceType) : null;
-      if (resourceType == null || idPart == null || idPart.isBlank() || idPart.equals(reference)) {
-        return null;
-      }
-      return (Resource) daoRegistry.getResourceDao(resourceType)
-          .read(new IdType(resourceType, idPart), new SystemRequestDetails());
-    } catch (Exception e) {
-      logger.debug("$next-question: unable to resolve reference {}: {}", reference, e.getMessage());
-      return null;
-    }
   }
 
   private void mergePrepopulatedAnswers(

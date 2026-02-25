@@ -113,6 +113,33 @@ class DtrBundleAssemblerTest {
   }
 
   @Test
+  @DisplayName("fullUrl generation strips trailing slash from server base")
+  void fullUrlGeneration_stripsTrailingSlash() {
+    AppProperties appProperties = mock(AppProperties.class);
+    when(appProperties.getServer_address()).thenReturn("http://localhost:8080/fhir/");
+    DtrBundleAssembler trailingSlashAssembler = new DtrBundleAssembler(appProperties);
+
+    Questionnaire q = createSimpleQuestionnaire();
+    DtrBundleAssembler.BundleResult result = trailingSlashAssembler.assembleBundle(q, List.of(), List.of(), null);
+
+    assertEquals("http://localhost:8080/fhir/Questionnaire/q-1",
+        result.bundle().getEntry().get(0).getFullUrl());
+  }
+
+  @Test
+  @DisplayName("fullUrl is versionless relative when server base is missing")
+  void fullUrlGeneration_whenServerBaseMissing_isRelative() {
+    AppProperties appProperties = mock(AppProperties.class);
+    when(appProperties.getServer_address()).thenReturn("");
+    DtrBundleAssembler noBaseAssembler = new DtrBundleAssembler(appProperties);
+
+    Questionnaire q = createSimpleQuestionnaire();
+    DtrBundleAssembler.BundleResult result = noBaseAssembler.assembleBundle(q, List.of(), List.of(), null);
+
+    assertEquals("Questionnaire/q-1", result.bundle().getEntry().get(0).getFullUrl());
+  }
+
+  @Test
   @DisplayName("alternativeExpression on Expression datatype: valid bundle")
   void alternativeExpression_onExpressionValue() {
     Questionnaire q = createSimpleQuestionnaire();

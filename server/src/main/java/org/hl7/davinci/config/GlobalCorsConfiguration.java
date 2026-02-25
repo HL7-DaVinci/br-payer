@@ -2,7 +2,6 @@ package org.hl7.davinci.config;
 
 import ca.uhn.fhir.jpa.starter.AppProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpHeaders;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -43,16 +42,8 @@ public class GlobalCorsConfiguration implements WebMvcConfigurer {
       corsConfig.allowCredentials(true);
     }
 
-    // Configure headers - matching what StarterJpaConfig uses
-    corsConfig.allowedHeaders(
-      HttpHeaders.ORIGIN,
-      HttpHeaders.ACCEPT,
-      HttpHeaders.CONTENT_TYPE,
-      HttpHeaders.AUTHORIZATION,
-      HttpHeaders.CACHE_CONTROL,
-      "x-fhir-starter",
-      "X-Requested-With",
-      "Prefer");
+    // All all headers - allows us to use arbitrary test headers like "X-DTR-Adaptive-Mode"
+    corsConfig.allowedHeaders("*");
 
     // Configure exposed headers - matching what StarterJpaConfig uses
     corsConfig.exposedHeaders("Location", "Content-Location");

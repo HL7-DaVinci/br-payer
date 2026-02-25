@@ -5,6 +5,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
@@ -33,6 +34,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component;
 
 import static org.hl7.davinci.common.CrdConstants.DOC_REASON_SYSTEM;
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.hl7.davinci.dtr.DtrConstants.*;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
@@ -265,12 +267,9 @@ public class DtrResponseBuilder {
     if (explicit != null && !explicit.isBlank()) {
       return explicit;
     }
-    String serverAddress = appProperties.getServer_address();
+    String serverAddress = FhirUtil.normalizeServerBase(appProperties.getServer_address());
     if (serverAddress != null && !serverAddress.isBlank()) {
-      String base = serverAddress.endsWith("/")
-          ? serverAddress.substring(0, serverAddress.length() - 1)
-          : serverAddress;
-      return base + "/Questionnaire/$next-question";
+      return serverAddress + "/Questionnaire/$next-question";
     }
     return null;
   }

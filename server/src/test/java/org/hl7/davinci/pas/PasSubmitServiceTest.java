@@ -1,5 +1,6 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -94,7 +95,7 @@ class PasSubmitServiceTest {
 
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified", false));
     when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
 
     Bundle result = service.submit(requestBundle);
@@ -118,7 +119,7 @@ class PasSubmitServiceTest {
 
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pended", true));
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pended", true));
     when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
 
     service.submit(requestBundle);
@@ -143,7 +144,7 @@ class PasSubmitServiceTest {
 
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified", false));
     when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
 
     Bundle result = service.submit(requestBundle);
@@ -189,7 +190,7 @@ class PasSubmitServiceTest {
 
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new PasCoverageEvaluator.CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified", false));
     when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
 
     service.submit(requestBundle);
@@ -214,7 +215,7 @@ class PasSubmitServiceTest {
     Claim claim = buildMinimalClaim();
     claim.getItemFirstRep().addExtension(PasConstants.CERTIFICATION_TYPE,
         new CodeableConcept().addCoding(new Coding(
-            PasConstants.X12_CERT_TYPE_SYSTEM, PasConstants.CERT_TYPE_RENEWAL, "Renewal")));
+            X12_CERT_TYPE_SYSTEM, CERT_TYPE_RENEWAL, "Renewal")));
     assertEquals(SubmissionType.RENEWAL, service.detectSubmissionType(claim));
   }
 
@@ -233,7 +234,7 @@ class PasSubmitServiceTest {
     claim.addRelated().setClaim(new Reference("Claim/prior-claim-id"));
     claim.addExtension(PasConstants.CERTIFICATION_TYPE,
         new CodeableConcept().addCoding(new Coding(
-            PasConstants.X12_CERT_TYPE_SYSTEM, PasConstants.CERT_TYPE_CANCEL, "Cancel")));
+            X12_CERT_TYPE_SYSTEM, CERT_TYPE_CANCEL, "Cancel")));
     assertEquals(SubmissionType.CANCEL, service.detectSubmissionType(claim));
   }
 
@@ -258,13 +259,13 @@ class PasSubmitServiceTest {
     Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
     verify(evaluator).evaluate(any(), any(), any(), any(), any());
     Map<Integer, CoverageDecision> decisions = captureDecisions();
-    assertEquals(PasConstants.REVIEW_CODE_A1, decisions.get(1).reviewActionCode());
+    assertEquals(REVIEW_CODE_A1, decisions.get(1).reviewActionCode());
   }
 
   // ===== Update Tests =====
@@ -276,15 +277,15 @@ class PasSubmitServiceTest {
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     mockUpdatePathResponse();
     mockStoredClaimSearch(buildStoredPriorClaim());
-    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A1, "Certified in total"));
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A1, "Certified in total"));
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A4, "Pending", true));
 
     service.submit(requestBundle);
 
     verify(evaluator).evaluate(any(), any(), any(), any(), any());
     Map<Integer, CoverageDecision> decisions = captureAppliedDecisions();
-    assertEquals(PasConstants.REVIEW_CODE_A4, decisions.get(1).reviewActionCode());
+    assertEquals(REVIEW_CODE_A4, decisions.get(1).reviewActionCode());
     verifyCrUpdatedNotCreated();
   }
 
@@ -295,9 +296,9 @@ class PasSubmitServiceTest {
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     mockUpdatePathResponse();
     mockStoredClaimSearch(buildStoredPriorClaim());
-    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A1, "Certified in total"));
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A1, "Certified in total"));
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A4, "Pending", true));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A4, "Pending", true));
 
     service.submit(requestBundle);
 
@@ -321,7 +322,7 @@ class PasSubmitServiceTest {
     mockUpdatePathResponse();
     mockStoredClaimSearch(buildStoredPriorClaim());
     mockClaimResponseSearch(buildPriorClaimResponse(
-        PasConstants.REVIEW_CODE_A1, "Certified in total", "AUTH-1111"));
+        REVIEW_CODE_A1, "Certified in total", "AUTH-1111"));
 
     service.submit(requestBundle);
 
@@ -351,14 +352,14 @@ class PasSubmitServiceTest {
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     mockUpdatePathResponse();
     mockStoredClaimSearch(buildStoredPriorClaim());
-    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A1, "Certified"));
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A1, "Certified"));
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
     Map<Integer, CoverageDecision> decisions = captureAppliedDecisions();
-    assertEquals(PasConstants.REVIEW_CODE_A2, decisions.get(1).reviewActionCode());
+    assertEquals(REVIEW_CODE_A2, decisions.get(1).reviewActionCode());
     verifyCrUpdatedNotCreated();
   }
 
@@ -368,7 +369,7 @@ class PasSubmitServiceTest {
     Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     mockStoredClaimSearch(buildStoredPriorClaim());
-    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A2, "Not Certified"));
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A2, "Not Certified"));
 
     assertThrows(IllegalArgumentException.class, () -> service.submit(requestBundle));
   }
@@ -392,15 +393,15 @@ class PasSubmitServiceTest {
     mockUpdatePathResponse();
     mockStoredClaimSearch(buildStoredPriorClaim());
     // Prior only has item seq 1
-    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A1, "Certified in total"));
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A1, "Certified in total"));
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
     Map<Integer, CoverageDecision> decisions = captureAppliedDecisions();
-    assertEquals(PasConstants.REVIEW_CODE_A1, decisions.get(1).reviewActionCode());
-    assertEquals(PasConstants.REVIEW_CODE_A3, decisions.get(2).reviewActionCode());
+    assertEquals(REVIEW_CODE_A1, decisions.get(1).reviewActionCode());
+    assertEquals(REVIEW_CODE_A3, decisions.get(2).reviewActionCode());
     verifyCrUpdatedNotCreated();
   }
 
@@ -430,13 +431,13 @@ class PasSubmitServiceTest {
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     mockUpdatePathResponse();
     mockStoredClaimSearch(buildStoredPriorClaim());
-    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A1, "Certified"));
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A1, "Certified"));
 
     service.submit(requestBundle);
 
     verifyNoInteractions(evaluator);
     Map<Integer, CoverageDecision> decisions = captureAppliedDecisions();
-    assertEquals(PasConstants.REVIEW_CODE_A2, decisions.get(1).reviewActionCode());
+    assertEquals(REVIEW_CODE_A2, decisions.get(1).reviewActionCode());
     verifyCrUpdatedNotCreated();
   }
 
@@ -473,7 +474,7 @@ class PasSubmitServiceTest {
     claim.addRelated().setClaim(new Reference("Claim/prior-claim-id"));
     claim.addExtension(PasConstants.CERTIFICATION_TYPE,
         new CodeableConcept().addCoding(new Coding(
-            PasConstants.X12_CERT_TYPE_SYSTEM, PasConstants.CERT_TYPE_CANCEL, "Cancel")));
+            X12_CERT_TYPE_SYSTEM, CERT_TYPE_CANCEL, "Cancel")));
     Bundle requestBundle = wrapInBundle(claim);
     // Deliberately NOT adding prior Claim to bundle
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
@@ -496,13 +497,13 @@ class PasSubmitServiceTest {
     claim.addRelated().setClaim(new Reference("Claim/prior-claim-id"));
     claim.addExtension(PasConstants.CERTIFICATION_TYPE,
         new CodeableConcept().addCoding(new Coding(
-            PasConstants.X12_CERT_TYPE_SYSTEM, PasConstants.CERT_TYPE_CANCEL, "Cancel")));
+            X12_CERT_TYPE_SYSTEM, CERT_TYPE_CANCEL, "Cancel")));
     Bundle requestBundle = wrapInBundle(claim);
     addPriorClaimToBundle(requestBundle, "prior-claim-id");
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     mockUpdatePathResponse();
     mockStoredClaimSearch(buildStoredPriorClaim());
-    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A1, "Certified"));
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A1, "Certified"));
 
     service.submit(requestBundle);
 
@@ -510,7 +511,7 @@ class PasSubmitServiceTest {
     // Decisions are derived from prior CR items, not the cancel Claim's (empty) items
     Map<Integer, CoverageDecision> decisions = captureAppliedDecisions();
     assertFalse(decisions.isEmpty());
-    assertEquals(PasConstants.REVIEW_CODE_A2, decisions.get(1).reviewActionCode());
+    assertEquals(REVIEW_CODE_A2, decisions.get(1).reviewActionCode());
   }
 
   @Test
@@ -522,14 +523,13 @@ class PasSubmitServiceTest {
     mockStoredClaimSearch(buildStoredPriorClaim());
 
     // Prior CR is pended and tagged
-    ClaimResponse pendedCr = buildPriorClaimResponse(PasConstants.REVIEW_CODE_A4, "Pending");
+    ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
     pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
         PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
     mockClaimResponseSearch(pendedCr);
 
     service.submit(requestBundle);
 
-    @SuppressWarnings("unchecked")
     IFhirResourceDao<ClaimResponse> crDao =
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
     verify(crDao).update(any(), any(RequestDetails.class));
@@ -556,7 +556,7 @@ class PasSubmitServiceTest {
     Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
     when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
     mockStoredClaimSearch(buildStoredPriorClaim());
-    mockClaimResponseSearch(buildPriorClaimResponse(PasConstants.REVIEW_CODE_A2, "Not Certified"));
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A2, "Not Certified"));
 
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
         () -> service.submit(requestBundle));
@@ -572,18 +572,17 @@ class PasSubmitServiceTest {
     mockStoredClaimSearch(buildStoredPriorClaim());
 
     // Prior CR was pended (A4), tagged for scheduler
-    ClaimResponse pendedCr = buildPriorClaimResponse(PasConstants.REVIEW_CODE_A4, "Pending");
+    ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
     pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
         PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
     mockClaimResponseSearch(pendedCr);
 
     // Update re-evaluates item and it transitions to A1
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
-    @SuppressWarnings("unchecked")
     IFhirResourceDao<ClaimResponse> crDao =
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
     verify(crDao).update(any(), any(RequestDetails.class));
@@ -598,11 +597,10 @@ class PasSubmitServiceTest {
     Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
-    @SuppressWarnings("unchecked")
     IFhirResourceDao<ClaimResponse> crDao =
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
     verify(crDao).create(any(), any(RequestDetails.class));
@@ -627,7 +625,7 @@ class PasSubmitServiceTest {
 
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
@@ -642,7 +640,7 @@ class PasSubmitServiceTest {
 
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
@@ -664,7 +662,7 @@ class PasSubmitServiceTest {
 
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
@@ -686,7 +684,7 @@ class PasSubmitServiceTest {
 
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
-        .thenReturn(new CoverageDecision(PasConstants.REVIEW_CODE_A1, "Certified", false));
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
 
     service.submit(requestBundle);
 
@@ -748,7 +746,6 @@ class PasSubmitServiceTest {
     return captor.getValue();
   }
 
-  @SuppressWarnings("unchecked")
   private void verifyCrUpdatedNotCreated() {
     IFhirResourceDao<ClaimResponse> crDao =
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
@@ -784,7 +781,7 @@ class PasSubmitServiceTest {
     Claim claim = buildMinimalClaim();
     claim.getItemFirstRep().addExtension(PasConstants.CERTIFICATION_TYPE,
         new CodeableConcept().addCoding(new Coding(
-            PasConstants.X12_CERT_TYPE_SYSTEM, PasConstants.CERT_TYPE_RENEWAL, "Renewal")));
+            X12_CERT_TYPE_SYSTEM, CERT_TYPE_RENEWAL, "Renewal")));
     return wrapInBundle(claim);
   }
 
@@ -806,7 +803,7 @@ class PasSubmitServiceTest {
     // Whole-authorization cancel via Claim-level certificationType "3"
     claim.addExtension(PasConstants.CERTIFICATION_TYPE,
         new CodeableConcept().addCoding(new Coding(
-            PasConstants.X12_CERT_TYPE_SYSTEM, PasConstants.CERT_TYPE_CANCEL, "Cancel")));
+            X12_CERT_TYPE_SYSTEM, CERT_TYPE_CANCEL, "Cancel")));
     Bundle bundle = wrapInBundle(claim);
     addPriorClaimToBundle(bundle, priorClaimId);
     return bundle;

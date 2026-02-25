@@ -70,12 +70,6 @@ class EncounterDischargeServiceTest {
   class HookNameValidation {
 
     @Test
-    @DisplayName("Should return hook name 'encounter-discharge'")
-    void testGetHookName() {
-      assertEquals("encounter-discharge", encounterDischargeService.getHookName());
-    }
-
-    @Test
     @DisplayName("Should throw 400 when hook name doesn't match")
     void testWrongHookName_Returns400() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest(
@@ -142,81 +136,6 @@ class EncounterDischargeServiceTest {
       assertEquals(1, selected.size());
       assertTrue(selected.get(0) instanceof Encounter);
       assertEquals("enc-001", selected.get(0).getIdElement().getIdPart());
-    }
-  }
-
-  @Nested
-  @DisplayName("Secondary Hook Classification")
-  class SecondaryHookClassification {
-
-    @Test
-    @DisplayName("encounter-discharge is NOT a primary hook")
-    void testIsNotPrimaryHook() {
-      String hookName = encounterDischargeService.getHookName();
-      assertFalse(
-          hookName.equals("order-sign") ||
-          hookName.equals("order-dispatch") ||
-          hookName.equals("appointment-book"),
-          "encounter-discharge should NOT be a primary hook");
-    }
-  }
-
-  @Nested
-  @DisplayName("Discharge Disposition Handling")
-  class DischargeDispositionHandling {
-
-    @Test
-    @DisplayName("Should handle encounter with discharge disposition")
-    void testEncounterWithDischargeDisposition() {
-      Encounter encounter = new Encounter();
-      encounter.setId("test-enc");
-      encounter.setStatus(Encounter.EncounterStatus.FINISHED);
-
-      Encounter.EncounterHospitalizationComponent hospitalization = new Encounter.EncounterHospitalizationComponent();
-      CodeableConcept disposition = new CodeableConcept();
-      disposition.addCoding()
-          .setSystem("http://terminology.hl7.org/CodeSystem/discharge-disposition")
-          .setCode("snf")
-          .setDisplay("Skilled nursing facility");
-      hospitalization.setDischargeDisposition(disposition);
-      encounter.setHospitalization(hospitalization);
-
-      assertTrue(encounter.hasHospitalization());
-      assertTrue(encounter.getHospitalization().hasDischargeDisposition());
-      assertEquals("snf",
-          encounter.getHospitalization().getDischargeDisposition().getCodingFirstRep().getCode());
-    }
-
-    @Test
-    @DisplayName("Should handle encounter without hospitalization")
-    void testEncounterWithoutHospitalization() {
-      Encounter encounter = new Encounter();
-      encounter.setId("test-enc");
-      encounter.setStatus(Encounter.EncounterStatus.FINISHED);
-
-      assertFalse(encounter.hasHospitalization());
-    }
-  }
-
-  @Nested
-  @DisplayName("Encounter Code Extraction")
-  class EncounterCodeExtraction {
-
-    @Test
-    @DisplayName("Should handle encounter with reason codes")
-    void testEncounterWithReasonCodes() {
-      Encounter encounter = new Encounter();
-      encounter.setId("test-enc");
-
-      CodeableConcept reasonCode = new CodeableConcept();
-      reasonCode.addCoding()
-          .setSystem("http://snomed.info/sct")
-          .setCode("263225007")
-          .setDisplay("Hip fracture");
-      encounter.addReasonCode(reasonCode);
-
-      assertFalse(encounter.getReasonCode().isEmpty());
-      assertEquals("263225007", encounter.getReasonCode().get(0).getCodingFirstRep().getCode());
     }
   }
 }

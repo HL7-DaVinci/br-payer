@@ -1,9 +1,12 @@
 package org.hl7.davinci.pas;
 
+import static org.hl7.davinci.common.FhirConstants.*;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.common.PayorIdentifierUtil;
 import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.davinci.pas.PasCoverageEvaluator.CoverageDecision;
@@ -72,9 +75,7 @@ public class PasSubmitService {
     this.daoRegistry = daoRegistry;
     this.bundleReferenceResolver = bundleReferenceResolver;
     this.pasProperties = pasProperties;
-    String base = appProperties.getServer_address();
-    this.serverBase = (base != null && base.endsWith("/"))
-        ? base.substring(0, base.length() - 1) : base;
+    this.serverBase = FhirUtil.normalizeServerBase(appProperties.getServer_address());
   }
 
   /**
@@ -142,8 +143,10 @@ public class PasSubmitService {
 
     String crId = crOutcome.getId().getIdPart();
     claimResponse.setId(crId);
-    responseBundle.getEntryFirstRep()
-        .setFullUrl(serverBase + "/ClaimResponse/" + crId);
+    String fullUrl = FhirUtil.buildVersionlessResourceUrl(serverBase, "ClaimResponse", crId);
+    if (fullUrl != null) {
+      responseBundle.getEntryFirstRep().setFullUrl(fullUrl);
+    }
 
     return responseBundle;
   }
@@ -164,7 +167,7 @@ public class PasSubmitService {
       var coveredSequences = result.itemDecisions().keySet();
       anyStillPended = existingCr.getItem().stream()
           .filter(item -> !coveredSequences.contains(item.getItemSequence()))
-          .anyMatch(item -> PasConstants.REVIEW_CODE_A4.equals(
+          .anyMatch(item -> REVIEW_CODE_A4.equals(
               PasExtensions.extractReviewActionCode(item)));
     }
 
@@ -205,14 +208,14 @@ public class PasSubmitService {
     // Claim.related with a claim reference = update or cancel
     if (claim.hasRelated() && claim.getRelatedFirstRep().hasClaim()) {
       // Claim-level certificationType "3" = whole-authorization cancel
-      if (hasClaimLevelCertificationType(claim, PasConstants.CERT_TYPE_CANCEL)) {
+      if (hasClaimLevelCertificationType(claim, CERT_TYPE_CANCEL)) {
         return SubmissionType.CANCEL;
       }
       return SubmissionType.UPDATE;
     }
 
     if (claim.getItem().stream()
-        .anyMatch(item -> hasCertificationType(item, PasConstants.CERT_TYPE_RENEWAL))) {
+        .anyMatch(item -> hasCertificationType(item, CERT_TYPE_RENEWAL))) {
       return SubmissionType.RENEWAL;
     }
 
@@ -265,7 +268,7 @@ public class PasSubmitService {
     }
 
     String priorOverallCode = getMostRestrictiveReviewCode(prior);
-    if (PasConstants.REVIEW_CODE_A2.equals(priorOverallCode)) {
+    if (REVIEW_CODE_A2.equals(priorOverallCode)) {
       throw new IllegalArgumentException(
           "Cannot update a denied prior authorization (review action A2)");
     }
@@ -286,7 +289,7 @@ public class PasSubmitService {
       if (hasInfoCancelled(item)) {
         // infoCancelled takes precedence
         itemDecisions.put(seq, new CoverageDecision(
-            PasConstants.REVIEW_CODE_A2, "Not Certified", false));
+            REVIEW_CODE_A2, "Not Certified", false));
       } else if (hasInfoChanged(item)) {
         Coding orderCode = item.getProductOrService().getCodingFirstRep();
         CoverageDecision decision = evaluator.evaluate(
@@ -299,7 +302,7 @@ public class PasSubmitService {
         String priorCode = priorDecisionMap.get(seq);
         if (priorCode == null) {
           itemDecisions.put(seq, new CoverageDecision(
-              PasConstants.REVIEW_CODE_A3, "Not Required", false));
+              REVIEW_CODE_A3, "Not Required", false));
         }
       }
     }
@@ -325,7 +328,7 @@ public class PasSubmitService {
     }
 
     String priorOverallCode = getMostRestrictiveReviewCode(prior);
-    if (PasConstants.REVIEW_CODE_A2.equals(priorOverallCode)) {
+    if (REVIEW_CODE_A2.equals(priorOverallCode)) {
       throw new IllegalArgumentException(
           "Cannot cancel a denied prior authorization (review action A2)");
     }
@@ -334,7 +337,7 @@ public class PasSubmitService {
     Map<Integer, CoverageDecision> itemDecisions = new LinkedHashMap<>();
     for (ClaimResponse.ItemComponent item : prior.getItem()) {
       itemDecisions.put(item.getItemSequence(), new CoverageDecision(
-          PasConstants.REVIEW_CODE_A2, "Not Certified", false));
+          REVIEW_CODE_A2, "Not Certified", false));
     }
     return new SubmissionResult(itemDecisions, prior);
   }
@@ -431,7 +434,7 @@ public class PasSubmitService {
   }
 
   private String getMostRestrictiveReviewCode(ClaimResponse claimResponse) {
-    String worstCode = PasConstants.REVIEW_CODE_A3;
+    String worstCode = REVIEW_CODE_A3;
     int worstRank = 1;
 
     for (ClaimResponse.ItemComponent item : claimResponse.getItem()) {
@@ -449,9 +452,9 @@ public class PasSubmitService {
 
   private int rankReviewCode(String code) {
     return switch (code) {
-      case PasConstants.REVIEW_CODE_A2 -> 4;
-      case PasConstants.REVIEW_CODE_A4 -> 3;
-      case PasConstants.REVIEW_CODE_A1 -> 2;
+      case REVIEW_CODE_A2 -> 4;
+      case REVIEW_CODE_A4 -> 3;
+      case REVIEW_CODE_A1 -> 2;
       default -> 1; // A3
     };
   }

@@ -6,7 +6,6 @@ import ca.uhn.fhir.jpa.searchparam.config.NicknameServiceConfig;
 import ca.uhn.fhir.jpa.starter.Application;
 import ca.uhn.fhir.jpa.starter.IServerSupport;
 import ca.uhn.fhir.jpa.starter.cdshooks.StarterCdsHooksConfig;
-import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.api.ServerValidationModeEnum;
 import ca.uhn.hapi.fhir.cdshooks.api.ICdsServiceRegistry;
 import com.google.gson.Gson;
@@ -88,7 +87,6 @@ class CrdCdsHooksIT implements IServerSupport {
   private static final Gson gson = new Gson();
 
   private final FhirContext fhirContext = FhirContext.forR4Cached();
-  private IGenericClient fhirClient;
   private String cdsServicesBase;
   private String fhirServerBase;
 
@@ -107,7 +105,7 @@ class CrdCdsHooksIT implements IServerSupport {
     fhirContext.getRestfulClientFactory().setServerValidationMode(ServerValidationModeEnum.NEVER);
     fhirContext.getRestfulClientFactory().setSocketTimeout(120 * 1000);
     fhirServerBase = "http://localhost:" + port + "/fhir/";
-    fhirClient = fhirContext.newRestfulGenericClient(fhirServerBase);
+    fhirContext.newRestfulGenericClient(fhirServerBase);
     cdsServicesBase = "http://localhost:" + port + "/cds-services";
 
     log.info("Integration test setup complete. FHIR server: {}, CDS services: {}", fhirServerBase, cdsServicesBase);

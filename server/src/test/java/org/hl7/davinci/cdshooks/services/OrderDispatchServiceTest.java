@@ -63,12 +63,6 @@ class OrderDispatchServiceTest {
   class HookNameValidation {
 
     @Test
-    @DisplayName("Should return hook name 'order-dispatch'")
-    void testGetHookName() {
-      assertEquals("order-dispatch", orderDispatchService.getHookName());
-    }
-
-    @Test
     @DisplayName("Should throw 400 when hook name doesn't match")
     void testWrongHookName_Returns400() throws IOException {
       CdsServiceRequestJson request = CdsHooksTestUtils.loadGeneratedRequest(
@@ -114,6 +108,65 @@ class OrderDispatchServiceTest {
 
       assertDoesNotThrow(() -> orderDispatchService.validateExtractedResources(context));
     }
+
+    @Test
+    @DisplayName("Should throw 400 when performer context is missing")
+    void testMissingPerformerContext_Returns400() {
+      ResolvedResources context = new ResolvedResources();
+      context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
+      context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
+      context.setOrders(List.of(
+          CdsHooksTestUtils.createTestServiceRequest("sr-1", "70553", "test-patient")));
+
+      CdsHooksException.BadRequestException exception = assertThrows(
+          CdsHooksException.BadRequestException.class,
+          () -> orderDispatchService.validateExtractedResources(context));
+
+      assertTrue(exception.getMessage().contains("performer"));
+    }
+
+    @Test
+    @DisplayName("Should throw 400 when fulfillmentTask has no focus reference")
+    void testFulfillmentTaskWithoutFocus_Returns400() {
+      ResolvedResources context = validDispatchContext();
+      Task task = new Task();
+      task.setId("task-1");
+      context.setTasks(List.of(task));
+
+      CdsHooksException.BadRequestException exception = assertThrows(
+          CdsHooksException.BadRequestException.class,
+          () -> orderDispatchService.validateExtractedResources(context));
+
+      assertTrue(exception.getMessage().contains("fulfillmentTasks"));
+    }
+
+    @Test
+    @DisplayName("Should throw 400 when fulfillmentTask references non-dispatched order")
+    void testFulfillmentTaskMismatchedFocus_Returns400() {
+      ResolvedResources context = validDispatchContext();
+      Task task = new Task();
+      task.setId("task-1");
+      task.setFocus(new Reference("ServiceRequest/sr-99"));
+      context.setTasks(List.of(task));
+
+      CdsHooksException.BadRequestException exception = assertThrows(
+          CdsHooksException.BadRequestException.class,
+          () -> orderDispatchService.validateExtractedResources(context));
+
+      assertTrue(exception.getMessage().contains("fulfillmentTasks"));
+    }
+
+    @Test
+    @DisplayName("Should pass validation when fulfillmentTask references dispatched order")
+    void testFulfillmentTaskMatchingFocus_PassesValidation() {
+      ResolvedResources context = validDispatchContext();
+      Task task = new Task();
+      task.setId("task-1");
+      task.setFocus(new Reference("ServiceRequest/sr-1"));
+      context.setTasks(List.of(task));
+
+      assertDoesNotThrow(() -> orderDispatchService.validateExtractedResources(context));
+    }
   }
 
   @Nested
@@ -137,31 +190,12 @@ class OrderDispatchServiceTest {
     }
   }
 
-  @Nested
-  @DisplayName("Primary Hook Requirements")
-  class PrimaryHookRequirements {
-
-    @Test
-    @DisplayName("order-dispatch is a primary hook")
-    void testIsPrimaryHook() {
-      String hookName = orderDispatchService.getHookName();
-      assertTrue(
-          "order-sign".equals(hookName) ||
-              "order-dispatch".equals(hookName) ||
-              "appointment-book".equals(hookName),
-          "order-dispatch should be a primary hook");
-    }
-  }
-
-  @Nested
-  @DisplayName("Error Response Codes")
-  class ErrorResponseCodes {
-
-    @Test
-    @DisplayName("BadRequestException should indicate HTTP 400")
-    void testBadRequestException_Is400() {
-      CdsHooksException.BadRequestException ex = new CdsHooksException.BadRequestException("Test error");
-      assertEquals(400, ex.getStatusCode());
-    }
+  private ResolvedResources validDispatchContext() {
+    ResolvedResources context = new ResolvedResources();
+    context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
+    context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
+    context.setPractitioners(List.of(CdsHooksTestUtils.createTestPractitioner("practitioner-1")));
+    context.setOrders(List.of(CdsHooksTestUtils.createTestServiceRequest("sr-1", "70553", "test-patient")));
+    return context;
   }
 }
