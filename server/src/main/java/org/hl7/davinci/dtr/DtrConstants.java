@@ -47,5 +47,5 @@ public final class DtrConstants {
   // ===== Canonical Prefixes =====
 
   public static final String DTR_QUESTIONNAIRE_PREFIX =
-      "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/";
+      "http://example.org/fhir/Questionnaire/";
 }

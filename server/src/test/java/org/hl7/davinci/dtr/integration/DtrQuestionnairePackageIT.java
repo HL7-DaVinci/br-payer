@@ -92,7 +92,7 @@ import ca.uhn.hapi.fhir.cdshooks.api.ICdsServiceRegistry;
 class DtrQuestionnairePackageIT {
 
   private static final Logger log = LoggerFactory.getLogger(DtrQuestionnairePackageIT.class);
-  private static final String Q_CANONICAL = "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HospitalBedsAndAccessories";
+  private static final String Q_CANONICAL = "http://example.org/fhir/Questionnaire/HospitalBedsAndAccessories";
 
   @LocalServerPort
   private int port;
@@ -444,7 +444,7 @@ class DtrQuestionnairePackageIT {
   class HomeOxygenDispatchTests {
 
     private static final String HOME_OXYGEN_CANONICAL =
-        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenDispatch";
+        "http://example.org/fhir/Questionnaire/HomeOxygenDispatch";
 
     @Test
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
@@ -546,11 +546,11 @@ class DtrQuestionnairePackageIT {
   class ImmunosuppressiveDrugsTests {
 
     private static final String IMMUNO_CANONICAL =
-        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugs";
+        "http://example.org/fhir/Questionnaire/ImmunosuppressiveDrugs";
     private static final String PROGRESS_NOTE_CANONICAL =
-        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugsProgressNote";
+        "http://example.org/fhir/Questionnaire/ImmunosuppressiveDrugsProgressNote";
     private static final String IMMUNO_LIBRARY_URL =
-        "http://hl7.org/fhir/us/davinci-dtr/Library/ImmunosuppressiveDrugsPrepopulation";
+        "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation";
 
     @Test
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
@@ -654,7 +654,7 @@ class DtrQuestionnairePackageIT {
   class PhysicalTherapyTests {
 
     private static final String PT_CANONICAL =
-        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PhysicalTherapyExtension";
+        "http://example.org/fhir/Questionnaire/PhysicalTherapyExtension";
 
     @Test
     @Order(1)
@@ -751,7 +751,7 @@ class DtrQuestionnairePackageIT {
   class CardiologyConsultationTests {
 
     private static final String CARDIO_CANONICAL =
-        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/CardiologyConsultation";
+        "http://example.org/fhir/Questionnaire/CardiologyConsultation";
 
     @Test
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
@@ -801,9 +801,9 @@ class DtrQuestionnairePackageIT {
   class OpioidPrescribingTests {
 
     private static final String JUSTIFICATION_CANONICAL =
-        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPrescribingJustification";
+        "http://example.org/fhir/Questionnaire/OpioidPrescribingJustification";
     private static final String PDMP_CANONICAL =
-        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPDMP";
+        "http://example.org/fhir/Questionnaire/OpioidPDMP";
     private static final String QR_ADAPT_PROFILE =
         "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaireresponse-adapt";
     private static final String QUESTIONNAIRE_ADAPTIVE_EXT =

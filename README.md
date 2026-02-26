@@ -14,27 +14,29 @@ It is designed to support the following implementation guides:
 - Required to run the server
   - Java 17+
   - Maven
+- Required to run the frontend
+  - Bun 1+ (generally tested with latest) or Node 22+
 - Optional
-  - Node.js or bun (if using Nx commands)
-  - Docker (optional)
+  - Docker
 
 ## Quick Start
 
 ### Option 1: Run with Nx
 
-The easiest way to run the server in development:
+The easiest way to run everything in development mode:
 
 ```bash
 # Install dependencies
 bun install
 
-# Start the FHIR server
+# Start the FHIR server and frontend concurrently
 bun serve
 ```
 
-The server will be available at `http://localhost:8080/fhir`
+The server will be available at `http://localhost:8080/fhir` and the frontend at `http://localhost:3000`
 
-### Option 2: Run with Maven Spring Boot
+### Option 2: Run Separately
+
 
 Navigate to the server directory and use Maven directly:
 
@@ -45,15 +47,17 @@ mvn spring-boot:run
 
 ### Option 3: Run with Docker
 
-Build and run the server using Docker:
+Build and run the server and frontend using Docker:
 
 ```bash
-# Build the Docker image (distroless variant - production)
+# Build the Docker image (this packages the frontend and server together)
 docker build -t br-payer .
 
 # Run the container
 docker run -p 8080:8080 br-payer
 ```
+
+The frontend will be available at `http://localhost:8080` with the FHIR endpoint at `http://localhost:8080/fhir`
 
 ## Configuration
 

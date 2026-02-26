@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "PhysicalTherapyPrepopulation",
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+  "url": "http://example.org/fhir/Library/PhysicalTherapyPrepopulation",
   "name": "PhysicalTherapyPrepopulation",
   "version": "1.0.0",
   "title": "Physical Therapy DTR Prepopulation",
@@ -21,7 +21,7 @@
     {
       "type": "depends-on",
       "display": "DTR Helpers",
-      "resource": "http://hl7.org/fhir/us/davinci-dtr/Library/DTRHelpers|1.0.0"
+      "resource": "http://example.org/fhir/Library/DTRHelpers|1.0.0"
     }
   ],
   "parameter": [

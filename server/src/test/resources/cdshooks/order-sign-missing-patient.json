@@ -3,7 +3,7 @@
   "fhirServer": "http://localhost:8080/fhir",
   "hook": "order-sign",
   "context": {
-    "userId": "Practitioner/example",
+    "userId": "Practitioner/PractitionerExample",
     "patientId": "patient-does-not-exist-12345",
     "encounterId": "example-encounter",
     "draftOrders": {

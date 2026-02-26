@@ -2,15 +2,18 @@
   "resourceType": "Questionnaire",
   "id": "PriorAuthRequired",
   "meta": {
-    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"
+    ]
   },
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PriorAuthRequired",
-  "version": "1.0.0",
+  "url": "http://example.org/fhir/Questionnaire/PriorAuthRequired",
   "name": "PriorAuthRequired",
   "title": "Prior Authorization Acknowledgment",
   "status": "active",
   "publisher": "Da Vinci",
-  "subjectType": ["Patient"],
+  "subjectType": [
+    "Patient"
+  ],
   "date": "2026-02-18",
   "extension": [
     {

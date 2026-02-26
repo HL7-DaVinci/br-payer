@@ -69,7 +69,7 @@ class ScenarioMetadataProviderTest {
   @Test
   void getMetadata_scansQuestionnairesAndPlanDefinitionsFromDao() {
     Questionnaire questionnaire = questionnaire("HomeOxygenTherapyForm");
-    questionnaire.setUrl("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenTherapyForm");
+    questionnaire.setUrl("http://example.org/fhir/Questionnaire/HomeOxygenTherapyForm");
     PlanDefinition plan = new PlanDefinition();
     plan.setName("HomeOxygenTherapy");
     plan.setTitle("Home Oxygen Therapy");

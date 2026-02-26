@@ -1,7 +1,7 @@
 {
   "resourceType": "Questionnaire",
   "id": "PatientInfo",
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo",
+  "url": "http://example.org/fhir/Questionnaire/PatientInfo",
   "version": "1.0.0",
   "name": "PatientInfo",
   "title": "Patient Information Sub-Questionnaire",
@@ -18,7 +18,7 @@
     },
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
-      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation"
+      "valueCanonical": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation"
     }
   ],
   "item": [
@@ -33,7 +33,7 @@
           "valueExpression": {
             "language": "text/cql",
             "expression": "LastName",
-            "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation",
+            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -58,7 +58,7 @@
           "valueExpression": {
             "language": "text/cql",
             "expression": "FirstName",
-            "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation",
+            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -83,7 +83,7 @@
           "valueExpression": {
             "language": "text/cql",
             "expression": "DateOfBirth",
-            "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation",
+            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",

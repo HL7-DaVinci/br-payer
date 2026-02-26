@@ -8,6 +8,7 @@ import java.util.Set;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemComponent;
+import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -95,6 +96,7 @@ public class DtrSubQuestionnaireAssembler {
         // Replace the item's children with inlined items and remove the extension
         item.setItem(inlinedItems);
         item.removeExtension(SUB_QUESTIONNAIRE_EXT);
+        item.setType(QuestionnaireItemType.GROUP);
 
         // Recursively process inlined items
         assembleItems(parent, inlinedItems, warnings, visited);

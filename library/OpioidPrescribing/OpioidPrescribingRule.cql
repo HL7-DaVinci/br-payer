@@ -205,7 +205,7 @@ define "Info Needed":
 
 define "Questionnaire URLs":
   if "Documentation Required" then
-    { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPrescribingJustification', 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPDMP' }
+    { 'http://example.org/fhir/Questionnaire/OpioidPrescribingJustification', 'http://example.org/fhir/Questionnaire/OpioidPDMP' }
   else null as List<String>
 
 define "Coverage Reason":

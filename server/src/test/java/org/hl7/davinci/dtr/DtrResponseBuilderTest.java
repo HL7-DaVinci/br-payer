@@ -26,6 +26,7 @@ import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.UrlType;
+import org.hl7.davinci.common.CrdConstants;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -194,7 +195,7 @@ class DtrResponseBuilderTest {
       CodeableConcept cc = (CodeableConcept) intendedUse.getValue();
       assertEquals(1, cc.getCoding().size());
       Coding coding = cc.getCodingFirstRep();
-      assertEquals("http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp", coding.getSystem());
+      assertEquals(CrdConstants.DOC_REASON_SYSTEM, coding.getSystem());
       assertFalse(coding.hasVersion());
       assertEquals("withorder", coding.getCode());
       assertEquals("Include with order", coding.getDisplay());

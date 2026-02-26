@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "ImmunosuppressiveDrugs",
-  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/ImmunosuppressiveDrugs",
+  "url": "http://example.org/fhir/PlanDefinition/ImmunosuppressiveDrugs",
   "version": "1.0.0",
   "name": "ImmunosuppressiveDrugs",
   "title": "Immunosuppressive Drugs",
@@ -17,8 +17,7 @@
         "coding": [
           {
             "system": "urn:oid:2.16.840.1.113883.6.300",
-            "code": "00001",
-            "display": "Centers for Medicare and Medicaid Services"
+            "code": "00001"
           },
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
@@ -59,7 +58,7 @@
     }
   ],
   "library": [
-    "Library/ImmunosuppressiveDrugsRule"
+    "http://example.org/fhir/Library/ImmunosuppressiveDrugsRule"
   ],
   "action": [
     {

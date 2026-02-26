@@ -29,7 +29,7 @@ define "Doc Purpose": { 'withpa' }
 define "Info Needed": null as List<String>
 
 define "Questionnaire URLs":
-  { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeHealthAssessment' }
+  { 'http://example.org/fhir/Questionnaire/HomeHealthAssessment' }
 
 define "Coverage Reason":
   { Ext."Reason From Text"('Prior authorization required for home health services') }

@@ -58,7 +58,7 @@ define "Get Questionnaire Uri":
   'Questionnaire/PriorAuthRequired'
 
 define "Questionnaire URLs":
-  { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PriorAuthRequired' }
+  { 'http://example.org/fhir/Questionnaire/PriorAuthRequired' }
 
 define "Requires Coverage Determination":
   "Coverage" is not null

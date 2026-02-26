@@ -177,7 +177,7 @@ hapi:
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincidtr:
         name: hl7.fhir.us.davinci-dtr
-        version: 2.2.0-snapshot
+        version: 2.2.0
         packageUrl: https://build.fhir.org/ig/HL7/davinci-dtr/package.tgz
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincipas:

@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "OpioidPrescribingRule",
-  "url": "http://hl7.org/fhir/us/davinci-crd/Library/OpioidPrescribingRule",
+  "url": "http://example.org/fhir/Library/OpioidPrescribingRule",
   "name": "OpioidPrescribingRule",
   "version": "1.0.0",
   "title": "Opioid Prescribing CRD Rule",
@@ -40,12 +40,12 @@
     {
       "type": "depends-on",
       "display": "CRD Helpers",
-      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CRDHelpers|1.0.0"
+      "resource": "http://example.org/fhir/Library/CRDHelpers|1.0.0"
     },
     {
       "type": "depends-on",
       "display": "Coverage Extensions",
-      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CoverageExtensions|1.0.0"
+      "resource": "http://example.org/fhir/Library/CoverageExtensions|1.0.0"
     },
     {
       "type": "documentation",
@@ -56,49 +56,58 @@
   "dataRequirement": [
     {
       "type": "MedicationRequest",
-      "profile": ["http://hl7.org/fhir/StructureDefinition/MedicationRequest"],
+      "profile": [
+        "http://hl7.org/fhir/StructureDefinition/MedicationRequest"
+      ],
       "codeFilter": [
         {
           "path": "medication",
           "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1196.226"
         }
-      ],
-      "_purpose": "Opioid medications being ordered"
+      ]
     },
     {
       "type": "MedicationStatement",
-      "profile": ["http://hl7.org/fhir/StructureDefinition/MedicationStatement"],
+      "profile": [
+        "http://hl7.org/fhir/StructureDefinition/MedicationStatement"
+      ],
       "codeFilter": [
         {
           "path": "medication",
           "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1125.2"
         }
-      ],
-      "_purpose": "Active benzodiazepines for interaction checking"
+      ]
     },
     {
       "type": "MedicationRequest",
-      "profile": ["http://hl7.org/fhir/StructureDefinition/MedicationRequest"],
+      "profile": [
+        "http://hl7.org/fhir/StructureDefinition/MedicationRequest"
+      ],
       "codeFilter": [
         {
           "path": "status",
           "code": [
-            { "code": "completed" },
-            { "code": "active" }
+            {
+              "code": "completed"
+            },
+            {
+              "code": "active"
+            }
           ]
         }
-      ],
-      "_purpose": "Previous opioid prescriptions for naive/tolerant determination"
+      ]
     },
     {
       "type": "Coverage",
-      "profile": ["http://hl7.org/fhir/StructureDefinition/Coverage"],
-      "_purpose": "Patient's insurance coverage for coverage determination"
+      "profile": [
+        "http://hl7.org/fhir/StructureDefinition/Coverage"
+      ]
     },
     {
       "type": "Patient",
-      "profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"],
-      "_purpose": "Patient demographics"
+      "profile": [
+        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+      ]
     }
   ]
 }

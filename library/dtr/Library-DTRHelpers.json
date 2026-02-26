@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "DTRHelpers",
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/DTRHelpers",
+  "url": "http://example.org/fhir/Library/DTRHelpers",
   "name": "DTRHelpers",
   "version": "1.0.0",
   "title": "DTR Common Helper Functions",

@@ -2,15 +2,18 @@
   "resourceType": "Questionnaire",
   "id": "CardiologyConsultation",
   "meta": {
-    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"
+    ]
   },
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/CardiologyConsultation",
-  "version": "1.0.0",
+  "url": "http://example.org/fhir/Questionnaire/CardiologyConsultation",
   "name": "CardiologyConsultation",
   "title": "Cardiology Consultation Questionnaire",
   "status": "active",
   "publisher": "Da Vinci",
-  "subjectType": ["Patient"],
+  "subjectType": [
+    "Patient"
+  ],
   "date": "2026-02-10",
   "extension": [
     {
@@ -30,7 +33,7 @@
     },
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
-      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation"
+      "valueCanonical": "http://example.org/fhir/Library/CardiologyConsultationPrepopulation"
     },
     {
       "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
@@ -50,11 +53,13 @@
     {
       "linkId": "1",
       "text": "Patient Information",
-      "type": "group",
-      "extension": [{
-        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
-        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
-      }]
+      "type": "display",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+          "valueCanonical": "http://example.org/fhir/Questionnaire/PatientInfo"
+        }
+      ]
     },
     {
       "linkId": "2",
@@ -72,7 +77,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "ReferralStatus",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "reference": "http://example.org/fhir/Library/CardiologyConsultationPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -97,7 +102,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "ExistingReferralDetails",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "reference": "http://example.org/fhir/Library/CardiologyConsultationPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -129,7 +134,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "CardiacConditionDisplay",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "reference": "http://example.org/fhir/Library/CardiologyConsultationPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -149,14 +154,13 @@
           "type": "open-choice",
           "required": false,
           "repeats": true,
-          "answerOption": [],
           "extension": [
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "RecentCardiacHistory",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "reference": "http://example.org/fhir/Library/CardiologyConsultationPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -181,7 +185,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "PatientAge",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "reference": "http://example.org/fhir/Library/CardiologyConsultationPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -213,7 +217,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "AppointmentServiceType",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/CardiologyConsultationPrepopulation",
+                "reference": "http://example.org/fhir/Library/CardiologyConsultationPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",

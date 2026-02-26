@@ -16,5 +16,5 @@ public final class CrdConstants {
   // ===== CRD IG Code Systems =====
 
   public static final String DOC_REASON_SYSTEM =
-      "http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp";
+      "http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes";
 }

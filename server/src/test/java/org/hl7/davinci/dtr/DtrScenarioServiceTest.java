@@ -66,7 +66,7 @@ class DtrScenarioServiceTest {
         List.of(new Coding("http://example.org", "E0424", "Stationary Oxygen")),
         List.of("order-select"),
         "DeviceRequest",
-        List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenTherapy"),
+        List.of("http://example.org/fhir/Questionnaire/HomeOxygenTherapy"),
         false,
         false,
         false);

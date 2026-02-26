@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "CRDHelpers",
-  "url": "http://hl7.org/fhir/us/davinci-crd/Library/CRDHelpers",
+  "url": "http://example.org/fhir/Library/CRDHelpers",
   "name": "CRDHelpers",
   "version": "1.0.0",
   "title": "CRD Common Helper Functions",

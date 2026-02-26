@@ -24,6 +24,13 @@
       "valueCode": "sequential"
     },
     {
+      "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-Questionnaire.versionAlgorithm[x]",
+      "valueCoding": {
+        "system": "http://hl7.org/fhir/version-algorithm",
+        "code": "semver"
+      }
+    },
+    {
       "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
       "extension": [
         {
@@ -37,8 +44,7 @@
       ]
     }
   ],
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/home-o2-std-questionnaire",
-  "version": "2.2.0-snapshot",
+  "url": "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire",
   "name": "HomeOxygenTherapyStdQuestionnaire",
   "title": "Home Oxygen Therapy Order Template",
   "status": "active",
@@ -94,7 +100,6 @@
         },
         {
           "linkId": "1.gender",
-          "definition": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-question-library#Demographics.sex",
           "text": "What is this person's gender?",
           "type": "choice",
           "required": true,

@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "BasicPatientInfoPrepopulation",
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Library/BasicPatientInfoPrepopulation",
+  "url": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation",
   "name": "BasicPatientInfoPrepopulation",
   "version": "1.0.0",
   "title": "Basic Patient Information Prepopulation",

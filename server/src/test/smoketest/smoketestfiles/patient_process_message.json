@@ -25,10 +25,10 @@
     "reference": "Organization/1"
   },
   "enterer": {
-    "reference": "Practitioner/example"
+    "reference": "Practitioner/PractitionerExample"
   },
   "author": {
-    "reference": "Practitioner/example"
+    "reference": "Practitioner/PractitionerExample"
   },
   "source": {
     "name": "Acme Central Patient Registry",

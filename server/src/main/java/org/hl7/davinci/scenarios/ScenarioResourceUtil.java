@@ -47,7 +47,7 @@ public final class ScenarioResourceUtil {
         dr.setCode(new CodeableConcept().addCoding(codeCopy));
         dr.setSubject(new Reference("Patient/example"));
         dr.setAuthoredOn(new Date());
-        dr.setRequester(new Reference("Practitioner/example"));
+        dr.setRequester(new Reference("Practitioner/PractitionerExample"));
         dr.addInsurance(new Reference("Coverage/coverage-1"));
         return dr;
       }
@@ -59,7 +59,7 @@ public final class ScenarioResourceUtil {
         mr.setMedication(new CodeableConcept().addCoding(codeCopy));
         mr.setSubject(new Reference("Patient/example"));
         mr.setAuthoredOn(new Date());
-        mr.setRequester(new Reference("Practitioner/example"));
+        mr.setRequester(new Reference("Practitioner/PractitionerExample"));
         mr.addInsurance(new Reference("Coverage/coverage-1"));
         return mr;
       }
@@ -71,7 +71,7 @@ public final class ScenarioResourceUtil {
         sr.setCode(new CodeableConcept().addCoding(codeCopy));
         sr.setSubject(new Reference("Patient/example"));
         sr.setAuthoredOn(new Date());
-        sr.setRequester(new Reference("Practitioner/example"));
+        sr.setRequester(new Reference("Practitioner/PractitionerExample"));
         sr.addInsurance(new Reference("Coverage/coverage-1"));
         return sr;
       }

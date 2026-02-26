@@ -169,9 +169,7 @@ public class DtrRequestBuilder {
   // ===== URL helpers =====
 
   static String questionnaireIdFromUrl(String url) {
-    String name = url.startsWith(DTR_QUESTIONNAIRE_PREFIX)
-        ? url.substring(DTR_QUESTIONNAIRE_PREFIX.length())
-        : url;
+    String name = questionnaireNameFromUrl(url);
     return LibraryScenarioScanner.toKebabCase(name);
   }
 

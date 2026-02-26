@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "PriorAuthRequired",
-  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/PriorAuthRequired",
+  "url": "http://example.org/fhir/PlanDefinition/PriorAuthRequired",
   "version": "1.0.0",
   "name": "PriorAuthRequired",
   "title": "Prior Authorization Required",
@@ -17,8 +17,7 @@
         "coding": [
           {
             "system": "urn:oid:2.16.840.1.113883.6.300",
-            "code": "00001",
-            "display": "Centers for Medicare and Medicaid Services"
+            "code": "00001"
           },
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
@@ -51,7 +50,7 @@
     }
   ],
   "library": [
-    "Library/PriorAuthRequiredRule"
+    "http://example.org/fhir/Library/PriorAuthRequiredRule"
   ],
   "action": [
     {

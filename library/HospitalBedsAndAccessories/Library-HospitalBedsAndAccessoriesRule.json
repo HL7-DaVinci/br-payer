@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "HospitalBedsAndAccessoriesRule",
-  "url": "http://hl7.org/fhir/us/davinci-crd/Library/HospitalBedsAndAccessoriesRule",
+  "url": "http://example.org/fhir/Library/HospitalBedsAndAccessoriesRule",
   "name": "HospitalBedsAndAccessoriesRule",
   "version": "1.0.0",
   "title": "Hospital Bed and Accessories CRD Rule",
@@ -29,12 +29,12 @@
     {
       "type": "depends-on",
       "display": "CRD Helpers",
-      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CRDHelpers|1.0.0"
+      "resource": "http://example.org/fhir/Library/CRDHelpers|1.0.0"
     },
     {
       "type": "depends-on",
       "display": "Coverage Extensions",
-      "resource": "http://hl7.org/fhir/us/davinci-crd/Library/CoverageExtensions|1.0.0"
+      "resource": "http://example.org/fhir/Library/CoverageExtensions|1.0.0"
     }
   ],
   "dataRequirement": [

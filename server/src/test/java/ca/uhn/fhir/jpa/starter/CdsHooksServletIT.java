@@ -124,7 +124,7 @@ class CdsHooksServletIT implements IServerSupport {
 			  "hookInstance": "12345",
 			  "hook": "patient-view",
 			  "context": {
-			    "userId": "Practitioner/example",
+			    "userId": "Practitioner/PractitionerExample",
 			    "patientId": "Patient/example-hello-world"
 			  },
 			  "prefetch": {

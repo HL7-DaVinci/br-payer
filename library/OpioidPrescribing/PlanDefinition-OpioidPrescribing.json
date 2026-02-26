@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "OpioidPrescribing",
-  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/OpioidPrescribing",
+  "url": "http://example.org/fhir/PlanDefinition/OpioidPrescribing",
   "version": "1.0.0",
   "name": "OpioidPrescribing",
   "title": "Opioid Prescribing Coverage Requirements Discovery",
@@ -17,8 +17,7 @@
         "coding": [
           {
             "system": "urn:oid:2.16.840.1.113883.6.300",
-            "code": "00001",
-            "display": "Centers for Medicare and Medicaid Services"
+            "code": "00001"
           },
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
@@ -41,38 +40,31 @@
         "coding": [
           {
             "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-            "code": "197696",
-            "display": "Hydrocodone 5 MG / Acetaminophen 325 MG"
+            "code": "197696"
           },
           {
             "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-            "code": "1049502",
-            "display": "Oxycodone 5 MG Oral Tablet"
+            "code": "1049502"
           },
           {
             "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-            "code": "1049504",
-            "display": "Oxycodone 10 MG Oral Tablet"
+            "code": "1049504"
           },
           {
             "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-            "code": "197446",
-            "display": "Fentanyl 25 MCG/HR Transdermal"
+            "code": "197446"
           },
           {
             "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-            "code": "197447",
-            "display": "Fentanyl 50 MCG/HR Transdermal"
+            "code": "197447"
           },
           {
             "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-            "code": "1014599",
-            "display": "Morphine Sulfate 15 MG Oral Tablet"
+            "code": "1014599"
           },
           {
             "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-            "code": "1014615",
-            "display": "Morphine Sulfate 30 MG Oral Tablet"
+            "code": "1014615"
           }
         ],
         "text": "Schedule II Opioid Medications"
@@ -80,7 +72,7 @@
     }
   ],
   "library": [
-    "Library/OpioidPrescribingRule"
+    "http://example.org/fhir/Library/OpioidPrescribingRule"
   ],
   "action": [
     {

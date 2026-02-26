@@ -80,7 +80,7 @@ class DtrNextQuestionIT {
 
   private static final Logger log = LoggerFactory.getLogger(DtrNextQuestionIT.class);
   private static final String JUSTIFICATION_CANONICAL =
-      "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPrescribingJustification";
+      "http://example.org/fhir/Questionnaire/OpioidPrescribingJustification";
 
   @LocalServerPort
   private int port;

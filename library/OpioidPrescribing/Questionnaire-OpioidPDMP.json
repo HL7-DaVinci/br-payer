@@ -2,15 +2,18 @@
   "resourceType": "Questionnaire",
   "id": "OpioidPDMP",
   "meta": {
-    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"
+    ]
   },
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPDMP",
-  "version": "1.0.0",
+  "url": "http://example.org/fhir/Questionnaire/OpioidPDMP",
   "name": "OpioidPDMP",
   "title": "Opioid PDMP Review Questionnaire",
   "status": "active",
   "publisher": "Da Vinci",
-  "subjectType": ["Patient"],
+  "subjectType": [
+    "Patient"
+  ],
   "date": "2026-02-10",
   "extension": [
     {
@@ -30,7 +33,7 @@
     },
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
-      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation"
+      "valueCanonical": "http://example.org/fhir/Library/OpioidPDMPPrepopulation"
     },
     {
       "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
@@ -50,11 +53,13 @@
     {
       "linkId": "1",
       "text": "Patient Information",
-      "type": "group",
-      "extension": [{
-        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
-        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
-      }]
+      "type": "display",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+          "valueCanonical": "http://example.org/fhir/Questionnaire/PatientInfo"
+        }
+      ]
     },
     {
       "linkId": "2",
@@ -72,7 +77,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "MedicationDescription",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation",
+                "reference": "http://example.org/fhir/Library/OpioidPDMPPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -97,7 +102,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "PatientIdentifiers",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation",
+                "reference": "http://example.org/fhir/Library/OpioidPDMPPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -117,14 +122,13 @@
           "type": "open-choice",
           "required": false,
           "repeats": true,
-          "answerOption": [],
           "extension": [
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "PrescribedOpioidHistory",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPDMPPrepopulation",
+                "reference": "http://example.org/fhir/Library/OpioidPDMPPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -174,11 +178,13 @@
           "text": "If concerning findings, describe mitigation plan",
           "type": "text",
           "required": false,
-          "enableWhen": [{
-            "question": "3.2",
-            "operator": "=",
-            "answerBoolean": true
-          }]
+          "enableWhen": [
+            {
+              "question": "3.2",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ]
         }
       ]
     }

@@ -2,15 +2,18 @@
   "resourceType": "Questionnaire",
   "id": "PhysicalTherapyExtension",
   "meta": {
-    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"
+    ]
   },
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PhysicalTherapyExtension",
-  "version": "1.0.0",
+  "url": "http://example.org/fhir/Questionnaire/PhysicalTherapyExtension",
   "name": "PhysicalTherapyExtension",
   "title": "Physical Therapy Session Extension Questionnaire",
   "status": "active",
   "publisher": "Da Vinci",
-  "subjectType": ["Patient"],
+  "subjectType": [
+    "Patient"
+  ],
   "date": "2026-02-10",
   "extension": [
     {
@@ -30,7 +33,7 @@
     },
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
-      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation"
+      "valueCanonical": "http://example.org/fhir/Library/PhysicalTherapyPrepopulation"
     },
     {
       "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
@@ -50,11 +53,13 @@
     {
       "linkId": "1",
       "text": "Patient Information",
-      "type": "group",
-      "extension": [{
-        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
-        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
-      }]
+      "type": "display",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+          "valueCanonical": "http://example.org/fhir/Questionnaire/PatientInfo"
+        }
+      ]
     },
     {
       "linkId": "2",
@@ -72,7 +77,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "DiagnosisDisplay",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "reference": "http://example.org/fhir/Library/PhysicalTherapyPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -97,7 +102,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "AppointmentServiceType",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "reference": "http://example.org/fhir/Library/PhysicalTherapyPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -129,7 +134,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "SessionsUsedThisYear",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "reference": "http://example.org/fhir/Library/PhysicalTherapyPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -154,7 +159,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "PlanSessionLimit",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "reference": "http://example.org/fhir/Library/PhysicalTherapyPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -179,7 +184,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "SessionsRemaining",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "reference": "http://example.org/fhir/Library/PhysicalTherapyPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -199,14 +204,13 @@
           "type": "open-choice",
           "required": false,
           "repeats": true,
-          "answerOption": [],
           "extension": [
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "PTHistoryFormatted",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/PhysicalTherapyPrepopulation",
+                "reference": "http://example.org/fhir/Library/PhysicalTherapyPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",

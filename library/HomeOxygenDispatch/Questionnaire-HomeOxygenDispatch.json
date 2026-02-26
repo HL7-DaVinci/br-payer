@@ -2,15 +2,18 @@
   "resourceType": "Questionnaire",
   "id": "HomeOxygenDispatch",
   "meta": {
-    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"]
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"
+    ]
   },
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenDispatch",
-  "version": "1.0.0",
+  "url": "http://example.org/fhir/Questionnaire/HomeOxygenDispatch",
   "name": "HomeOxygenDispatch",
   "title": "Home Oxygen Dispatch Questionnaire",
   "status": "active",
   "publisher": "Da Vinci",
-  "subjectType": ["Patient"],
+  "subjectType": [
+    "Patient"
+  ],
   "date": "2026-02-10",
   "extension": [
     {
@@ -30,7 +33,7 @@
     },
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
-      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation"
+      "valueCanonical": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation"
     },
     {
       "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
@@ -50,11 +53,13 @@
     {
       "linkId": "1",
       "text": "Patient Information",
-      "type": "group",
-      "extension": [{
-        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
-        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
-      }]
+      "type": "display",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+          "valueCanonical": "http://example.org/fhir/Questionnaire/PatientInfo"
+        }
+      ]
     },
     {
       "linkId": "2",
@@ -67,14 +72,13 @@
           "type": "open-choice",
           "required": false,
           "repeats": true,
-          "answerOption": [],
           "extension": [
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "RelevantDiagnoses",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -99,7 +103,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "ArterialOxygenSaturation",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -124,7 +128,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "ArterialPartialPressureOfOxygen",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -149,7 +153,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "PatientMobile",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -174,7 +178,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "HematocritThatIsGreaterThanThreshold",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -212,7 +216,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "LengthOfNeed",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -279,7 +283,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "DeviceRequestDescription",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -305,7 +309,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "DeviceRequestedIsPortable",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -347,7 +351,7 @@
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "DeviceType",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -380,14 +384,13 @@
           "type": "open-choice",
           "required": false,
           "repeats": true,
-          "answerOption": [],
           "extension": [
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
               "valueExpression": {
                 "language": "text/cql",
                 "expression": "EncounterList",
-                "reference": "http://hl7.org/fhir/us/davinci-dtr/Library/HomeOxygenDispatchPrepopulation",
+                "reference": "http://example.org/fhir/Library/HomeOxygenDispatchPrepopulation",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",

@@ -164,25 +164,25 @@ public class CrdRequestBuilder {
 
     switch (hookName) {
       case "order-sign" -> {
-        context.put("userId", "Practitioner/example");
+        context.put("userId", "Practitioner/PractitionerExample");
         context.put("patientId", PATIENT_ID);
         context.set("draftOrders", wrapInContextBundle(ctx, orderResource));
       }
       case "order-select" -> {
-        context.put("userId", "Practitioner/example");
+        context.put("userId", "Practitioner/PractitionerExample");
         context.put("patientId", PATIENT_ID);
         ArrayNode selections = context.putArray("selections");
         selections.add(resourceReference(orderResource));
         context.set("draftOrders", wrapInContextBundle(ctx, orderResource));
       }
       case "appointment-book" -> {
-        context.put("userId", "Practitioner/example");
+        context.put("userId", "Practitioner/PractitionerExample");
         context.put("patientId", PATIENT_ID);
         context.set("appointments", wrapInContextBundle(ctx, orderResource));
       }
       case "order-dispatch" -> {
         context.put("patientId", PATIENT_ID);
-        context.put("performer", "Practitioner/performer");
+        context.put("performer", "Practitioner/full");
         ArrayNode dispatched = context.putArray("dispatchedOrders");
         dispatched.add(resourceReference(orderResource));
       }

@@ -78,6 +78,8 @@ class DtrSubQuestionnaireAssemblerTest {
     assertTrue(warnings.isEmpty());
     // Extension removed
     assertNull(q.getItem().get(0).getExtensionByUrl(SUB_Q_EXT_URL));
+    // Expanded container should be traversable as a group
+    assertEquals(QuestionnaireItemType.GROUP, q.getItem().get(0).getType());
     // Items inlined with prefixed linkIds
     assertEquals(2, q.getItem().get(0).getItem().size());
     assertEquals("group1.s1", q.getItem().get(0).getItem().get(0).getLinkId());

@@ -2,15 +2,18 @@
   "resourceType": "Questionnaire",
   "id": "OpioidPrescribingJustification",
   "meta": {
-    "profile": ["http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt"]
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-questionnaire-adapt"
+    ]
   },
-  "url": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidPrescribingJustification",
-  "version": "1.0.0",
+  "url": "http://example.org/fhir/Questionnaire/OpioidPrescribingJustification",
   "name": "OpioidPrescribingJustification",
   "title": "Opioid Prescribing Justification Questionnaire",
   "status": "active",
   "publisher": "Da Vinci",
-  "subjectType": ["Patient"],
+  "subjectType": [
+    "Patient"
+  ],
   "date": "2026-02-10",
   "extension": [
     {
@@ -34,7 +37,7 @@
     },
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
-      "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Library/OpioidPrescribingJustificationPrepopulation"
+      "valueCanonical": "http://example.org/fhir/Library/OpioidPrescribingJustificationPrepopulation"
     },
     {
       "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
@@ -54,11 +57,13 @@
     {
       "linkId": "1",
       "text": "Patient Information",
-      "type": "group",
-      "extension": [{
-        "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
-        "valueCanonical": "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/PatientInfo"
-      }]
+      "type": "display",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+          "valueCanonical": "http://example.org/fhir/Questionnaire/PatientInfo"
+        }
+      ]
     },
     {
       "linkId": "2",
@@ -83,9 +88,27 @@
           "type": "choice",
           "required": true,
           "answerOption": [
-            { "valueCoding": { "system": "http://snomed.info/sct", "code": "385315009", "display": "Sudden onset" } },
-            { "valueCoding": { "system": "http://snomed.info/sct", "code": "19939008", "display": "Subacute" } },
-            { "valueCoding": { "system": "http://snomed.info/sct", "code": "90734009", "display": "Chronic" } }
+            {
+              "valueCoding": {
+                "system": "http://snomed.info/sct",
+                "code": "385315009",
+                "display": "Sudden onset"
+              }
+            },
+            {
+              "valueCoding": {
+                "system": "http://snomed.info/sct",
+                "code": "19939008",
+                "display": "Subacute"
+              }
+            },
+            {
+              "valueCoding": {
+                "system": "http://snomed.info/sct",
+                "code": "90734009",
+                "display": "Chronic"
+              }
+            }
           ]
         },
         {
@@ -193,11 +216,13 @@
       "linkId": "6",
       "text": "Drug Interaction Review",
       "type": "group",
-      "enableWhen": [{
-        "question": "4.1",
-        "operator": "exists",
-        "answerBoolean": true
-      }],
+      "enableWhen": [
+        {
+          "question": "4.1",
+          "operator": "exists",
+          "answerBoolean": true
+        }
+      ],
       "item": [
         {
           "linkId": "6.1",
@@ -210,11 +235,13 @@
           "text": "If concurrent benzodiazepine use, provide risk mitigation plan",
           "type": "text",
           "required": false,
-          "enableWhen": [{
-            "question": "6.1",
-            "operator": "=",
-            "answerBoolean": true
-          }]
+          "enableWhen": [
+            {
+              "question": "6.1",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ]
         },
         {
           "linkId": "6.3",

@@ -1,7 +1,7 @@
 {
   "resourceType": "Library",
   "id": "CoverageExtensions",
-  "url": "http://hl7.org/fhir/us/davinci-crd/Library/CoverageExtensions",
+  "url": "http://example.org/fhir/Library/CoverageExtensions",
   "name": "CoverageExtensions",
   "version": "1.0.0",
   "title": "CRD Coverage Extension Builders",

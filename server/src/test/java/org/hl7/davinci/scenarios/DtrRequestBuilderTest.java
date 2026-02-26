@@ -34,7 +34,7 @@ class DtrRequestBuilderTest {
         List.of(),
         List.of(),
         null,
-        List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenTherapy"),
+        List.of("http://example.org/fhir/Questionnaire/HomeOxygenTherapy"),
         false, false, false);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
@@ -58,8 +58,8 @@ class DtrRequestBuilderTest {
         List.of("order-select"),
         "DeviceRequest",
         List.of(
-            "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugs",
-            "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/ImmunosuppressiveDrugsProgressNote"),
+            "http://example.org/fhir/Questionnaire/ImmunosuppressiveDrugs",
+            "http://example.org/fhir/Questionnaire/ImmunosuppressiveDrugsProgressNote"),
         false, false, false);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
@@ -82,7 +82,7 @@ class DtrRequestBuilderTest {
   @DisplayName("Questionnaire label extraction strips canonical version")
   void questionnaireNameStripsVersion() {
     String name = DtrRequestBuilder.questionnaireNameFromUrl(
-        "http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeOxygenTherapy|1.0.0");
+        "http://example.org/fhir/Questionnaire/HomeOxygenTherapy|1.0.0");
 
     assertEquals("HomeOxygenTherapy", name);
   }
@@ -177,7 +177,7 @@ class DtrRequestBuilderTest {
         List.of(),
         List.of(),
         null,
-        List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/OpioidJustification"),
+        List.of("http://example.org/fhir/Questionnaire/OpioidJustification"),
         true, false, true);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
@@ -202,7 +202,7 @@ class DtrRequestBuilderTest {
         List.of(),
         List.of(),
         null,
-        List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/HomeHealthAssessment"),
+        List.of("http://example.org/fhir/Questionnaire/HomeHealthAssessment"),
         true, true, true);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);
@@ -227,7 +227,7 @@ class DtrRequestBuilderTest {
         List.of(),
         List.of(),
         null,
-        List.of("http://hl7.org/fhir/us/davinci-dtr/Questionnaire/AllConditional"),
+        List.of("http://example.org/fhir/Questionnaire/AllConditional"),
         true, true, false);
 
     DtrScenario scenario = DtrRequestBuilder.build(List.of(metadata)).get(0);

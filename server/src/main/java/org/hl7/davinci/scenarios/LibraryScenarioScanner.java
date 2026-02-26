@@ -83,7 +83,11 @@ public class LibraryScenarioScanner {
 
     for (Questionnaire q : questionnaires) {
       String qName = q.getName();
-      if (qName == null || !q.hasUrl() || !q.getUrl().startsWith(DTR_QUESTIONNAIRE_PREFIX)) {
+      if (qName == null || !q.hasUrl()) {
+        continue;
+      }
+      String qUrl = q.getUrl();
+      if (!qUrl.startsWith(DTR_QUESTIONNAIRE_PREFIX)) {
         continue;
       }
       if (SUB_QUESTIONNAIRE_NAMES.contains(qName)) {

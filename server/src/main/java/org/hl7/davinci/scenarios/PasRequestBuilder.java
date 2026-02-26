@@ -111,7 +111,7 @@ public class PasRequestBuilder {
   static Bundle buildSubmitBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
       String certTypeCode, String certTypeDisplay, String traceNumber) {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
-    Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, certTypeCode, certTypeDisplay, traceNumber);
+    Claim claim = buildClaim(meta, focusCode, serviceRequest, certTypeCode, certTypeDisplay, traceNumber);
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM);
     return wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
   }
@@ -123,8 +123,7 @@ public class PasRequestBuilder {
   static Bundle buildInquiryBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
       String traceNumber) {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
-    Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, "I", "Initial",
-        traceNumber);
+    Claim claim = buildClaim(meta, focusCode, serviceRequest, "I", "Initial", traceNumber);
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_INQUIRY);
     return wrapInBundle(PasConstants.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE, claim, seed, true, serviceRequest);
   }
@@ -132,7 +131,7 @@ public class PasRequestBuilder {
   static Bundle buildUpdateBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
       String initialTraceNumber) {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
-    Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, "I", "Initial",
+    Claim claim = buildClaim(meta, focusCode, serviceRequest, "S", "Revised",
         UUID.randomUUID().toString());
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_UPDATE);
     String priorClaimId = meta.id() + "-prior-auth-claim";
@@ -143,14 +142,17 @@ public class PasRequestBuilder {
       item.addExtension(new Extension(PasConstants.INFO_CHANGED, new CodeType("changed")));
     }
     Bundle bundle = wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
-    addPriorClaimToBundle(bundle, priorClaimId, initialTraceNumber);
+    Claim priorClaim = buildClaim(meta, focusCode, serviceRequest, "I", "Initial", initialTraceNumber);
+    priorClaim.setId(priorClaimId);
+    priorClaim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM);
+    addEntry(bundle, "Claim/" + priorClaimId, priorClaim);
     return bundle;
   }
 
   static Bundle buildCancelBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
       String initialTraceNumber) {
     ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
-    Claim claim = buildClaim(meta, focusCode, seed, serviceRequest, "I", "Initial",
+    Claim claim = buildClaim(meta, focusCode, serviceRequest, "I", "Initial",
         UUID.randomUUID().toString());
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_UPDATE);
     String priorClaimId = meta.id() + "-prior-auth-claim";
@@ -164,15 +166,17 @@ public class PasRequestBuilder {
           new Extension(PasConstants.INFO_CANCELLED, new org.hl7.fhir.r4.model.BooleanType(true)));
     }
     Bundle bundle = wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
-    addPriorClaimToBundle(bundle, priorClaimId, initialTraceNumber);
+    Claim priorClaim = buildClaim(meta, focusCode, serviceRequest, "I", "Initial", initialTraceNumber);
+    priorClaim.setId(priorClaimId);
+    priorClaim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM);
+    addEntry(bundle, "Claim/" + priorClaimId, priorClaim);
     return bundle;
   }
 
   // ===== Claim construction =====
 
-  static Claim buildClaim(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
-      ServiceRequest serviceRequest, String certTypeCode, String certTypeDisplay,
-      String traceNumber) {
+  static Claim buildClaim(ScenarioMetadata meta, Coding focusCode, ServiceRequest serviceRequest, 
+        String certTypeCode, String certTypeDisplay, String traceNumber) {
     Claim claim = new Claim();
     claim.setId(meta.id() + "-claim");
 
@@ -247,23 +251,6 @@ public class PasRequestBuilder {
     sr.setCode(new CodeableConcept().addCoding(normalizeRequestedServiceCoding(focusCode)));
     sr.setSubject(new Reference("Patient/" + PATIENT_ID));
     return sr;
-  }
-
-  /**
-   * Adds a prior Claim resource to the bundle so that the Claim.related.claim
-   * reference can be resolved within the bundle. Includes a Claim.identifier
-   * (trace number) matching the original submission so the payer can link
-   * it to the stored copy via identifier-based search.
-   */
-  static void addPriorClaimToBundle(Bundle bundle, String priorClaimId, String traceNumber) {
-    Claim priorClaim = new Claim();
-    priorClaim.setId(priorClaimId);
-    priorClaim.setStatus(Claim.ClaimStatus.ACTIVE);
-    priorClaim.setUse(Claim.Use.PREAUTHORIZATION);
-    priorClaim.addIdentifier()
-        .setSystem("http://example.org/PATIENT_EVENT_TRACE_NUMBER")
-        .setValue(traceNumber);
-    addEntry(bundle, "Claim/" + priorClaimId, priorClaim);
   }
 
   static void addPriorRelatedClaim(Claim claim, String priorClaimId) {

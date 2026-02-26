@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "ExcludedServices",
-  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/ExcludedServices",
+  "url": "http://example.org/fhir/PlanDefinition/ExcludedServices",
   "version": "1.0.0",
   "name": "ExcludedServices",
   "title": "Excluded Services",
@@ -17,8 +17,7 @@
         "coding": [
           {
             "system": "urn:oid:2.16.840.1.113883.6.300",
-            "code": "00001",
-            "display": "Centers for Medicare and Medicaid Services"
+            "code": "00001"
           },
           {
             "system": "http://hl7.org/fhir/sid/us-npi",
@@ -51,7 +50,7 @@
     }
   ],
   "library": [
-    "Library/ExcludedServicesRule"
+    "http://example.org/fhir/Library/ExcludedServicesRule"
   ],
   "action": [
     {

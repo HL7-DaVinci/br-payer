@@ -93,7 +93,7 @@ define "Doc Purpose":
 
 define "Questionnaire URLs":
   CRD."Questionnaire URLs Value"("Documentation Required",
-    { 'http://hl7.org/fhir/us/davinci-dtr/Questionnaire/CardiologyConsultation' })
+    { 'http://example.org/fhir/Questionnaire/CardiologyConsultation' })
 
 // ============================================================
 // FINAL COVERAGE EXTENSION

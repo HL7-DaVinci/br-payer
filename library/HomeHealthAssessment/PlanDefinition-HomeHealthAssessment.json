@@ -1,7 +1,7 @@
 {
   "resourceType": "PlanDefinition",
   "id": "HomeHealthAssessment",
-  "url": "http://hl7.org/fhir/us/davinci-crd/PlanDefinition/HomeHealthAssessment",
+  "url": "http://example.org/fhir/PlanDefinition/HomeHealthAssessment",
   "version": "1.0.0",
   "name": "HomeHealthAssessment",
   "title": "Home Health Service Assessment Coverage Requirements",
@@ -17,8 +17,7 @@
         "coding": [
           {
             "system": "urn:oid:2.16.840.1.113883.6.300",
-            "code": "00001",
-            "display": "Centers for Medicare and Medicaid Services"
+            "code": "00001"
           }
         ],
         "text": "Medicare Part B"
@@ -42,18 +41,15 @@
         "coding": [
           {
             "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
-            "code": "G0151",
-            "display": "Hhcp-serv of pt,ea 15 min"
+            "code": "G0151"
           },
           {
             "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
-            "code": "G0152",
-            "display": "Hhcp-serv of ot,ea 15 min"
+            "code": "G0152"
           },
           {
             "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
-            "code": "G0299",
-            "display": "Hhs/hospice of rn ea 15 min"
+            "code": "G0299"
           }
         ],
         "text": "Home Health Services"
@@ -61,7 +57,7 @@
     }
   ],
   "library": [
-    "Library/HomeHealthAssessmentRule"
+    "http://example.org/fhir/Library/HomeHealthAssessmentRule"
   ],
   "action": [
     {
