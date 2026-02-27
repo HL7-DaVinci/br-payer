@@ -1,4 +1,4 @@
-package org.hl7.davinci.pas;
+package org.hl7.davinci.scenarios.pas;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

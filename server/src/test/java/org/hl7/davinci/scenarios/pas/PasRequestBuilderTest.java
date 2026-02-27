@@ -1,4 +1,4 @@
-package org.hl7.davinci.scenarios;
+package org.hl7.davinci.scenarios.pas;
 
 import static org.hl7.davinci.common.FhirConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -7,9 +7,9 @@ import java.util.List;
 
 import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
-import org.hl7.davinci.scenarios.PasRequestBuilder.PasScenario;
-import org.hl7.davinci.scenarios.PasRequestBuilder.PasVariant;
-import org.hl7.davinci.scenarios.PasRequestBuilder.SeedResources;
+import org.hl7.davinci.scenarios.pas.PasRequestBuilder.PasScenario;
+import org.hl7.davinci.scenarios.pas.PasRequestBuilder.PasVariant;
+import org.hl7.davinci.scenarios.pas.PasRequestBuilder.SeedResources;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.CodeableConcept;

@@ -136,7 +136,7 @@ public final class ScenarioResourceUtil {
   }
 
   /** Generate a human-readable description from scenario metadata. */
-  static String buildDescription(ScenarioMetadata meta) {
+  public static String buildDescription(ScenarioMetadata meta) {
     if (meta.description() != null) {
       return meta.description();
     }

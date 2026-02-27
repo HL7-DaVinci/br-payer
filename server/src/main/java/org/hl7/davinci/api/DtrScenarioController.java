@@ -2,9 +2,9 @@ package org.hl7.davinci.api;
 
 import java.util.List;
 
-import org.hl7.davinci.dtr.DtrScenarioService;
-import org.hl7.davinci.dtr.DtrScenarioService.DtrScenarioDto;
-import org.hl7.davinci.dtr.DtrScenarioService.DtrVariantDto;
+import org.hl7.davinci.scenarios.dtr.DtrScenarioService;
+import org.hl7.davinci.scenarios.dtr.DtrScenarioService.DtrScenarioDto;
+import org.hl7.davinci.scenarios.dtr.DtrScenarioService.DtrVariantDto;
 import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;

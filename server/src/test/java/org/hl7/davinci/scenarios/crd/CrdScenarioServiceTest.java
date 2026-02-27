@@ -1,4 +1,4 @@
-package org.hl7.davinci.cdshooks;
+package org.hl7.davinci.scenarios.crd;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

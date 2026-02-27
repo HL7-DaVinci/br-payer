@@ -2,9 +2,9 @@ package org.hl7.davinci.api;
 
 import java.util.List;
 
-import org.hl7.davinci.pas.PasScenarioService;
-import org.hl7.davinci.pas.PasScenarioService.PasScenarioDto;
-import org.hl7.davinci.pas.PasScenarioService.PasVariantDto;
+import org.hl7.davinci.scenarios.pas.PasScenarioService;
+import org.hl7.davinci.scenarios.pas.PasScenarioService.PasScenarioDto;
+import org.hl7.davinci.scenarios.pas.PasScenarioService.PasVariantDto;
 import org.hl7.fhir.r4.model.Bundle;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;

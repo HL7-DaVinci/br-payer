@@ -1,4 +1,4 @@
-package org.hl7.davinci.scenarios;
+package org.hl7.davinci.scenarios.crd;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
+import org.hl7.davinci.scenarios.ScenarioResourceUtil;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;

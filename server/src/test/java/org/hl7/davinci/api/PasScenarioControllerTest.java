@@ -11,9 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 import java.util.Optional;
 
-import org.hl7.davinci.pas.PasScenarioService;
-import org.hl7.davinci.pas.PasScenarioService.PasScenarioDto;
-import org.hl7.davinci.pas.PasScenarioService.PasVariantDto;
+import org.hl7.davinci.scenarios.pas.PasScenarioService;
+import org.hl7.davinci.scenarios.pas.PasScenarioService.PasScenarioDto;
+import org.hl7.davinci.scenarios.pas.PasScenarioService.PasVariantDto;
 import org.hl7.fhir.r4.model.Bundle;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

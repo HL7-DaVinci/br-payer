@@ -1,12 +1,11 @@
-package org.hl7.davinci.dtr;
+package org.hl7.davinci.scenarios.dtr;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.hl7.davinci.scenarios.DtrRequestBuilder;
-import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrScenario;
-import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrVariant;
+import org.hl7.davinci.scenarios.dtr.DtrRequestBuilder.DtrScenario;
+import org.hl7.davinci.scenarios.dtr.DtrRequestBuilder.DtrVariant;
 import org.hl7.davinci.scenarios.ScenarioMetadataProvider;
 import org.hl7.fhir.r4.model.Parameters;
 import org.slf4j.Logger;

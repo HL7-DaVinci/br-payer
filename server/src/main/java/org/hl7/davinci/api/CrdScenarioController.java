@@ -2,9 +2,9 @@ package org.hl7.davinci.api;
 
 import java.util.List;
 
-import org.hl7.davinci.cdshooks.CrdScenarioService;
-import org.hl7.davinci.cdshooks.CrdScenarioService.CrdHookVariantDto;
-import org.hl7.davinci.cdshooks.CrdScenarioService.CrdScenarioDto;
+import org.hl7.davinci.scenarios.crd.CrdScenarioService;
+import org.hl7.davinci.scenarios.crd.CrdScenarioService.CrdHookVariantDto;
+import org.hl7.davinci.scenarios.crd.CrdScenarioService.CrdScenarioDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

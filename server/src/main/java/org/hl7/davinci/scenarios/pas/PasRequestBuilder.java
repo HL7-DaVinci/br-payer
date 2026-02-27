@@ -1,4 +1,4 @@
-package org.hl7.davinci.scenarios;
+package org.hl7.davinci.scenarios.pas;
 
 import static org.hl7.davinci.common.FhirConstants.*;
 
@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
+import org.hl7.davinci.scenarios.ScenarioResourceUtil;
 import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;

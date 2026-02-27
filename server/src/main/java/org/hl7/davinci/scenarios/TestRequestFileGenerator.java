@@ -5,13 +5,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import org.hl7.davinci.scenarios.CrdRequestBuilder.CrdHookVariant;
-import org.hl7.davinci.scenarios.CrdRequestBuilder.CrdScenario;
-import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrScenario;
-import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrVariant;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
-import org.hl7.davinci.scenarios.PasRequestBuilder.PasScenario;
-import org.hl7.davinci.scenarios.PasRequestBuilder.PasVariant;
+import org.hl7.davinci.scenarios.crd.CrdRequestBuilder;
+import org.hl7.davinci.scenarios.crd.CrdRequestBuilder.CrdHookVariant;
+import org.hl7.davinci.scenarios.crd.CrdRequestBuilder.CrdScenario;
+import org.hl7.davinci.scenarios.dtr.DtrRequestBuilder;
+import org.hl7.davinci.scenarios.dtr.DtrRequestBuilder.DtrScenario;
+import org.hl7.davinci.scenarios.dtr.DtrRequestBuilder.DtrVariant;
+import org.hl7.davinci.scenarios.pas.PasRequestBuilder;
+import org.hl7.davinci.scenarios.pas.PasRequestBuilder.PasScenario;
+import org.hl7.davinci.scenarios.pas.PasRequestBuilder.PasVariant;
 
 import ca.uhn.fhir.context.FhirContext;
 

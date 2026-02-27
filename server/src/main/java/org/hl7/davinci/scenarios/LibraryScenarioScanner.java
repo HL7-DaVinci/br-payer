@@ -258,7 +258,7 @@ public class LibraryScenarioScanner {
    * Converts PascalCase/camelCase to kebab-case, keeping consecutive uppercase
    * letters together (e.g. "OpioidPDMP" -> "opioid-pdmp").
    */
-  static String toKebabCase(String camelCase) {
+  public static String toKebabCase(String camelCase) {
     if (camelCase == null || camelCase.isEmpty()) {
       return "";
     }

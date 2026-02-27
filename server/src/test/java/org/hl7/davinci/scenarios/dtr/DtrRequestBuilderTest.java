@@ -1,4 +1,4 @@
-package org.hl7.davinci.scenarios;
+package org.hl7.davinci.scenarios.dtr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -10,8 +10,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.hl7.davinci.dtr.DtrConstants;
-import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrScenario;
-import org.hl7.davinci.scenarios.DtrRequestBuilder.DtrVariant;
+import org.hl7.davinci.scenarios.dtr.DtrRequestBuilder.DtrScenario;
+import org.hl7.davinci.scenarios.dtr.DtrRequestBuilder.DtrVariant;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Coding;

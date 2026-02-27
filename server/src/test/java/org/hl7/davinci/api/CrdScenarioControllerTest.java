@@ -10,9 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 import java.util.Optional;
 
-import org.hl7.davinci.cdshooks.CrdScenarioService;
-import org.hl7.davinci.cdshooks.CrdScenarioService.CrdHookVariantDto;
-import org.hl7.davinci.cdshooks.CrdScenarioService.CrdScenarioDto;
+import org.hl7.davinci.scenarios.crd.CrdScenarioService;
+import org.hl7.davinci.scenarios.crd.CrdScenarioService.CrdHookVariantDto;
+import org.hl7.davinci.scenarios.crd.CrdScenarioService.CrdScenarioDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;

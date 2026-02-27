@@ -1,11 +1,10 @@
-package org.hl7.davinci.pas;
+package org.hl7.davinci.scenarios.pas;
 
 import java.util.List;
 import java.util.Optional;
 
-import org.hl7.davinci.scenarios.PasRequestBuilder;
-import org.hl7.davinci.scenarios.PasRequestBuilder.PasScenario;
-import org.hl7.davinci.scenarios.PasRequestBuilder.PasVariant;
+import org.hl7.davinci.scenarios.pas.PasRequestBuilder.PasScenario;
+import org.hl7.davinci.scenarios.pas.PasRequestBuilder.PasVariant;
 import org.hl7.davinci.scenarios.ScenarioMetadataProvider;
 import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;

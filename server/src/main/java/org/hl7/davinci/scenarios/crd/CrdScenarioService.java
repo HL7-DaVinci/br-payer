@@ -1,11 +1,10 @@
-package org.hl7.davinci.cdshooks;
+package org.hl7.davinci.scenarios.crd;
 
 import java.util.List;
 import java.util.Optional;
 
-import org.hl7.davinci.scenarios.CrdRequestBuilder;
-import org.hl7.davinci.scenarios.CrdRequestBuilder.CrdHookVariant;
-import org.hl7.davinci.scenarios.CrdRequestBuilder.CrdScenario;
+import org.hl7.davinci.scenarios.crd.CrdRequestBuilder.CrdHookVariant;
+import org.hl7.davinci.scenarios.crd.CrdRequestBuilder.CrdScenario;
 import org.hl7.davinci.scenarios.ScenarioMetadataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

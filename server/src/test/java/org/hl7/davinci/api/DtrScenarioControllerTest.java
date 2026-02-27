@@ -12,9 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.hl7.davinci.dtr.DtrScenarioService;
-import org.hl7.davinci.dtr.DtrScenarioService.DtrScenarioDto;
-import org.hl7.davinci.dtr.DtrScenarioService.DtrVariantDto;
+import org.hl7.davinci.scenarios.dtr.DtrScenarioService;
+import org.hl7.davinci.scenarios.dtr.DtrScenarioService.DtrScenarioDto;
+import org.hl7.davinci.scenarios.dtr.DtrScenarioService.DtrVariantDto;
 import org.hl7.fhir.r4.model.Parameters;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

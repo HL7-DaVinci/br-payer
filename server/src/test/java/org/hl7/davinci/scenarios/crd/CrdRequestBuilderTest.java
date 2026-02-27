@@ -1,4 +1,4 @@
-package org.hl7.davinci.scenarios;
+package org.hl7.davinci.scenarios.crd;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
-import org.hl7.davinci.scenarios.CrdRequestBuilder.CrdHookVariant;
-import org.hl7.davinci.scenarios.CrdRequestBuilder.CrdScenario;
+import org.hl7.davinci.scenarios.crd.CrdRequestBuilder.CrdHookVariant;
+import org.hl7.davinci.scenarios.crd.CrdRequestBuilder.CrdScenario;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
 import org.hl7.fhir.r4.model.Coding;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,4 @@
-package org.hl7.davinci.dtr;
+package org.hl7.davinci.scenarios.dtr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
