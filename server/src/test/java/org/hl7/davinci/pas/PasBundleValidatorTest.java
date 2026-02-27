@@ -107,6 +107,27 @@ class PasBundleValidatorTest {
     assertThrows(IllegalArgumentException.class, () -> validator.validateInquiryBundle(bundle));
   }
 
+  @Test
+  void validateSubmitBundle_missingIdentifier_throws() {
+    Bundle bundle = buildMinimalBundle();
+    bundle.setIdentifier(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateSubmitBundle(bundle));
+  }
+
+  @Test
+  void validateSubmitBundle_missingTimestamp_throws() {
+    Bundle bundle = buildMinimalBundle();
+    bundle.setTimestamp(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateSubmitBundle(bundle));
+  }
+
+  @Test
+  void validateSubmitBundle_missingEntryFullUrl_throws() {
+    Bundle bundle = buildMinimalBundle();
+    bundle.getEntryFirstRep().setFullUrl(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateSubmitBundle(bundle));
+  }
+
   private Bundle buildMinimalBundle() {
     Claim claim = new Claim();
     claim.setUse(Claim.Use.PREAUTHORIZATION);
@@ -120,6 +141,9 @@ class PasBundleValidatorTest {
 
     Bundle bundle = new Bundle();
     bundle.setType(Bundle.BundleType.COLLECTION);
+    bundle.setIdentifier(
+        new Identifier().setSystem("http://example.org/bundles").setValue("bundle-001"));
+    bundle.setTimestamp(new java.util.Date());
     bundle.addEntry().setFullUrl("urn:uuid:" + java.util.UUID.randomUUID()).setResource(claim);
     return bundle;
   }

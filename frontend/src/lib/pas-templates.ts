@@ -25,6 +25,16 @@ function timestamp(): string {
   return new Date().toISOString();
 }
 
+function todayDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function futureDate(daysOut: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysOut);
+  return d.toISOString().slice(0, 10);
+}
+
 const MEMBER_ID_TYPE = {
   coding: [
     {
@@ -244,9 +254,20 @@ function makeSubmitBundle(
                     ],
                   },
                 },
+                {
+                  url: "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-itemTraceNumber",
+                  valueIdentifier: {
+                    system: "http://example.org/ITEM_TRACE_NUMBER",
+                    value: uuid(),
+                  },
+                },
                 ...(extras?.itemExtras ?? []),
               ],
               sequence: 1,
+              servicedPeriod: {
+                start: todayDate(),
+                end: futureDate(30),
+              },
               productOrService: {
                 coding: [productOrService],
               },
@@ -408,6 +429,104 @@ export const PAS_TEMPLATES: PasTemplate[] = [
               valueBoolean: true,
             },
           ],
+        },
+      ),
+  },
+  {
+    id: "update",
+    label: "Update Submit",
+    description: "Update (revision) request modifying a prior authorization",
+    operation: "$submit",
+    create: () =>
+      makeSubmitBundle(
+        { code: "I", display: "Initial" },
+        {
+          system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+          code: "E0260",
+          display: "Hospital bed, semi-electric",
+        },
+        "professional",
+        {
+          claimProfile:
+            "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-claim-update",
+          claimExtensions: [
+            {
+              url: "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-certificationType",
+              valueCodeableConcept: {
+                coding: [
+                  {
+                    system: "https://codesystem.x12.org/005010/1322",
+                    code: "6",
+                    display: "Revision",
+                  },
+                ],
+              },
+            },
+          ],
+          related: [
+            {
+              claim: { reference: "Claim/prior-claim-1" },
+              relationship: {
+                coding: [
+                  {
+                    system:
+                      "http://terminology.hl7.org/CodeSystem/ex-relatedclaimrelationship",
+                    code: "prior",
+                  },
+                ],
+              },
+            },
+          ],
+          priorClaim: {
+            fullUrl: `${BUNDLE_BASE}/Claim/prior-claim-1`,
+            resource: {
+              resourceType: "Claim",
+              id: "prior-claim-1",
+              status: "active",
+              use: "preauthorization",
+              identifier: [
+                {
+                  system: "http://example.org/PATIENT_EVENT_TRACE_NUMBER",
+                  value: INITIAL_PROFESSIONAL_TRACE,
+                },
+              ],
+              type: {
+                coding: [
+                  {
+                    system: "http://terminology.hl7.org/CodeSystem/claim-type",
+                    code: "professional",
+                  },
+                ],
+              },
+              patient: { reference: "Patient/patient-1" },
+              created: timestamp(),
+              insurer: { reference: "Organization/insurer-1" },
+              provider: { reference: "Organization/provider-1" },
+              priority: {
+                coding: [
+                  {
+                    system:
+                      "http://terminology.hl7.org/CodeSystem/processpriority",
+                    code: "normal",
+                  },
+                ],
+              },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: "Coverage/coverage-1" },
+                },
+              ],
+            },
+          },
+          itemExtras: [
+            {
+              url: "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-infoChanged",
+              valueCode: "changed",
+            },
+          ],
+          traceNumber: INITIAL_PROFESSIONAL_TRACE,
         },
       ),
   },

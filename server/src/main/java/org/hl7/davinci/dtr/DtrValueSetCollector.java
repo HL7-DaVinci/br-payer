@@ -1,6 +1,7 @@
 package org.hl7.davinci.dtr;
 
 import static org.hl7.davinci.common.FhirConstants.SNOMED_SYSTEM;
+import static org.hl7.davinci.common.FhirConstants.VSAC_VALUESET_PREFIX;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -8,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.DataRequirement;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.Questionnaire;
@@ -79,6 +82,7 @@ public class DtrValueSetCollector {
       }
 
       normalizeCanonicalUrl(vs);
+      enrichVsacJurisdiction(vs);
       sanitizeInvalidSnomedConceptFilters(vs);
 
       // Pre-expand small ValueSets
@@ -253,6 +257,31 @@ public class DtrValueSetCollector {
       }
     }
     return hasExplicitConcepts ? total : -1;
+  }
+
+  /**
+   * VSAC-sourced ValueSets often have jurisdiction elements with only a
+   * data-absent-reason extension and no actual coding. Since VSAC ValueSets
+   * are US jurisdiction by definition, add the ISO 3166 US coding.
+   */
+  private void enrichVsacJurisdiction(ValueSet vs) {
+    if (!vs.hasUrl() || !vs.getUrl().startsWith(VSAC_VALUESET_PREFIX)) {
+      return;
+    }
+    if (vs.hasJurisdiction()) {
+      for (CodeableConcept cc : vs.getJurisdiction()) {
+        if (!cc.hasCoding()) {
+          cc.addCoding(new Coding()
+              .setSystem("urn:iso:std:iso:3166")
+              .setCode("US"));
+        }
+      }
+    } else {
+      vs.addJurisdiction(new CodeableConcept()
+          .addCoding(new Coding()
+              .setSystem("urn:iso:std:iso:3166")
+              .setCode("US")));
+    }
   }
 
   private void normalizeCanonicalUrl(ValueSet vs) {

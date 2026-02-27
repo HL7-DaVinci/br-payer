@@ -3,6 +3,7 @@ package org.hl7.davinci.pas;
 import static org.hl7.davinci.common.FhirConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -11,10 +12,15 @@ import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.SimpleQuantity;
 import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -409,6 +415,292 @@ class PasResponseBuilderTest {
 
     Extension preAuthPeriod = cr.getItem().get(0).getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD);
     assertNull(preAuthPeriod, "Denied items must not have itemPreAuthPeriod");
+  }
+
+  // ===== CR-level identifier and transmissionIdentifiers =====
+
+  @Test
+  void buildSubmitResponse_hasIdentifierAndTransmissionIdentifiers() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    assertFalse(cr.getIdentifier().isEmpty(), "ClaimResponse must have at least one identifier");
+    Extension txExt = cr.getExtensionByUrl(PasConstants.TRANSMISSION_IDENTIFIERS);
+    assertNotNull(txExt, "ClaimResponse must have transmissionIdentifiers extension");
+    assertNull(txExt.getValue(), "Complex extension should not have a root value");
+    assertNotNull(txExt.getExtensionByUrl("applicationSenderCode"),
+        "transmissionIdentifiers must have applicationSenderCode");
+    assertNotNull(txExt.getExtensionByUrl("applicationReceiverCode"),
+        "transmissionIdentifiers must have applicationReceiverCode");
+  }
+
+  // ===== Item-level trace numbers =====
+
+  @Test
+  void buildSubmitResponse_echoesTraceNumbersFromRequest() {
+    Claim claim = buildClaim();
+    Identifier traceId = new Identifier()
+        .setSystem("http://example.org/trace").setValue("TRACE-001");
+    claim.getItemFirstRep().addExtension(PasConstants.ITEM_TRACE_NUMBER, traceId);
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    Extension traceExt = cr.getItem().get(0).getExtensionByUrl(PasConstants.ITEM_TRACE_NUMBER);
+    assertNotNull(traceExt, "Response item must echo trace number from request");
+    Identifier resultTrace = (Identifier) traceExt.getValue();
+    assertEquals("TRACE-001", resultTrace.getValue());
+  }
+
+  // ===== preAuthIssueDate =====
+
+  @Test
+  void buildSubmitResponse_approvedItemHasPreAuthIssueDate() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    Extension issueDateExt = cr.getItem().get(0).getExtensionByUrl(PasConstants.ITEM_PREAUTH_ISSUE_DATE);
+    assertNotNull(issueDateExt, "Approved items must have preAuthIssueDate");
+    assertInstanceOf(DateType.class, issueDateExt.getValue());
+  }
+
+  @Test
+  void buildSubmitResponse_pendedItemDoesNotHavePreAuthIssueDate() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    assertNull(cr.getItem().get(0).getExtensionByUrl(PasConstants.ITEM_PREAUTH_ISSUE_DATE),
+        "Pended items must not have preAuthIssueDate");
+  }
+
+  // ===== requestedServiceDate =====
+
+  @Test
+  void buildSubmitResponse_echoesRequestedServiceDate() {
+    Claim claim = buildClaim();
+    Period servicedPeriod = new Period().setStart(new Date());
+    claim.getItemFirstRep().setServiced(servicedPeriod);
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    Extension serviceDateExt = cr.getItem().get(0)
+        .getExtensionByUrl(PasConstants.ITEM_REQUESTED_SERVICE_DATE);
+    assertNotNull(serviceDateExt, "Response item must echo requestedServiceDate from request");
+    assertInstanceOf(Period.class, serviceDateExt.getValue());
+  }
+
+  // ===== addItem for A6 Modified =====
+
+  @Test
+  void buildSubmitResponse_a6WithModification_producesAddItem() {
+    Claim claim = buildClaim();
+    CodeableConcept modifiedService = new CodeableConcept().addCoding(
+        new Coding("http://example.com", "99214", "Higher Office Visit"));
+    SimpleQuantity modifiedQty = new SimpleQuantity();
+    modifiedQty.setValue(2);
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(
+            REVIEW_CODE_A6, "Modified", false, modifiedService, modifiedQty));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    assertFalse(cr.getAddItem().isEmpty(), "A6 with modification must produce addItem");
+
+    ClaimResponse.ItemComponent item = cr.getItem().get(0);
+    Extension itemReviewAction = item.getAdjudication().get(0)
+        .getExtensionByUrl(PasConstants.REVIEW_ACTION);
+    Extension itemAuthNumber = itemReviewAction.getExtensionByUrl("number");
+    assertNotNull(itemAuthNumber, "A6 item adjudication must include an authorization number");
+    String itemAuthValue = ((StringType) itemAuthNumber.getValue()).getValue();
+
+    ClaimResponse.AddedItemComponent addItem = cr.getAddItem().get(0);
+    assertEquals(1, addItem.getItemSequence().get(0).getValue());
+    assertEquals("99214", addItem.getProductOrService().getCodingFirstRep().getCode());
+    assertEquals(2, addItem.getQuantity().getValue().intValue());
+
+    // addItem should have reviewAction adjudication
+    assertFalse(addItem.getAdjudication().isEmpty());
+    Extension reviewAction = addItem.getAdjudication().get(0)
+        .getExtensionByUrl(PasConstants.REVIEW_ACTION);
+    assertNotNull(reviewAction);
+    Extension addItemAuthNumber = reviewAction.getExtensionByUrl("number");
+    assertNotNull(addItemAuthNumber, "A6 addItem adjudication must include an authorization number");
+    assertEquals(itemAuthValue, ((StringType) addItemAuthNumber.getValue()).getValue(),
+        "A6 addItem authorization number should match the item adjudication number");
+  }
+
+  @Test
+  void buildSubmitResponse_a6WithoutModification_noAddItem() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A6, "Modified", false));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    assertTrue(cr.getAddItem().isEmpty(), "A6 without modification must not produce addItem");
+    assertNotNull(PasExtensions.extractAuthorizationNumber(cr.getItem().get(0)),
+        "A6 item adjudication must include an authorization number");
+  }
+
+  // ===== Response bundle includes referenced resources =====
+
+  @Test
+  void buildSubmitResponse_includesReferencedResources() {
+    Claim claim = buildClaim();
+    Bundle requestBundle = new Bundle();
+    requestBundle.setType(Bundle.BundleType.COLLECTION);
+
+    Patient patient = new Patient();
+    patient.setId("1");
+    requestBundle.addEntry()
+        .setFullUrl("http://example.org/fhir/Patient/1")
+        .setResource(patient);
+
+    Organization insurer = new Organization();
+    insurer.setId("1");
+    requestBundle.addEntry()
+        .setFullUrl("http://example.org/fhir/Organization/1")
+        .setResource(insurer);
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+
+    Bundle response = builder.buildSubmitResponse(claim, requestBundle, decisions, "AUTH");
+
+    // Response bundle should have ClaimResponse + Patient + Organization
+    assertTrue(response.getEntry().size() >= 3,
+        "Response bundle must include referenced resources");
+
+    boolean hasPatient = response.getEntry().stream()
+        .anyMatch(e -> e.getResource() instanceof Patient);
+    boolean hasOrg = response.getEntry().stream()
+        .anyMatch(e -> e.getResource() instanceof Organization);
+    assertTrue(hasPatient, "Response bundle must include Patient");
+    assertTrue(hasOrg, "Response bundle must include Organization");
+  }
+
+  @Test
+  void buildSubmitResponse_usesServerBaseFullUrl() {
+    Claim claim = buildClaim();
+    Bundle requestBundle = new Bundle();
+
+    Patient patient = new Patient();
+    patient.setId("1");
+    requestBundle.addEntry()
+        .setFullUrl("http://example.org/fhir/Patient/1")
+        .setResource(patient);
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+
+    Bundle response = builder.buildSubmitResponse(claim, requestBundle, decisions, "AUTH");
+
+    String patientFullUrl = response.getEntry().stream()
+        .filter(e -> e.getResource() instanceof Patient)
+        .map(Bundle.BundleEntryComponent::getFullUrl)
+        .findFirst().orElse(null);
+    assertTrue(patientFullUrl != null && patientFullUrl.startsWith(SERVER_BASE),
+        "Referenced resource fullUrl must use server base for bundle resolution");
+  }
+
+  @Test
+  void buildSubmitResponse_noDuplicateResources() {
+    Claim claim = buildClaim();
+    // Insurer and requestor point to same Organization/1
+    claim.setProvider(new Reference("Organization/1"));
+    Bundle requestBundle = new Bundle();
+
+    Organization org = new Organization();
+    org.setId("1");
+    requestBundle.addEntry()
+        .setFullUrl("http://example.org/fhir/Organization/1")
+        .setResource(org);
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+
+    Bundle response = builder.buildSubmitResponse(claim, requestBundle, decisions, "AUTH");
+
+    long orgCount = response.getEntry().stream()
+        .filter(e -> e.getResource() instanceof Organization)
+        .count();
+    assertEquals(1, orgCount, "Must not add duplicate resources");
+  }
+
+  @Test
+  void wrapInResponseBundle_nullRequestBundle_stillWorks() {
+    ClaimResponse cr = new ClaimResponse();
+    cr.setId("CR-001");
+    Bundle response = builder.wrapInResponseBundle(cr, null);
+
+    assertNotNull(response);
+    assertEquals(1, response.getEntry().size(), "Should only contain ClaimResponse");
+  }
+
+  // ===== Auth number stability =====
+
+  @Test
+  void applyItemDecisions_preservesExistingAuthNumber() {
+    ClaimResponse cr = buildClaimResponseWithItems(Map.of(1, REVIEW_CODE_A1));
+    ClaimResponse.AdjudicationComponent adj = cr.getItem().get(0).getAdjudication().get(0);
+    adj.getExtension().removeIf(e -> PasConstants.REVIEW_ACTION.equals(e.getUrl()));
+    adj.addExtension(PasExtensions.buildReviewActionExtension(REVIEW_CODE_A1, "Certified", "AUTH-ORIG"));
+
+    // Apply new A1 decision (update scenario) -- auth number should be preserved
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+    builder.applyItemDecisions(cr, decisions, "AUTH-NEW-");
+
+    String authNumber = PasExtensions.extractAuthorizationNumber(cr.getItem().get(0));
+    assertEquals("AUTH-ORIG", authNumber,
+        "Existing auth number must be preserved across updates");
+  }
+
+  @Test
+  void applyItemDecisions_generatesNewAuthNumberWhenNoneExists() {
+    ClaimResponse cr = buildClaimResponseWithItems(Map.of(1, REVIEW_CODE_A4));
+
+    // Apply A1 decision to previously pended item (no auth number yet)
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+    builder.applyItemDecisions(cr, decisions, "AUTH-");
+
+    String authNumber = PasExtensions.extractAuthorizationNumber(cr.getItem().get(0));
+    assertNotNull(authNumber, "New auth number must be generated when none exists");
+    assertTrue(authNumber.startsWith("AUTH-"));
+  }
+
+  @Test
+  void applyItemDecisions_modifiedItemGetsAuthNumber() {
+    ClaimResponse cr = buildClaimResponseWithItems(Map.of(1, REVIEW_CODE_A4));
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A6, "Modified", false));
+    builder.applyItemDecisions(cr, decisions, "AUTH-");
+
+    String authNumber = PasExtensions.extractAuthorizationNumber(cr.getItem().get(0));
+    assertNotNull(authNumber, "A6 decisions must include an authorization number");
+    assertTrue(authNumber.startsWith("AUTH-"));
   }
 
   // ===== Helpers =====

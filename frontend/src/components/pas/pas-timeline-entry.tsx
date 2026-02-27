@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   type PasError,
   REVIEW_ACTIONS,
+  type ReviewActionCode,
   type TimelineEntry,
 } from "@/lib/pas-types";
 
@@ -31,6 +32,18 @@ const SOURCE_LABELS: Record<string, { label: string; className: string }> = {
       "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400",
   },
 };
+
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+}
+
+function hasMultipleDistinctActions(
+  actions: Array<{ code: ReviewActionCode }>,
+): boolean {
+  if (actions.length < 2) return false;
+  return actions.some((a) => a.code !== actions[0].code);
+}
 
 function extractClaimId(bundle: object): string | null {
   const b = bundle as {
@@ -106,25 +119,57 @@ export const PasTimelineEntry = memo(function PasTimelineEntry({
             <span className="break-all">{entry.error.message}</span>
           </div>
         ) : entry.reviewAction || claimResponseId ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            {entry.reviewAction && (
-              <PasReviewActionBadge code={entry.reviewAction} size="sm" />
-            )}
-            {entry.authorizationNumber && (
-              <span className="text-[10px] text-muted-foreground font-mono">
-                Auth# {entry.authorizationNumber}
-              </span>
-            )}
-            {claimId && (
-              <span className="text-[10px] text-muted-foreground font-mono">
-                Claim: {claimId}
-              </span>
-            )}
-            {claimResponseId && (
-              <span className="text-[10px] text-muted-foreground font-mono">
-                CR: {claimResponseId}
-              </span>
-            )}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Multi-item summary or single review action */}
+              {entry.itemReviewActions &&
+              hasMultipleDistinctActions(entry.itemReviewActions) ? (
+                entry.itemReviewActions.map((item) => (
+                  <span
+                    key={item.sequence}
+                    className={`text-[10px] font-medium px-1.5 py-0 rounded border ${REVIEW_ACTIONS[item.code].bgClass} ${REVIEW_ACTIONS[item.code].textClass} ${REVIEW_ACTIONS[item.code].borderClass}`}
+                  >
+                    Item {item.sequence}: {item.code}
+                  </span>
+                ))
+              ) : entry.reviewAction ? (
+                <PasReviewActionBadge code={entry.reviewAction} size="sm" />
+              ) : null}
+              {entry.authorizationNumber && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  Auth# {entry.authorizationNumber}
+                </span>
+              )}
+              {entry.reviewAction === "A4" && entry.adminRefNumber && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  Admin# {entry.adminRefNumber}
+                </span>
+              )}
+              {claimId && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  Claim: {claimId}
+                </span>
+              )}
+              {claimResponseId && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  CR: {claimResponseId}
+                </span>
+              )}
+            </div>
+            {/* PreAuth validity period for approved items */}
+            {(entry.reviewAction === "A1" || entry.reviewAction === "A6") &&
+              entry.preAuthPeriod && (
+                <div className="text-[10px] text-muted-foreground">
+                  Valid:{" "}
+                  {entry.preAuthPeriod.start
+                    ? formatShortDate(entry.preAuthPeriod.start)
+                    : "?"}
+                  {" - "}
+                  {entry.preAuthPeriod.end
+                    ? formatShortDate(entry.preAuthPeriod.end)
+                    : "?"}
+                </div>
+              )}
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

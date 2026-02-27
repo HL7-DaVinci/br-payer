@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberInput } from "@/components/ui/number-input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -260,12 +261,14 @@ function IntegerItem({ item, answers, onChange, readOnly }: ItemProps) {
   const value = answers[0]?.valueInteger;
   return (
     <FieldWrapper item={item}>
-      <Input
-        type="number"
+      <NumberInput
         step="1"
         value={value ?? ""}
         onChange={(e) => {
-          const parsed = Number.parseInt(e.target.value, 10);
+          const parsed = Number.parseInt(
+            (e.target as HTMLInputElement).value,
+            10,
+          );
           onChange(
             item.linkId,
             Number.isNaN(parsed) ? [] : [{ valueInteger: parsed }],
@@ -289,14 +292,15 @@ function DecimalItem({ item, answers, onChange, readOnly }: ItemProps) {
 
   return (
     <FieldWrapper item={item}>
-      <Input
-        type="number"
+      <NumberInput
         step="any"
         min={minExt?.valueDecimal}
         max={maxExt?.valueDecimal}
         value={value ?? ""}
         onChange={(e) => {
-          const parsed = Number.parseFloat(e.target.value);
+          const parsed = Number.parseFloat(
+            (e.target as HTMLInputElement).value,
+          );
           onChange(
             item.linkId,
             Number.isNaN(parsed) ? [] : [{ valueDecimal: parsed }],
@@ -321,12 +325,13 @@ function QuantityItem({ item, answers, onChange, readOnly }: ItemProps) {
   return (
     <FieldWrapper item={item}>
       <div className="flex items-center gap-2">
-        <Input
-          type="number"
+        <NumberInput
           step="any"
           value={qty?.value ?? ""}
           onChange={(e) => {
-            const parsed = Number.parseFloat(e.target.value);
+            const parsed = Number.parseFloat(
+              (e.target as HTMLInputElement).value,
+            );
             onChange(
               item.linkId,
               Number.isNaN(parsed)
@@ -702,12 +707,14 @@ function RepeatingPrimitiveInput({
       );
     case "integer":
       return (
-        <Input
-          type="number"
+        <NumberInput
           step="1"
           value={answer.valueInteger ?? ""}
           onChange={(e) => {
-            const parsed = Number.parseInt(e.target.value, 10);
+            const parsed = Number.parseInt(
+              (e.target as HTMLInputElement).value,
+              10,
+            );
             onChange(Number.isNaN(parsed) ? {} : { valueInteger: parsed });
           }}
           disabled={readOnly}
@@ -716,12 +723,13 @@ function RepeatingPrimitiveInput({
       );
     case "decimal":
       return (
-        <Input
-          type="number"
+        <NumberInput
           step="any"
           value={answer.valueDecimal ?? ""}
           onChange={(e) => {
-            const parsed = Number.parseFloat(e.target.value);
+            const parsed = Number.parseFloat(
+              (e.target as HTMLInputElement).value,
+            );
             onChange(Number.isNaN(parsed) ? {} : { valueDecimal: parsed });
           }}
           disabled={readOnly}

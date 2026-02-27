@@ -16,8 +16,12 @@ export const PAS_EXT = {
     "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-reviewActionCode",
   AUTHORIZATION_NUMBER:
     "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-authorizationNumber",
+  ADMIN_REF_NUMBER:
+    "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-administrationReferenceNumber",
   ITEM_PREAUTH_PERIOD:
     "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-itemPreAuthPeriod",
+  ITEM_TRACE_NUMBER:
+    "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-itemTraceNumber",
   CERTIFICATION_TYPE:
     "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-certificationType",
   INFO_CHANGED:
@@ -126,6 +130,12 @@ export interface PasError extends Error {
   body?: unknown;
 }
 
+export interface ItemReviewAction {
+  sequence: number;
+  code: ReviewActionCode;
+  authNumber?: string;
+}
+
 export interface TimelineEntry {
   id: string;
   timestamp: Date;
@@ -138,6 +148,9 @@ export interface TimelineEntry {
   authorizationId: string | null;
   reviewAction: ReviewActionCode | null;
   authorizationNumber: string | null;
+  adminRefNumber: string | null;
+  preAuthPeriod: { start?: string; end?: string } | null;
+  itemReviewActions: ItemReviewAction[] | null;
   durationMs: number;
 }
 
@@ -178,6 +191,7 @@ interface FhirExtension {
     coding?: Array<{ system?: string; code?: string; display?: string }>;
   };
   valueString?: string;
+  valuePeriod?: { start?: string; end?: string };
 }
 
 interface FhirAdjudication {
@@ -185,6 +199,8 @@ interface FhirAdjudication {
 }
 
 interface FhirClaimResponseItem {
+  sequence?: number;
+  extension?: FhirExtension[];
   adjudication?: FhirAdjudication[];
 }
 
@@ -252,6 +268,82 @@ export function extractAuthorizationNumber(
   }
 
   return null;
+}
+
+/**
+ * Extracts the administration reference number from a pended ClaimResponse item.
+ * Walks item extensions for extension-administrationReferenceNumber -> valueString.
+ */
+export function extractAdminRefNumber(claimResponse: unknown): string | null {
+  const cr = claimResponse as FhirClaimResponse | undefined;
+  if (!cr?.item?.length) return null;
+
+  for (const item of cr.item) {
+    const adminRef = findExtension(item.extension, PAS_EXT.ADMIN_REF_NUMBER);
+    if (adminRef?.valueString) return adminRef.valueString;
+  }
+
+  return null;
+}
+
+/**
+ * Extracts the preAuth validity period from a ClaimResponse item.
+ * Walks item extensions for extension-itemPreAuthPeriod -> valuePeriod.
+ */
+export function extractPreAuthPeriod(
+  claimResponse: unknown,
+): { start?: string; end?: string } | null {
+  const cr = claimResponse as FhirClaimResponse | undefined;
+  if (!cr?.item?.length) return null;
+
+  for (const item of cr.item) {
+    const periodExt = findExtension(
+      item.extension,
+      PAS_EXT.ITEM_PREAUTH_PERIOD,
+    );
+    if (periodExt?.valuePeriod) return periodExt.valuePeriod;
+  }
+
+  return null;
+}
+
+/**
+ * Extracts review action codes for all items in a ClaimResponse.
+ * Returns null if there are fewer than 2 items with review actions.
+ */
+export function extractAllItemReviewActions(
+  claimResponse: unknown,
+): ItemReviewAction[] | null {
+  const cr = claimResponse as FhirClaimResponse | undefined;
+  if (!cr?.item?.length) return null;
+
+  const actions: ItemReviewAction[] = [];
+
+  for (const item of cr.item) {
+    const sequence = item.sequence ?? actions.length + 1;
+
+    for (const adj of item.adjudication ?? []) {
+      const reviewAction = findExtension(adj.extension, PAS_EXT.REVIEW_ACTION);
+      if (!reviewAction) continue;
+
+      const codeExt = findExtension(
+        reviewAction.extension,
+        PAS_EXT.REVIEW_ACTION_CODE,
+      );
+      const code = codeExt?.valueCodeableConcept?.coding?.[0]?.code;
+      if (code && code in REVIEW_ACTIONS) {
+        const numberExt = findExtension(reviewAction.extension, "number");
+        actions.push({
+          sequence,
+          code: code as ReviewActionCode,
+          authNumber: numberExt?.valueString ?? undefined,
+        });
+      }
+      break;
+    }
+  }
+
+  return actions.length >= 2 ? actions : null;
 }
 
 /**

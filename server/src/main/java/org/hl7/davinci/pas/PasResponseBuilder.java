@@ -4,12 +4,16 @@ import static org.hl7.davinci.common.FhirConstants.*;
 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.hl7.davinci.common.FhirUtil;
+import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.davinci.pas.PasCoverageEvaluator.CoverageDecision;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
@@ -22,7 +26,9 @@ import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.Type;
 import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.starter.AppProperties;
@@ -56,7 +62,7 @@ public class PasResponseBuilder {
       Map<Integer, CoverageDecision> itemDecisions, String authNumberPrefix) {
 
     ClaimResponse claimResponse = buildClaimResponse(requestClaim, itemDecisions, authNumberPrefix);
-    return wrapInResponseBundle(claimResponse);
+    return wrapInResponseBundle(claimResponse, requestBundle);
   }
 
   /**
@@ -108,14 +114,22 @@ public class PasResponseBuilder {
       }
       appliedSequences.add(seq);
 
+      // Preserve existing auth number -- it is a stable tracking identifier
+      String existingAuth = PasExtensions.extractAuthorizationNumber(item);
+
       // Replace reviewAction on existing adjudication
       for (ClaimResponse.AdjudicationComponent adj : item.getAdjudication()) {
         adj.getExtension().removeIf(e -> PasConstants.REVIEW_ACTION.equals(e.getUrl()));
 
         boolean isApproved = REVIEW_CODE_A1.equals(decision.reviewActionCode());
-        String authNumber = isApproved
-            ? authNumberPrefix + String.format("%04d", authCounter.incrementAndGet())
-            : null;
+        boolean includeAuthNumber = requiresAuthorizationNumber(decision.reviewActionCode());
+        String authNumber = null;
+        if (includeAuthNumber) {
+          // Reuse existing auth number if present; only generate new if none exists
+          authNumber = existingAuth != null
+              ? existingAuth
+              : nextAuthorizationNumber(authNumberPrefix);
+        }
         adj.addExtension(PasExtensions.buildReviewActionExtension(
             decision.reviewActionCode(), decision.reviewActionDisplay(), authNumber));
 
@@ -153,8 +167,9 @@ public class PasResponseBuilder {
           new Coding(ADJUDICATION_SYSTEM, "submitted", "Submitted Amount")));
 
       boolean isApproved = REVIEW_CODE_A1.equals(decision.reviewActionCode());
-      String authNumber = isApproved
-          ? authNumberPrefix + String.format("%04d", authCounter.incrementAndGet())
+      boolean includeAuthNumber = requiresAuthorizationNumber(decision.reviewActionCode());
+      String authNumber = includeAuthNumber
+          ? nextAuthorizationNumber(authNumberPrefix)
           : null;
       adj.addExtension(PasExtensions.buildReviewActionExtension(
           decision.reviewActionCode(), decision.reviewActionDisplay(), authNumber));
@@ -182,7 +197,7 @@ public class PasResponseBuilder {
         }
 
         adj.getExtension().removeIf(e -> PasConstants.REVIEW_ACTION.equals(e.getUrl()));
-        String authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
+        String authNumber = nextAuthorizationNumber(authNumberPrefix);
         adj.addExtension(PasExtensions.buildReviewActionExtension(targetCode, targetDisplay, authNumber));
         itemWasFinalized = true;
       }
@@ -218,6 +233,18 @@ public class PasResponseBuilder {
       cr.setRequest(new Reference("Claim/" + claimId));
     }
 
+    // CR-level identifier (PASIdentifier profile)
+    cr.addIdentifier(new Identifier()
+        .setSystem("http://example.org/PATIENT_EVENT_TRACE_NUMBER")
+        .setValue(UUID.randomUUID().toString()));
+
+    // transmissionIdentifiers extension (senderCode + receiverCode)
+    cr.addExtension(PasExtensions.buildTransmissionIdentifiersExtension(
+        "SENDER-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(),
+        "RECEIVER-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()));
+
+    Map<Integer, String> itemAuthNumbers = new HashMap<>();
+
     // Build response items echoing request item sequences
     for (Claim.ItemComponent requestItem : requestClaim.getItem()) {
       int seq = requestItem.getSequence();
@@ -227,15 +254,22 @@ public class PasResponseBuilder {
       ClaimResponse.ItemComponent responseItem = cr.addItem();
       responseItem.setItemSequence(seq);
 
+      // Echo itemTraceNumber from request
+      for (Identifier traceId : PasExtensions.extractItemTraceNumbers(requestItem)) {
+        responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(traceId));
+      }
+
       // Adjudication with reviewAction extension
       ClaimResponse.AdjudicationComponent adj = responseItem.addAdjudication();
       adj.setCategory(new CodeableConcept().addCoding(
           new Coding(ADJUDICATION_SYSTEM, "submitted", "Submitted Amount")));
 
       boolean isApproved = REVIEW_CODE_A1.equals(decision.reviewActionCode());
+      boolean includeAuthNumber = requiresAuthorizationNumber(decision.reviewActionCode());
       String authNumber = null;
-      if (isApproved) {
-        authNumber = authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
+      if (includeAuthNumber) {
+        authNumber = nextAuthorizationNumber(authNumberPrefix);
+        itemAuthNumbers.put(seq, authNumber);
       }
 
       adj.addExtension(PasExtensions.buildReviewActionExtension(
@@ -244,6 +278,13 @@ public class PasResponseBuilder {
       // Approved items get additional extensions per PAS IG
       if (isApproved) {
         responseItem.addExtension(buildDefaultPreAuthPeriod());
+        responseItem.addExtension(PasExtensions.buildPreAuthIssueDateExtension(new Date()));
+      }
+
+      // Echo requestedServiceDate from request item serviced[x]
+      Type servicedValue = PasExtensions.extractServicedValue(requestItem);
+      if (servicedValue != null) {
+        responseItem.addExtension(PasExtensions.buildRequestedServiceDateExtension(servicedValue));
       }
 
       // Pended items get an administrationReferenceNumber for inquiry matching
@@ -253,10 +294,38 @@ public class PasResponseBuilder {
       }
     }
 
+    // addItem entries for A6 (Modified) decisions with modifications
+    for (Map.Entry<Integer, CoverageDecision> entry : itemDecisions.entrySet()) {
+      CoverageDecision decision = entry.getValue();
+      if (REVIEW_CODE_A6.equals(decision.reviewActionCode()) && decision.hasModification()) {
+        ClaimResponse.AddedItemComponent addItem = cr.addAddItem();
+        addItem.addItemSequence(entry.getKey());
+        if (decision.modifiedProductOrService() != null) {
+          addItem.setProductOrService(decision.modifiedProductOrService());
+        }
+        if (decision.modifiedQuantity() != null) {
+          addItem.setQuantity(decision.modifiedQuantity());
+        }
+        String authNumber = itemAuthNumbers.get(entry.getKey());
+        if (authNumber == null) {
+          authNumber = nextAuthorizationNumber(authNumberPrefix);
+        }
+        ClaimResponse.AdjudicationComponent addItemAdj = addItem.addAdjudication();
+        addItemAdj.setCategory(new CodeableConcept().addCoding(
+            new Coding(ADJUDICATION_SYSTEM, "submitted", "Submitted Amount")));
+        addItemAdj.addExtension(PasExtensions.buildReviewActionExtension(
+            REVIEW_CODE_A6, "Modified", authNumber));
+      }
+    }
+
     return cr;
   }
 
   Bundle wrapInResponseBundle(ClaimResponse claimResponse) {
+    return wrapInResponseBundle(claimResponse, null);
+  }
+
+  Bundle wrapInResponseBundle(ClaimResponse claimResponse, Bundle requestBundle) {
     Bundle bundle = new Bundle();
     bundle.getMeta().addProfile(PasConstants.PROFILE_PAS_RESPONSE_BUNDLE);
     bundle.setType(Bundle.BundleType.COLLECTION);
@@ -279,7 +348,64 @@ public class PasResponseBuilder {
       entry.setFullUrl(fullUrl);
     }
 
+    if (requestBundle != null) {
+      addReferencedResources(bundle, claimResponse, requestBundle);
+    }
+
     return bundle;
+  }
+
+  /**
+   * Adds resources referenced by the ClaimResponse (patient, insurer, requestor)
+   * from the request bundle into the response bundle, using server-base fullUrls
+   * so bundle resolution rules match the relative references on the ClaimResponse.
+   */
+  private void addReferencedResources(Bundle responseBundle, ClaimResponse cr, Bundle requestBundle) {
+    Set<String> addedKeys = new HashSet<>();
+    addReferencedResource(responseBundle, cr.getPatient(), requestBundle, addedKeys);
+    addReferencedResource(responseBundle, cr.getInsurer(), requestBundle, addedKeys);
+    addReferencedResource(responseBundle, cr.getRequestor(), requestBundle, addedKeys);
+  }
+
+  private void addReferencedResource(Bundle responseBundle, Reference ref, Bundle requestBundle,
+      Set<String> addedKeys) {
+    if (ref == null || !ref.hasReference()) {
+      return;
+    }
+    String reference = ref.getReference();
+    if (addedKeys.contains(reference)) {
+      return;
+    }
+    for (Bundle.BundleEntryComponent entry : requestBundle.getEntry()) {
+      Resource resource = entry.getResource();
+      if (resource == null) {
+        continue;
+      }
+      if (ResourceResolver.referencesMatchResource(reference, resource)
+          || (entry.hasFullUrl() && reference.equals(entry.getFullUrl()))) {
+        addedKeys.add(reference);
+        Bundle.BundleEntryComponent responseEntry = responseBundle.addEntry()
+            .setResource(resource);
+        // Build fullUrl from server base so it matches relative reference resolution
+        String resourceType = resource.getResourceType().name();
+        String idPart = resource.getIdElement().getIdPart();
+        String fullUrl = FhirUtil.buildVersionlessResourceUrl(serverBase, resourceType, idPart);
+        if (fullUrl != null) {
+          responseEntry.setFullUrl(fullUrl);
+        } else if (entry.hasFullUrl()) {
+          responseEntry.setFullUrl(entry.getFullUrl());
+        }
+        return;
+      }
+    }
+  }
+
+  private boolean requiresAuthorizationNumber(String reviewActionCode) {
+    return REVIEW_CODE_A1.equals(reviewActionCode) || REVIEW_CODE_A6.equals(reviewActionCode);
+  }
+
+  private String nextAuthorizationNumber(String authNumberPrefix) {
+    return authNumberPrefix + String.format("%04d", authCounter.incrementAndGet());
   }
 
   private boolean isPendedReviewAction(ClaimResponse.AdjudicationComponent adjudication) {

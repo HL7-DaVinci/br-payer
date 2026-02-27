@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberInput } from "@/components/ui/number-input";
 import {
   Select,
   SelectContent,
@@ -568,20 +569,22 @@ function MedicationRequestForm({
 
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Quantity">
-          <Input
+          <NumberInput
             className="h-8 text-xs"
-            type="number"
             value={formData.quantity}
-            onChange={(e) => updateField("quantity", e.target.value)}
+            onChange={(e) =>
+              updateField("quantity", (e.target as HTMLInputElement).value)
+            }
             placeholder="30"
           />
         </FormField>
         <FormField label="Refills">
-          <Input
+          <NumberInput
             className="h-8 text-xs"
-            type="number"
             value={formData.refills}
-            onChange={(e) => updateField("refills", e.target.value)}
+            onChange={(e) =>
+              updateField("refills", (e.target as HTMLInputElement).value)
+            }
             placeholder="0"
           />
         </FormField>
@@ -756,11 +759,12 @@ function DeviceRequestForm({
       </div>
 
       <FormField label="Quantity">
-        <Input
+        <NumberInput
           className="h-8 text-xs w-24"
-          type="number"
           value={formData.quantity}
-          onChange={(e) => updateField("quantity", e.target.value)}
+          onChange={(e) =>
+            updateField("quantity", (e.target as HTMLInputElement).value)
+          }
           placeholder="1"
         />
       </FormField>
@@ -976,11 +980,12 @@ function AppointmentForm({
             />
           </FormField>
           <FormField label="Duration (min)">
-            <Input
+            <NumberInput
               className="h-8 text-xs"
-              type="number"
               value={formData.duration}
-              onChange={(e) => updateField("duration", e.target.value)}
+              onChange={(e) =>
+                updateField("duration", (e.target as HTMLInputElement).value)
+              }
               placeholder="30"
             />
           </FormField>

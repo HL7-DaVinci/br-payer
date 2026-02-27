@@ -2,10 +2,21 @@ package org.hl7.davinci.pas;
 
 import static org.hl7.davinci.common.FhirConstants.X12_REVIEW_CODE_SYSTEM;
 
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Claim;
+import org.hl7.fhir.r4.model.ClaimResponse;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DateType;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.Type;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -111,6 +122,62 @@ public final class PasExtensions {
       }
     }
     return result;
+  }
+
+  /**
+   * Builds an itemTraceNumber extension wrapping the given Identifier.
+   */
+  public static Extension buildItemTraceNumberExtension(Identifier traceId) {
+    return new Extension(PasConstants.ITEM_TRACE_NUMBER, traceId.copy());
+  }
+
+  /**
+   * Builds an itemPreAuthIssueDate extension with the given date.
+   */
+  public static Extension buildPreAuthIssueDateExtension(Date issueDate) {
+    return new Extension(PasConstants.ITEM_PREAUTH_ISSUE_DATE, new DateType(issueDate));
+  }
+
+  /**
+   * Builds an itemRequestedServiceDate extension wrapping the given serviced[x] value.
+   */
+  public static Extension buildRequestedServiceDateExtension(Type servicedValue) {
+    return new Extension(PasConstants.ITEM_REQUESTED_SERVICE_DATE, servicedValue.copy());
+  }
+
+  /**
+   * Builds a transmissionIdentifiers extension
+   * Requires two sub-extensions: applicationSenderCode and applicationReceiverCode.
+   * The system/value pair is used to set the sender code; receiver code uses the same system.
+   */
+  public static Extension buildTransmissionIdentifiersExtension(String senderCode, String receiverCode) {
+    Extension ext = new Extension(PasConstants.TRANSMISSION_IDENTIFIERS);
+    ext.addExtension("applicationSenderCode", new StringType(senderCode));
+    ext.addExtension("applicationReceiverCode", new StringType(receiverCode));
+    return ext;
+  }
+
+  /**
+   * Extracts itemTraceNumber Identifiers from a Claim item's extensions.
+   */
+  public static List<Identifier> extractItemTraceNumbers(Claim.ItemComponent item) {
+    List<Identifier> result = new ArrayList<>();
+    for (Extension ext : item.getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER)) {
+      if (ext.getValue() instanceof Identifier id) {
+        result.add(id);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Extracts the serviced[x] value (Period or DateType) from a Claim item, or null if absent.
+   */
+  public static Type extractServicedValue(Claim.ItemComponent item) {
+    if (item.hasServiced()) {
+      return item.getServiced();
+    }
+    return null;
   }
 
   /**

@@ -26,6 +26,17 @@ public class PasBundleValidator {
     if (!claim.hasItem() || claim.getItem().isEmpty()) {
       throw new IllegalArgumentException("Claim must have at least one item");
     }
+    if (!bundle.hasIdentifier()) {
+      throw new IllegalArgumentException("Bundle.identifier is required");
+    }
+    if (!bundle.hasTimestamp()) {
+      throw new IllegalArgumentException("Bundle.timestamp is required");
+    }
+    for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+      if (!entry.hasFullUrl() || entry.getFullUrl().isBlank()) {
+        throw new IllegalArgumentException("All Bundle.entry elements must have a fullUrl");
+      }
+    }
     return claim;
   }
 

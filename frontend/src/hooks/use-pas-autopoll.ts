@@ -7,8 +7,11 @@ import type {
   TimelineEntry,
 } from "@/lib/pas-types";
 import {
+  extractAdminRefNumber,
+  extractAllItemReviewActions,
   extractAuthorizationNumber,
   extractClaimResponseFromBundle,
+  extractPreAuthPeriod,
   extractResponseBundlesFromParameters,
   extractReviewAction,
   findResponseBundleByClaimResponseId,
@@ -96,6 +99,9 @@ export function usePasAutoPoll({
               authorizationId: authId,
               reviewAction,
               authorizationNumber: cr ? extractAuthorizationNumber(cr) : null,
+              adminRefNumber: cr ? extractAdminRefNumber(cr) : null,
+              preAuthPeriod: cr ? extractPreAuthPeriod(cr) : null,
+              itemReviewActions: cr ? extractAllItemReviewActions(cr) : null,
               durationMs,
             };
 
@@ -123,6 +129,9 @@ export function usePasAutoPoll({
               authorizationId: authId,
               reviewAction: null,
               authorizationNumber: null,
+              adminRefNumber: null,
+              preAuthPeriod: null,
+              itemReviewActions: null,
               durationMs,
             };
 

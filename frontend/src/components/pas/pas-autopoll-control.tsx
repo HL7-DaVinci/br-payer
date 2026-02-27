@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import type { AutoPollConfig } from "@/lib/pas-types";
 
 interface PasAutoPollControlProps {
@@ -46,13 +46,12 @@ export function PasAutoPollControl({
       {config.enabled && (
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-muted-foreground">every</span>
-          <Input
-            type="number"
+          <NumberInput
             min={5}
             max={60}
             value={intervalInput}
             onChange={(e) => {
-              const value = e.target.value;
+              const value = (e.target as HTMLInputElement).value;
               setIntervalInput(value);
 
               const parsed = Number.parseInt(value, 10);

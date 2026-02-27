@@ -197,10 +197,12 @@ public class DtrResponseBuilder {
     // qr-context extensions
     addQrContextExtensions(qr, provenance, allOrders);
 
-    // Contained Questionnaire: shell derived from the adaptive source
+    // Contained Questionnaire: shell derived from the adaptive source.
+    // The contained Questionnaire must have derivedFrom pointing to the source canonical.
+    // The url must differ from the source to avoid a self-referential derivedFrom.
     Questionnaire contained = new Questionnaire();
     contained.setId(containedQuestionnaireId);
-    contained.setUrl(questionnaire.getUrl());
+    contained.setUrl(questionnaire.getUrl() + "-adaptive");
     contained.setStatus(questionnaire.hasStatus()
         ? questionnaire.getStatus()
         : Enumerations.PublicationStatus.ACTIVE);

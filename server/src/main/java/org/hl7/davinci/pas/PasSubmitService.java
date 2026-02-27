@@ -113,7 +113,7 @@ public class PasSubmitService {
     String serverClaimId = claimOutcome.getId().getIdPart();
 
     if (result.priorClaimResponse() != null) {
-      return persistUpdatePath(result, authPrefix);
+      return persistUpdatePath(result, authPrefix, requestBundle);
     }
     return persistCreatePath(claim, requestBundle, result, serverClaimId, authPrefix);
   }
@@ -155,7 +155,7 @@ public class PasSubmitService {
    * Update path (update/cancel): modifies the existing ClaimResponse in-place via .update().
    * Maintains the pended scheduler tag based on post-update item state.
    */
-  private Bundle persistUpdatePath(SubmissionResult result, String authPrefix) {
+  private Bundle persistUpdatePath(SubmissionResult result, String authPrefix, Bundle requestBundle) {
     ClaimResponse existingCr = result.priorClaimResponse();
     boolean hadPendedTag = existingCr.getMeta().getTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE) != null;
 
@@ -188,7 +188,7 @@ public class PasSubmitService {
           tagToRemove, new SystemRequestDetails());
     }
 
-    return responseBuilder.wrapInResponseBundle(existingCr);
+    return responseBuilder.wrapInResponseBundle(existingCr, requestBundle);
   }
 
   // ===== Submission Type Detection =====

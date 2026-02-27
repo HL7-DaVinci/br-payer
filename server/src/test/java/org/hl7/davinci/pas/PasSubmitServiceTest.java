@@ -729,7 +729,7 @@ class PasSubmitServiceTest {
     Bundle responseBundle = new Bundle();
     responseBundle.setType(Bundle.BundleType.COLLECTION);
     responseBundle.addEntry().setResource(new ClaimResponse());
-    when(responseBuilder.wrapInResponseBundle(any())).thenReturn(responseBundle);
+    when(responseBuilder.wrapInResponseBundle(any(ClaimResponse.class), any())).thenReturn(responseBundle);
   }
 
   @SuppressWarnings("unchecked")

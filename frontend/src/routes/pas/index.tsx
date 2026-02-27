@@ -59,8 +59,11 @@ import type {
   TimelineEntry,
 } from "@/lib/pas-types";
 import {
+  extractAdminRefNumber,
+  extractAllItemReviewActions,
   extractAuthorizationNumber,
   extractClaimResponseFromBundle,
+  extractPreAuthPeriod,
   extractResponseBundlesFromParameters,
   extractReviewAction,
   findResponseBundleByClaimResponseId,
@@ -255,6 +258,9 @@ function PasPage() {
         authorizationId,
         reviewAction,
         authorizationNumber,
+        adminRefNumber: cr ? extractAdminRefNumber(cr) : null,
+        preAuthPeriod: cr ? extractPreAuthPeriod(cr) : null,
+        itemReviewActions: cr ? extractAllItemReviewActions(cr) : null,
         durationMs,
       };
     },
@@ -286,6 +292,9 @@ function PasPage() {
             authorizationId: null,
             reviewAction: null,
             authorizationNumber: null,
+            adminRefNumber: null,
+            preAuthPeriod: null,
+            itemReviewActions: null,
             durationMs,
           },
         ];
@@ -319,6 +328,9 @@ function PasPage() {
             authorizationId,
             reviewAction,
             authorizationNumber,
+            adminRefNumber: cr ? extractAdminRefNumber(cr) : null,
+            preAuthPeriod: cr ? extractPreAuthPeriod(cr) : null,
+            itemReviewActions: cr ? extractAllItemReviewActions(cr) : null,
             durationMs,
           };
         });
@@ -348,6 +360,9 @@ function PasPage() {
         authorizationId: null,
         reviewAction: null,
         authorizationNumber: null,
+        adminRefNumber: null,
+        preAuthPeriod: null,
+        itemReviewActions: null,
         durationMs,
       };
     },

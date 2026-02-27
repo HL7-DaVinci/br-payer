@@ -7,12 +7,14 @@ import java.util.List;
 import org.hl7.davinci.common.CoverageInfoUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.RequestGroup;
+import org.hl7.fhir.r4.model.SimpleQuantity;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,11 +33,24 @@ public class PasCoverageEvaluator {
 
   /**
    * Result of coverage evaluation for a single claim item.
+   * The modification fields support A6 (Modified) decisions where the payer
+   * approves with changes to the requested service or quantity.
    */
   public record CoverageDecision(
       String reviewActionCode,
       String reviewActionDisplay,
-      boolean isPended) {}
+      boolean isPended,
+      CodeableConcept modifiedProductOrService,
+      SimpleQuantity modifiedQuantity) {
+
+    public CoverageDecision(String reviewActionCode, String reviewActionDisplay, boolean isPended) {
+      this(reviewActionCode, reviewActionDisplay, isPended, null, null);
+    }
+
+    public boolean hasModification() {
+      return modifiedProductOrService != null || modifiedQuantity != null;
+    }
+  }
 
   /**
    * Evaluates coverage for a single Claim item against CRD PlanDefinitions.
