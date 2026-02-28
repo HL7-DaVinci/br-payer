@@ -62,18 +62,21 @@ public class PasSubmitService {
   private final PasResponseBuilder responseBuilder;
   private final DaoRegistry daoRegistry;
   private final PasBundleReferenceResolver bundleReferenceResolver;
+  private final PasPendedResolutionService resolutionService;
   private final PasProperties pasProperties;
   private final String serverBase;
 
   public PasSubmitService(PasBundleValidator validator, PasCoverageEvaluator evaluator,
       PasResponseBuilder responseBuilder, DaoRegistry daoRegistry,
-      PasBundleReferenceResolver bundleReferenceResolver, AppProperties appProperties,
+      PasBundleReferenceResolver bundleReferenceResolver,
+      PasPendedResolutionService resolutionService, AppProperties appProperties,
       PasProperties pasProperties) {
     this.validator = validator;
     this.evaluator = evaluator;
     this.responseBuilder = responseBuilder;
     this.daoRegistry = daoRegistry;
     this.bundleReferenceResolver = bundleReferenceResolver;
+    this.resolutionService = resolutionService;
     this.pasProperties = pasProperties;
     this.serverBase = FhirUtil.normalizeServerBase(appProperties.getServer_address());
   }
@@ -143,6 +146,11 @@ public class PasSubmitService {
 
     String crId = crOutcome.getId().getIdPart();
     claimResponse.setId(crId);
+
+    if (anyPended) {
+      resolutionService.scheduleResolution(crId);
+    }
+
     String fullUrl = FhirUtil.buildVersionlessResourceUrl(serverBase, "ClaimResponse", crId);
     if (fullUrl != null) {
       responseBundle.getEntryFirstRep().setFullUrl(fullUrl);
@@ -186,6 +194,13 @@ public class PasSubmitService {
       tagToRemove.addTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE, null);
       crDao.metaDeleteOperation(existingCr.getIdElement().toUnqualifiedVersionless(),
           tagToRemove, new SystemRequestDetails());
+    }
+
+    String crId = existingCr.getIdElement().getIdPart();
+    if (anyStillPended) {
+      resolutionService.scheduleResolution(crId);
+    } else {
+      resolutionService.cancelResolution(crId);
     }
 
     return responseBuilder.wrapInResponseBundle(existingCr, requestBundle);

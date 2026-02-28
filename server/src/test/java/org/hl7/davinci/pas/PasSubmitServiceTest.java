@@ -32,6 +32,7 @@ class PasSubmitServiceTest {
   private PasCoverageEvaluator evaluator;
   private PasResponseBuilder responseBuilder;
   private PasBundleReferenceResolver bundleReferenceResolver;
+  private PasPendedResolutionService resolutionService;
   private DaoRegistry daoRegistry;
   private PasSubmitService service;
 
@@ -42,6 +43,7 @@ class PasSubmitServiceTest {
     evaluator = mock(PasCoverageEvaluator.class);
     responseBuilder = mock(PasResponseBuilder.class);
     bundleReferenceResolver = mock(PasBundleReferenceResolver.class);
+    resolutionService = mock(PasPendedResolutionService.class);
     daoRegistry = mock(DaoRegistry.class);
 
     IFhirResourceDao<ClaimResponse> crDao = mock(IFhirResourceDao.class);
@@ -80,7 +82,7 @@ class PasSubmitServiceTest {
 
     PasProperties pasProperties = new PasProperties(30, "AUTH-");
     service = new PasSubmitService(validator, evaluator, responseBuilder, daoRegistry,
-        bundleReferenceResolver, appProperties, pasProperties);
+        bundleReferenceResolver, resolutionService, appProperties, pasProperties);
   }
 
   @Test
@@ -588,6 +590,91 @@ class PasSubmitServiceTest {
     verify(crDao).update(any(), any(RequestDetails.class));
     // After applying A1 decisions, no items are A4, so pended tag should be removed
     verify(crDao).metaDeleteOperation(any(), any(Meta.class), any(RequestDetails.class));
+  }
+
+  // ===== Resolution Scheduling Tests =====
+
+  @Test
+  void submit_pendedInitial_schedulesResolution() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    mockValidatorAndResponseBuilder(requestBundle, claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A4, "Pended", true));
+
+    service.submit(requestBundle);
+
+    verify(resolutionService).scheduleResolution("server-cr-id");
+  }
+
+  @Test
+  void submit_approvedInitial_doesNotScheduleResolution() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    mockValidatorAndResponseBuilder(requestBundle, claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
+
+    service.submit(requestBundle);
+
+    verify(resolutionService, never()).scheduleResolution(any());
+  }
+
+  @Test
+  void submit_cancelRemovesPended_cancelsResolution() {
+    Bundle requestBundle = buildCancelBundle("prior-claim-id");
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    mockUpdatePathResponse();
+    mockStoredClaimSearch(buildStoredPriorClaim());
+
+    ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
+    pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
+        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    mockClaimResponseSearch(pendedCr);
+
+    service.submit(requestBundle);
+
+    verify(resolutionService).cancelResolution("prior-cr-id");
+    verify(resolutionService, never()).scheduleResolution(any());
+  }
+
+  @Test
+  void submit_updateIntroducesPended_schedulesResolution() {
+    Bundle requestBundle = buildUpdateBundle("prior-claim-id");
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    mockUpdatePathResponse();
+    mockStoredClaimSearch(buildStoredPriorClaim());
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A1, "Certified in total"));
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A4, "Pending", true));
+
+    service.submit(requestBundle);
+
+    verify(resolutionService).scheduleResolution("prior-cr-id");
+  }
+
+  @Test
+  void submit_updateResolvesAllPended_cancelsResolution() {
+    Bundle requestBundle = buildUpdateBundle("prior-claim-id");
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    mockUpdatePathResponse();
+    mockStoredClaimSearch(buildStoredPriorClaim());
+
+    ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
+    pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
+        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    mockClaimResponseSearch(pendedCr);
+
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A1, "Certified", false));
+
+    service.submit(requestBundle);
+
+    verify(resolutionService).cancelResolution("prior-cr-id");
+    verify(resolutionService, never()).scheduleResolution(any());
   }
 
   @Test
