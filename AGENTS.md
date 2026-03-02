@@ -79,16 +79,17 @@ nx run frontend:copy-to-server
 - **Structure**:
   - `src/main/java/ca/uhn/fhir/` - HAPI starter code (do NOT modify)
   - `src/main/java/org/hl7/davinci/` - Custom implementation code (all custom code goes here)
-    - `api/` - REST controllers for non-FHIR APIs (`/api/dtr/`, `/api/crd/`)
-    - `cdshooks/services/` - CDS Hook service implementations
+    - `api/` - REST controllers for non-FHIR APIs (`/api/crd/`, `/api/dtr/`, `/api/pas/`)
+    - `cdshooks/services/` - CDS Hook implementations: `OrderSelectService`, `OrderSignService`, `OrderDispatchService`, `AppointmentBookService`, `EncounterStartService`, `EncounterDischargeService`
     - `cdshooks/shared/` - Shared CDS Hooks utilities
     - `common/` - Shared utilities (`PlanDefinitionService`, `FhirCodeExtractor`, `FhirUtil`, `CrdConstants`)
     - `config/` - Spring configuration
     - `cql/` - CQL file resolution and ELM compilation
     - `datainitializer/` - Startup resource loading and CQL compilation
     - `dtr/` - DTR questionnaire pipeline (resolver, assemblers, response builder, session store, `DtrConstants`)
+    - `pas/` - PAS `$submit` and `$inquire` operations: validation, coverage evaluation, response building, pended resolution
     - `providers/` - Custom FHIR resource providers
-    - `scenarios/` - Test scenario generation from library PlanDefinitions (see below)
+    - `scenarios/` - Test scenario generation from library PlanDefinitions, with sub-packages `crd/`, `dtr/`, `pas/`
 
 ### 2. Frontend (`frontend`)
 - **Path**: `frontend/`
@@ -123,12 +124,12 @@ nx run frontend:copy-to-server
 
 ## Test Scenario Generation
 
-Test request fixtures for both DTR and CRD are auto-generated from library PlanDefinition metadata rather than hand-maintained as JSON files.
+Test request fixtures for CRD, DTR, and PAS are auto-generated from library PlanDefinition metadata rather than hand-maintained as JSON files.
 
 ### How It Works
 
 1. **`LibraryScenarioScanner`** scans the `library/` directory for PlanDefinition + Questionnaire pairs, extracting `ScenarioMetadata` (focus codes, hook triggers, order types, questionnaire URLs)
-2. **`DtrRequestBuilder`** and **`CrdRequestBuilder`** transform metadata into valid request JSON (FHIR Parameters for DTR, CDS Hooks JSON for CRD)
+2. Each IG has a scenario service and request builder pair in `scenarios/crd/`, `scenarios/dtr/`, `scenarios/pas/` sub-packages that transform metadata into valid request JSON
 3. **`TestRequestFileGenerator`** runs at build time (`process-test-classes` phase via Maven exec plugin) and writes generated files to `target/test-requests/`
 
 ### Build Output
@@ -153,16 +154,16 @@ target/test-requests/
 
 ### Runtime API
 
-Spring services (`DtrScenarioService`, `CrdScenarioService`) expose the same generated content via REST endpoints. These scan the FHIR database at request time, so they reflect the current server state.
+Spring services (`CrdScenarioService`, `DtrScenarioService`, `PasScenarioService`) expose the same generated content via REST endpoints. These scan the FHIR database at request time, so they reflect the current server state.
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/dtr/scenarios` | List all DTR test scenarios |
-| `GET /api/dtr/scenarios/{id}` | Single DTR scenario with request variants |
-| `GET /api/dtr/scenarios/{id}/requests/{type}` | Raw FHIR Parameters JSON for a DTR variant |
 | `GET /api/crd/scenarios` | List all CRD test scenarios |
-| `GET /api/crd/scenarios/{id}` | Single CRD scenario with hook variants |
 | `GET /api/crd/scenarios/{id}/hooks/{hookName}` | Raw CDS Hooks request JSON for a hook variant |
+| `GET /api/dtr/scenarios` | List all DTR test scenarios |
+| `GET /api/dtr/scenarios/{id}/requests/{type}` | Raw FHIR Parameters JSON for a DTR variant |
+| `GET /api/pas/scenarios` | List all PAS test scenarios |
+| `GET /api/pas/scenarios/{id}/variants/{variantId}` | Raw FHIR Bundle JSON for a PAS variant |
 
 ### Adding New Scenarios
 
@@ -211,9 +212,58 @@ This server implements the Da Vinci Burden Reduction implementation guides. Alwa
 
 ### Card Type Codes
 
-Use codes from `http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp` for `source.topic`:
+Use `CrdConstants.CARD_TYPE_SYSTEM` for `source.topic`:
 - `coverage-info`, `insurance`, `network`, `cost`, `therapy-alternatives-req`, etc.
 - See [CRD CardType ValueSet](https://build.fhir.org/ig/HL7/davinci-crd/en/ValueSet-cardType.html)
+
+---
+
+## FHIR Operation Endpoints
+
+| Provider | Operation | Notes |
+|----------|-----------|-------|
+| `ClaimSubmitProvider` | `Claim/$submit` | PAS prior authorization submission |
+| `ClaimInquiryProvider` | `Claim/$inquire` | PAS authorization status inquiry |
+| `QuestionnairePackageProvider` | `Questionnaire/$questionnaire-package` | DTR questionnaire packaging |
+| `DtrQuestionnaireNextQuestionProvider` | `Questionnaire/$next-question` | DTR adaptive questionnaire |
+| `LogQuestionnaireErrorsProvider` | `Questionnaire/$log-questionnaire-errors` | Stub -- throws `NotImplementedOperationException` |
+
+---
+
+## PAS Architecture
+
+### Key Files
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Submit Provider | `providers/ClaimSubmitProvider.java` | Thin REST layer for `$submit` |
+| Inquiry Provider | `providers/ClaimInquiryProvider.java` | Thin REST layer for `$inquire` |
+| Submit Service | `pas/PasSubmitService.java` | Orchestrates submit: validates, detects type, routes to handlers, stores Claim, builds response |
+| Inquiry Service | `pas/PasInquiryService.java` | Query-by-example search against stored ClaimResponses |
+| Bundle Validator | `pas/PasBundleValidator.java` | Validates request bundles per PAS IG structural constraints |
+| Reference Resolver | `pas/PasBundleReferenceResolver.java` | Resolves Patient/Organization/Coverage references from bundles |
+| Coverage Evaluator | `pas/PasCoverageEvaluator.java` | Bridges CRD PlanDefinitions to X12 review action codes (A1/A3/A4) |
+| Response Builder | `pas/PasResponseBuilder.java` | Constructs conformant ClaimResponse bundles with auth numbers |
+| Pended Resolution | `pas/PasPendedResolutionService.java` | Schedules one-shot auto-approval tasks for pended items |
+| Extensions | `pas/PasExtensions.java` | PAS extension URLs, profile URLs, X12 review codes, builder helpers |
+| Properties | `pas/PasProperties.java` | Config: `pas.pended-resolution-delay-seconds`, `pas.authorization-number-prefix` |
+
+### PAS Submit Flow
+
+1. `PasBundleValidator` validates the request bundle structure
+2. `PasBundleReferenceResolver` resolves Patient/Organization/Coverage from the bundle
+3. `PasSubmitService` detects submission type (INITIAL/RENEWAL/UPDATE/CANCEL) via structural Claim properties (presence of `Claim.related`), not `meta.profile`
+4. Routes to type-specific handlers
+5. `PasCoverageEvaluator` evaluates coverage using the same PlanDefinitions that drive CDS Hook cards, translating CRD outcomes to X12 review action codes: A1=Certified, A3=Not Certified, A4=Pended
+6. `PasResponseBuilder` constructs the ClaimResponse bundle with authorization numbers
+7. Items evaluated as A4 (Pended) are tagged with an internal meta tag; `PasPendedResolutionService` schedules one-shot tasks to auto-approve after `pas.pended-resolution-delay-seconds`
+
+### Pended Resolution
+
+- Pended ClaimResponses are tagged with `http://example.org/fhir/us/davinci-pas/internal-tags` / `pended-resolution`
+- `PasPendedResolutionService` uses `TaskScheduler` to schedule one-shot resolution tasks
+- On server restart, it rescans for tagged ClaimResponses and reschedules or immediately resolves them
+- Tags are removed via `metaDeleteOperation` (necessary because HAPI JPA treats tags as additive across versions)
 
 ---
 
@@ -263,6 +313,23 @@ FHIR URL constants (profiles, extensions, code systems) are organized by impleme
 
 `CrdConstants` is in `common/` because CRD constants are referenced from both the `cdshooks` and `dtr` packages. DTR and PAS constants live within their respective packages.
 
+## Configuration
+
+- Main: `server/src/main/resources/application.yaml`
+- CDS profile: `server/src/main/resources/application-cds.yaml` (loads CQL IGs, stricter ValueSet expansion)
+- Test: `server/src/test/resources/application-test.yaml`
+- VSAC integration: set `VSAC_API_KEY` env var (bean activates conditionally)
+- DTR adaptive config: `dtr.adaptive.next-question-url`, `dtr.adaptive.session-ttl-minutes`
+- DTR warmup: `dtr.valueset-warmup.enabled` (pre-expands ValueSets at startup)
+- PAS config: `pas.pended-resolution-delay-seconds` (default 15s), `pas.authorization-number-prefix` (default `AUTH-`)
+
+### Maven Profiles
+
+| Profile | Default | Purpose |
+|---------|---------|---------|
+| `boot` | Yes | Spring Boot embedded Tomcat (development) |
+| `jetty` | No | Replace Tomcat with Jetty (`mvn -Pjetty spring-boot:run`) |
+
 ## Key Constraints
 
 1. **Do NOT modify HAPI starter code** in `src/main/java/ca/uhn/fhir/` - place custom code in `org.hl7.davinci`
@@ -270,3 +337,6 @@ FHIR URL constants (profiles, extensions, code systems) are organized by impleme
 3. **CodeSystem for card types** - Use `CrdConstants.CARD_TYPE_SYSTEM`, not hardcoded URLs
 4. **Coverage extension** - Always include required elements: `coverage`, `covered`, `date`, `coverage-assertion-id`
 5. **IG constants** - Place new FHIR URL constants in the correct IG constants class (see table above), not inline in consuming classes
+6. **PAS reuses CRD PlanDefinitions** - Coverage logic is shared between CRD and PAS via `PasCoverageEvaluator`
+7. **PAS submission type detection** - Structural (presence of `Claim.related`), not profile-based
+8. **H2 in-memory database** - Data is transient and reloaded each startup

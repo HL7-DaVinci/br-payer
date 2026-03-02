@@ -179,20 +179,7 @@ public class DtrResponseBuilder {
 
     qr.setAuthored(new Date());
 
-    // qr-coverage extension
-    Extension coverageExt = new Extension(QR_COVERAGE_EXT);
-    coverageExt.setValue(toRelativeTypedReference(coverage));
-    qr.addExtension(coverageExt);
-
-    // intendedUse extension
-    Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
-    CodeableConcept intendedUseCC = new CodeableConcept();
-    intendedUseCC.addCoding(new Coding()
-        .setSystem(DOC_REASON_SYSTEM)
-        .setCode("withorder")
-        .setDisplay("Include with order"));
-    intendedUseExt.setValue(intendedUseCC);
-    qr.addExtension(intendedUseExt);
+    addCoverageAndIntendedUseExtensions(qr, coverage);
 
     // qr-context extensions
     addQrContextExtensions(qr, provenance, allOrders);
@@ -327,23 +314,25 @@ public class DtrResponseBuilder {
     // Authored timestamp
     qr.setAuthored(new Date());
 
-    // qr-coverage extension
+    addCoverageAndIntendedUseExtensions(qr, coverage);
+
+    // qr-context extensions -- provenance-aware scoping
+    addQrContextExtensions(qr, provenance, allOrders);
+  }
+
+  private void addCoverageAndIntendedUseExtensions(QuestionnaireResponse qr, Coverage coverage) {
     Extension coverageExt = new Extension(QR_COVERAGE_EXT);
     coverageExt.setValue(toRelativeTypedReference(coverage));
     qr.addExtension(coverageExt);
 
-    // intendedUse extension
     Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
     CodeableConcept intendedUseCC = new CodeableConcept();
     intendedUseCC.addCoding(new Coding()
         .setSystem(DOC_REASON_SYSTEM)
-        .setCode("withorder")
+        .setCode(INTENDED_USE_WITH_ORDER)
         .setDisplay("Include with order"));
     intendedUseExt.setValue(intendedUseCC);
     qr.addExtension(intendedUseExt);
-
-    // qr-context extensions — provenance-aware scoping
-    addQrContextExtensions(qr, provenance, allOrders);
   }
 
   private String extractPatientId(Coverage coverage) {

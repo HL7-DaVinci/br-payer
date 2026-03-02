@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 
 class ScenarioMetadataProviderTest {
 
@@ -38,32 +37,14 @@ class ScenarioMetadataProviderTest {
   }
 
   @Test
-  void fetchAll_withKnownTotalUsesSingleBatch() {
+  void fetchAll_returnsAllResources() {
     Questionnaire q1 = questionnaire("QuestionnaireA");
     Questionnaire q2 = questionnaire("QuestionnaireB");
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.size()).thenReturn(2);
-    when(results.getResources(0, 2)).thenReturn(List.of(q1, q2));
-    when(questionnaireDao.search(any(), any())).thenReturn(results);
+    when(questionnaireDao.searchForResources(any(), any())).thenReturn(List.of(q1, q2));
 
     List<Questionnaire> questionnaires = provider.fetchAll(Questionnaire.class);
 
     assertEquals(2, questionnaires.size());
-  }
-
-  @Test
-  void fetchAll_withUnknownTotalPaginatesUntilEmptyBatch() {
-    Questionnaire q1 = questionnaire("QuestionnaireA");
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.size()).thenReturn(null);
-    when(results.getResources(0, 200)).thenReturn(List.of(q1));
-    when(results.getResources(1, 201)).thenReturn(List.of());
-    when(questionnaireDao.search(any(), any())).thenReturn(results);
-
-    List<Questionnaire> questionnaires = provider.fetchAll(Questionnaire.class);
-
-    assertEquals(1, questionnaires.size());
-    assertEquals("QuestionnaireA", questionnaires.get(0).getName());
   }
 
   @Test
@@ -78,15 +59,8 @@ class ScenarioMetadataProviderTest {
         .setType(TriggerDefinition.TriggerType.NAMEDEVENT)
         .setName("order-sign");
 
-    IBundleProvider qResults = mock(IBundleProvider.class);
-    when(qResults.size()).thenReturn(1);
-    when(qResults.getResources(0, 1)).thenReturn(List.of(questionnaire));
-    when(questionnaireDao.search(any(), any())).thenReturn(qResults);
-
-    IBundleProvider pdResults = mock(IBundleProvider.class);
-    when(pdResults.size()).thenReturn(1);
-    when(pdResults.getResources(0, 1)).thenReturn(List.of(plan));
-    when(planDefinitionDao.search(any(), any())).thenReturn(pdResults);
+    when(questionnaireDao.searchForResources(any(), any())).thenReturn(List.of(questionnaire));
+    when(planDefinitionDao.searchForResources(any(), any())).thenReturn(List.of(plan));
 
     List<ScenarioMetadata> metadata = provider.getMetadata();
 

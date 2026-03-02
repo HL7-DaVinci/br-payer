@@ -35,7 +35,6 @@ import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 
@@ -45,7 +44,6 @@ class AdaptiveNextQuestionServiceTest {
   @Mock private DaoRegistry daoRegistry;
   @Mock private DtrSubQuestionnaireAssembler subQAssembler;
   @Mock private IFhirResourceDao<Questionnaire> questionnaireDao;
-  @Mock private IBundleProvider bundleProvider;
   @Mock private IQuestionnaireProcessorFactory questionnaireProcessorFactory;
   @Mock private QuestionnaireProcessor questionnaireProcessor;
 
@@ -554,8 +552,7 @@ class AdaptiveNextQuestionServiceTest {
       QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
 
       when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(questionnaireDao);
-      when(questionnaireDao.search(any(), any())).thenReturn(bundleProvider);
-      when(bundleProvider.isEmpty()).thenReturn(true);
+      when(questionnaireDao.searchForResources(any(), any())).thenReturn(List.of());
 
       assertThrows(InternalErrorException.class, () -> service.processNextQuestion(qr));
     }
@@ -602,9 +599,7 @@ class AdaptiveNextQuestionServiceTest {
 
   private void stubDao(Questionnaire sourceQ) {
     when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(questionnaireDao);
-    when(questionnaireDao.search(any(), any())).thenReturn(bundleProvider);
-    when(bundleProvider.isEmpty()).thenReturn(false);
-    when(bundleProvider.getResources(0, 1)).thenReturn(List.of(sourceQ));
+    when(questionnaireDao.searchForResources(any(), any())).thenReturn(List.of(sourceQ));
     when(subQAssembler.assemble(any())).thenReturn(List.of());
   }
 

@@ -38,6 +38,7 @@ import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseCodingJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseLinkJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 
+import static org.hl7.davinci.common.FhirCodeExtractor.codeableConceptDisplay;
 import static org.hl7.davinci.common.FhirConstants.CARD_TYPE_SYSTEM;
 import static org.hl7.davinci.common.CrdConstants.COVERAGE_INFO_EXT;
 
@@ -315,50 +316,50 @@ public class CardConverter {
 
     String display = null;
     if (resource instanceof ServiceRequest serviceRequest) {
-      display = FhirCodeExtractor.codeableConceptDisplay(serviceRequest.getCode());
+      display = codeableConceptDisplay(serviceRequest.getCode());
     } else if (resource instanceof DeviceRequest deviceRequest) {
-      display = FhirCodeExtractor.codeableConceptDisplay(deviceRequest.getCodeCodeableConcept());
+      display = codeableConceptDisplay(deviceRequest.getCodeCodeableConcept());
     } else if (resource instanceof MedicationRequest medicationRequest) {
-      display = FhirCodeExtractor.codeableConceptDisplay(medicationRequest.getMedicationCodeableConcept());
+      display = codeableConceptDisplay(medicationRequest.getMedicationCodeableConcept());
     } else if (resource instanceof CommunicationRequest communicationRequest) {
       if (communicationRequest.hasCategory()) {
-        display = FhirCodeExtractor.codeableConceptDisplay(communicationRequest.getCategoryFirstRep());
+        display = codeableConceptDisplay(communicationRequest.getCategoryFirstRep());
       }
       if ((display == null || display.isBlank()) && communicationRequest.hasReasonCode()) {
-        display = FhirCodeExtractor.codeableConceptDisplay(communicationRequest.getReasonCodeFirstRep());
+        display = codeableConceptDisplay(communicationRequest.getReasonCodeFirstRep());
       }
     } else if (resource instanceof NutritionOrder nutritionOrder) {
       if (nutritionOrder.hasOralDiet() && nutritionOrder.getOralDiet().hasType()) {
-        display = FhirCodeExtractor.codeableConceptDisplay(nutritionOrder.getOralDiet().getTypeFirstRep());
+        display = codeableConceptDisplay(nutritionOrder.getOralDiet().getTypeFirstRep());
       }
       if ((display == null || display.isBlank()) && nutritionOrder.hasSupplement()) {
         for (NutritionOrder.NutritionOrderSupplementComponent supplement : nutritionOrder.getSupplement()) {
           if (supplement.hasType()) {
-            display = FhirCodeExtractor.codeableConceptDisplay(supplement.getType());
+            display = codeableConceptDisplay(supplement.getType());
             break;
           }
         }
       }
       if ((display == null || display.isBlank()) && nutritionOrder.hasEnteralFormula()
           && nutritionOrder.getEnteralFormula().hasBaseFormulaType()) {
-        display = FhirCodeExtractor.codeableConceptDisplay(nutritionOrder.getEnteralFormula().getBaseFormulaType());
+        display = codeableConceptDisplay(nutritionOrder.getEnteralFormula().getBaseFormulaType());
       }
     } else if (resource instanceof VisionPrescription visionPrescription) {
       if (visionPrescription.hasLensSpecification()) {
         for (VisionPrescription.VisionPrescriptionLensSpecificationComponent spec : visionPrescription
             .getLensSpecification()) {
           if (spec.hasProduct()) {
-            display = FhirCodeExtractor.codeableConceptDisplay(spec.getProduct());
+            display = codeableConceptDisplay(spec.getProduct());
             break;
           }
         }
       }
     } else if (resource instanceof Appointment appointment) {
       if (appointment.hasServiceType()) {
-        display = FhirCodeExtractor.codeableConceptDisplay(appointment.getServiceTypeFirstRep());
+        display = codeableConceptDisplay(appointment.getServiceTypeFirstRep());
       }
       if ((display == null || display.isBlank()) && appointment.hasReasonCode()) {
-        display = FhirCodeExtractor.codeableConceptDisplay(appointment.getReasonCodeFirstRep());
+        display = codeableConceptDisplay(appointment.getReasonCodeFirstRep());
       }
     }
 

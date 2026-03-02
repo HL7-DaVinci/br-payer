@@ -25,7 +25,6 @@ import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.param.TokenAndListParam;
 import ca.uhn.fhir.rest.param.TokenOrListParam;
@@ -86,27 +85,25 @@ public class PlanDefinitionService {
 
     logger.info("Constructed search parameters: {}", searchParams.toNormalizedQueryString());
 
-    IBundleProvider planDefBundle = daoRegistry
+    List<PlanDefinition> planDefs = daoRegistry
         .getResourceDao(PlanDefinition.class)
-        .search(searchParams, new SystemRequestDetails());
+        .searchForResources(searchParams, new SystemRequestDetails());
 
-    planDefBundle.getResources(0, planDefBundle.size()).forEach(resource -> {
-      if (resource instanceof PlanDefinition planDef) {
-        if (hook == null) {
-          // DTR path: no trigger filtering, accept all code+payor matches
-          plans.add(planDef);
-          return;
-        }
-        if (planDef.hasAction()) {
-          for (PlanDefinition.PlanDefinitionActionComponent action : planDef.getAction()) {
-            if (action.hasTrigger()) {
-              boolean hasMatchingTrigger = action.getTrigger().stream()
-                  .anyMatch(trigger -> trigger.hasType() && trigger.getType() == TriggerType.NAMEDEVENT
-                      && trigger.getName().equals(hook));
-              if (hasMatchingTrigger) {
-                plans.add(planDef);
-                break;
-              }
+    planDefs.forEach(planDef -> {
+      if (hook == null) {
+        // DTR path: no trigger filtering, accept all code+payor matches
+        plans.add(planDef);
+        return;
+      }
+      if (planDef.hasAction()) {
+        for (PlanDefinition.PlanDefinitionActionComponent action : planDef.getAction()) {
+          if (action.hasTrigger()) {
+            boolean hasMatchingTrigger = action.getTrigger().stream()
+                .anyMatch(trigger -> trigger.hasType() && trigger.getType() == TriggerType.NAMEDEVENT
+                    && trigger.getName().equals(hook));
+            if (hasMatchingTrigger) {
+              plans.add(planDef);
+              break;
             }
           }
         }
@@ -136,11 +133,9 @@ public class PlanDefinitionService {
     contextParam.addAnd(payorOrList);
     searchParams.add("context", contextParam);
 
-    IBundleProvider result = daoRegistry
-        .getResourceDao(PlanDefinition.class)
-        .search(searchParams, new SystemRequestDetails());
-
-    return !result.isEmpty();
+    return !daoRegistry.getResourceDao(PlanDefinition.class)
+        .searchForIds(searchParams, new SystemRequestDetails())
+        .isEmpty();
   }
 
   /**

@@ -3,9 +3,8 @@ package org.hl7.davinci.common;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
-import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.TriggerDefinition.TriggerType;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,9 +35,6 @@ class PlanDefinitionServiceTest {
   @SuppressWarnings("rawtypes")
   private IFhirResourceDao planDefinitionDao;
 
-  @Mock
-  private IBundleProvider bundleProvider;
-
   @InjectMocks
   private PlanDefinitionService planDefinitionService;
 
@@ -56,8 +52,6 @@ class PlanDefinitionServiceTest {
         new Identifier().setSystem("urn:oid:2.16.840.1.113883.6.300").setValue("00001"));
 
     lenient().when(daoRegistry.getResourceDao(PlanDefinition.class)).thenReturn(planDefinitionDao);
-    lenient().when(planDefinitionDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(bundleProvider);
   }
 
   private PlanDefinition createPlanDefinition(String id, String triggerName) {
@@ -86,9 +80,8 @@ class PlanDefinitionServiceTest {
       PlanDefinition planWithNoAction = new PlanDefinition();
       planWithNoAction.setId("pd-3");
 
-      List<IBaseResource> resources = List.of(planWithOrderSign, planWithOrderSelect, planWithNoAction);
-      when(bundleProvider.size()).thenReturn(resources.size());
-      when(bundleProvider.getResources(0, resources.size())).thenReturn(resources);
+      when(planDefinitionDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+          .thenReturn(List.of(planWithOrderSign, planWithOrderSelect, planWithNoAction));
 
       List<PlanDefinition> results = planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, null);
 
@@ -106,9 +99,8 @@ class PlanDefinitionServiceTest {
       PlanDefinition planWithOrderSign = createPlanDefinition("pd-1", "order-sign");
       PlanDefinition planWithOrderSelect = createPlanDefinition("pd-2", "order-select");
 
-      List<IBaseResource> resources = List.of(planWithOrderSign, planWithOrderSelect);
-      when(bundleProvider.size()).thenReturn(resources.size());
-      when(bundleProvider.getResources(0, resources.size())).thenReturn(resources);
+      when(planDefinitionDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+          .thenReturn(List.of(planWithOrderSign, planWithOrderSelect));
 
       List<PlanDefinition> results = planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, "order-sign");
 
@@ -121,9 +113,8 @@ class PlanDefinitionServiceTest {
     void nonNullHook_noMatches() {
       PlanDefinition planWithOrderSign = createPlanDefinition("pd-1", "order-sign");
 
-      List<IBaseResource> resources = List.of(planWithOrderSign);
-      when(bundleProvider.size()).thenReturn(resources.size());
-      when(bundleProvider.getResources(0, resources.size())).thenReturn(resources);
+      when(planDefinitionDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+          .thenReturn(List.of(planWithOrderSign));
 
       List<PlanDefinition> results = planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, "encounter-start");
 
@@ -138,13 +129,13 @@ class PlanDefinitionServiceTest {
     @Test
     @DisplayName("findPlanDefinitions uses context-type + context token params (no composite context-type-value)")
     void findPlanDefinitions_usesTokenParams() {
-      when(bundleProvider.size()).thenReturn(0);
-      when(bundleProvider.getResources(0, 0)).thenReturn(List.of());
+      when(planDefinitionDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+          .thenReturn(List.of());
 
       planDefinitionService.findPlanDefinitions(testCode, payorIdentifiers, "order-sign");
 
       ArgumentCaptor<SearchParameterMap> mapCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
-      verify(planDefinitionDao).search(mapCaptor.capture(), any(SystemRequestDetails.class));
+      verify(planDefinitionDao).searchForResources(mapCaptor.capture(), any(SystemRequestDetails.class));
 
       SearchParameterMap searchMap = mapCaptor.getValue();
       assertTrue(searchMap.containsKey("context-type"));
@@ -160,13 +151,14 @@ class PlanDefinitionServiceTest {
     @Test
     @DisplayName("isPayorHandled uses program context-type + context token OR list")
     void isPayorHandled_usesTokenParams() {
-      when(bundleProvider.isEmpty()).thenReturn(false);
+      when(planDefinitionDao.searchForIds(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+          .thenReturn(List.of(new IdType("PlanDefinition/pd-1")));
 
       boolean handled = planDefinitionService.isPayorHandled(payorIdentifiers);
       assertTrue(handled);
 
       ArgumentCaptor<SearchParameterMap> mapCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
-      verify(planDefinitionDao).search(mapCaptor.capture(), any(SystemRequestDetails.class));
+      verify(planDefinitionDao).searchForIds(mapCaptor.capture(), any(SystemRequestDetails.class));
 
       SearchParameterMap searchMap = mapCaptor.getValue();
       assertTrue(searchMap.containsKey("context-type"));

@@ -6,7 +6,6 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.rest.api.SortOrderEnum;
 import ca.uhn.fhir.rest.api.SortSpec;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.param.UriParam;
@@ -57,13 +56,12 @@ public final class DtrFhirUtil {
     params.setSort(new SortSpec("_lastUpdated", SortOrderEnum.DESC));
     params.setCount(1);
 
-    IBundleProvider results = daoRegistry.getResourceDao(type)
-        .search(params, new SystemRequestDetails());
-
+    var results = daoRegistry.getResourceDao(type)
+        .searchForResources(params, new SystemRequestDetails());
     if (results.isEmpty()) {
       return null;
     }
-    return type.cast(results.getResources(0, 1).get(0));
+    return type.cast(results.get(0));
   }
 
   /**

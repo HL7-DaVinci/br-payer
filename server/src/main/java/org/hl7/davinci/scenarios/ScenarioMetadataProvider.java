@@ -1,6 +1,5 @@
 package org.hl7.davinci.scenarios;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
@@ -11,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 
 /**
@@ -35,31 +33,9 @@ public class ScenarioMetadataProvider {
   }
 
   <T extends IBaseResource> List<T> fetchAll(Class<T> type) {
-    IBundleProvider results = daoRegistry.getResourceDao(type)
-        .search(new SearchParameterMap(), new SystemRequestDetails());
-
-    Integer total = results.size();
-    if (total != null) {
-      return results.getResources(0, total).stream()
-          .filter(type::isInstance)
-          .map(type::cast)
-          .toList();
-    }
-
-    List<T> resources = new ArrayList<>();
-    int from = 0;
-    int pageSize = 200;
-    while (true) {
-      List<T> batch = results.getResources(from, from + pageSize).stream()
-          .filter(type::isInstance)
-          .map(type::cast)
-          .toList();
-      if (batch.isEmpty()) {
-        break;
-      }
-      resources.addAll(batch);
-      from += batch.size();
-    }
-    return resources;
+    SearchParameterMap params = new SearchParameterMap();
+    params.setLoadSynchronous(true);
+    return daoRegistry.getResourceDao(type)
+        .searchForResources(params, new SystemRequestDetails());
   }
 }

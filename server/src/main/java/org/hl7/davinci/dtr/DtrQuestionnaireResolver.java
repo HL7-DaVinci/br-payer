@@ -452,11 +452,12 @@ public class DtrQuestionnaireResolver {
         var searchParams = new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
         searchParams.add(searchParam,
             new ca.uhn.fhir.rest.param.ReferenceParam(subjectRef));
-        var results = daoRegistry.getResourceDao(resourceType)
-            .search(searchParams, new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
+        searchParams.setLoadSynchronous(true);
+        var resources = daoRegistry.getResourceDao(resourceType)
+            .searchForResources(searchParams, new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
 
         int added = 0;
-        for (var resource : results.getResources(0, results.size())) {
+        for (var resource : resources) {
           String id = ((Resource) resource).getIdElement().toUnqualifiedVersionless().getValue();
           if (id == null || !existingIds.contains(id)) {
             bundle.addEntry().setResource((Resource) resource);

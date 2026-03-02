@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -48,7 +47,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 
 @ExtendWith(MockitoExtension.class)
@@ -122,9 +120,8 @@ class DtrQuestionnaireResolverTest {
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-med", canonical, "1.0.0");
-    IBundleProvider qProvider = bundleWith(questionnaire);
-    when(questionnaireDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(qProvider);
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(questionnaire));
 
     DtrQuestionnaireResolver.ResolutionResult result = resolver.resolve(
         null, List.of(order), coverageWithContainedPayor());
@@ -167,9 +164,8 @@ class DtrQuestionnaireResolverTest {
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-supply", canonical, "1.0.0");
-    IBundleProvider qProvider = bundleWith(questionnaire);
-    when(questionnaireDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(qProvider);
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(questionnaire));
 
     DtrQuestionnaireResolver.ResolutionResult result = resolver.resolve(
         null, List.of(order), coverageWithContainedPayor());
@@ -206,10 +202,8 @@ class DtrQuestionnaireResolverTest {
 
     Questionnaire qOne = questionnaire("q-1", canonicalOne, "1.0.0");
     Questionnaire qTwo = questionnaire("q-2", canonicalTwo, "2.0.0");
-    IBundleProvider qOneProvider = bundleWith(qOne);
-    IBundleProvider qTwoProvider = bundleWith(qTwo);
-    when(questionnaireDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(qOneProvider, qTwoProvider);
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(qOne), List.of(qTwo));
 
     DtrQuestionnaireResolver.ResolutionResult result = resolver.resolve(
         null, List.of(order), coverageWithContainedPayor());
@@ -229,9 +223,8 @@ class DtrQuestionnaireResolverTest {
         .thenReturn(new Patient().setId("Patient/pat-abs"));
 
     when(daoRegistry.getResourceDao("Procedure")).thenReturn(procedureDao);
-    IBundleProvider emptyProcedures = emptyBundle();
-    when(procedureDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(emptyProcedures);
+    when(procedureDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of());
 
     DeviceRequest order = new DeviceRequest();
     order.setId("DeviceRequest/dr-abs");
@@ -249,15 +242,14 @@ class DtrQuestionnaireResolverTest {
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-abs", canonical, "1.0.0");
-    IBundleProvider qProvider = bundleWith(questionnaire);
-    when(questionnaireDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(qProvider);
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(questionnaire));
 
     resolver.resolve(
         null, List.of(order), coverageWithContainedPayor("https://payer.example/fhir/Patient/pat-abs"));
 
     ArgumentCaptor<SearchParameterMap> mapCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
-    verify(procedureDao).search(mapCaptor.capture(), any(SystemRequestDetails.class));
+    verify(procedureDao).searchForResources(mapCaptor.capture(), any(SystemRequestDetails.class));
 
     SearchParameterMap searchMap = mapCaptor.getValue();
     assertTrue(searchMap.containsKey("subject"));
@@ -312,12 +304,10 @@ class DtrQuestionnaireResolverTest {
     when(daoRegistry.getResourceDao("Condition")).thenReturn(conditionDao);
     when(daoRegistry.getResourceDao("Procedure")).thenReturn(procedureDao);
 
-    IBundleProvider emptyConditions = emptyBundle();
-    when(conditionDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(emptyConditions);
-    IBundleProvider emptyProcedures = emptyBundle();
-    when(procedureDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(emptyProcedures);
+    when(conditionDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of());
+    when(procedureDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of());
 
     DeviceRequest order = new DeviceRequest();
     order.setId("DeviceRequest/dr-data");
@@ -337,8 +327,8 @@ class DtrQuestionnaireResolverTest {
     resolver.resolve(null, List.of(order), coverageWithContainedPayor());
 
     // Condition and Procedure are patient-queryable and should be fetched
-    verify(conditionDao).search(any(SearchParameterMap.class), any(SystemRequestDetails.class));
-    verify(procedureDao).search(any(SearchParameterMap.class), any(SystemRequestDetails.class));
+    verify(conditionDao).searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class));
+    verify(procedureDao).searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class));
   }
 
   @Test
@@ -348,9 +338,8 @@ class DtrQuestionnaireResolverTest {
     IFhirResourceDao procedureDaoForVersionedLibrary = mock(IFhirResourceDao.class);
     when(daoRegistry.getResourceDao("Procedure")).thenReturn(procedureDaoForVersionedLibrary);
 
-    IBundleProvider emptyProcedures = emptyBundle();
-    when(procedureDaoForVersionedLibrary.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(emptyProcedures);
+    when(procedureDaoForVersionedLibrary.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of());
 
     DeviceRequest order = new DeviceRequest();
     order.setId("DeviceRequest/dr-versioned");
@@ -384,7 +373,7 @@ class DtrQuestionnaireResolverTest {
     ArgumentCaptor<IdType> libraryIdCaptor = ArgumentCaptor.forClass(IdType.class);
     verify(libraryDao).read(libraryIdCaptor.capture(), any(SystemRequestDetails.class));
     assertEquals("VersionedRule", libraryIdCaptor.getValue().getIdPart());
-    verify(procedureDaoForVersionedLibrary).search(any(SearchParameterMap.class), any(SystemRequestDetails.class));
+    verify(procedureDaoForVersionedLibrary).searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class));
   }
 
   @Test
@@ -396,12 +385,10 @@ class DtrQuestionnaireResolverTest {
     when(daoRegistry.getResourceDao("AllergyIntolerance")).thenReturn(allergyDao);
     when(daoRegistry.getResourceDao("Immunization")).thenReturn(immunizationDao);
 
-    IBundleProvider emptyAllergies = emptyBundle();
-    when(allergyDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(emptyAllergies);
-    IBundleProvider emptyImmunizations = emptyBundle();
-    when(immunizationDao.search(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
-        .thenReturn(emptyImmunizations);
+    when(allergyDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of());
+    when(immunizationDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of());
 
     DeviceRequest order = new DeviceRequest();
     order.setId("DeviceRequest/dr-clinical");
@@ -420,13 +407,13 @@ class DtrQuestionnaireResolverTest {
     resolver.resolve(null, List.of(order), coverageWithContainedPayor());
 
     ArgumentCaptor<SearchParameterMap> allergySearchCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
-    verify(allergyDao).search(allergySearchCaptor.capture(), any(SystemRequestDetails.class));
+    verify(allergyDao).searchForResources(allergySearchCaptor.capture(), any(SystemRequestDetails.class));
     SearchParameterMap allergySearch = allergySearchCaptor.getValue();
     assertTrue(allergySearch.containsKey("patient"));
     assertFalse(allergySearch.containsKey("subject"));
 
     ArgumentCaptor<SearchParameterMap> immunizationSearchCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
-    verify(immunizationDao).search(immunizationSearchCaptor.capture(), any(SystemRequestDetails.class));
+    verify(immunizationDao).searchForResources(immunizationSearchCaptor.capture(), any(SystemRequestDetails.class));
     SearchParameterMap immunizationSearch = immunizationSearchCaptor.getValue();
     assertTrue(immunizationSearch.containsKey("patient"));
     assertFalse(immunizationSearch.containsKey("subject"));
@@ -453,7 +440,7 @@ class DtrQuestionnaireResolverTest {
     resolver.resolve(null, List.of(order), coverageWithContainedPayor());
 
     // No resource type DAOs should be queried for clinical data
-    verify(procedureDao, never()).search(any(SearchParameterMap.class), any(SystemRequestDetails.class));
+    verify(procedureDao, never()).searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class));
   }
 
   private Coverage coverageWithContainedPayor() {
@@ -493,22 +480,6 @@ class DtrQuestionnaireResolverTest {
       action.addExtension(coverageInfo);
     }
     return requestGroup;
-  }
-
-  private IBundleProvider bundleWith(Resource resource) {
-    IBundleProvider bundleProvider = mock(IBundleProvider.class);
-    when(bundleProvider.isEmpty()).thenReturn(false);
-    when(bundleProvider.getResources(anyInt(), anyInt()))
-        .thenReturn(List.of(resource));
-    return bundleProvider;
-  }
-
-  private IBundleProvider emptyBundle() {
-    IBundleProvider bundleProvider = mock(IBundleProvider.class);
-    lenient().when(bundleProvider.isEmpty()).thenReturn(true);
-    lenient().when(bundleProvider.size()).thenReturn(0);
-    lenient().when(bundleProvider.getResources(anyInt(), anyInt())).thenReturn(List.of());
-    return bundleProvider;
   }
 
   private PlanDefinition planDefinitionWithLibrary(String id, String libraryName) {

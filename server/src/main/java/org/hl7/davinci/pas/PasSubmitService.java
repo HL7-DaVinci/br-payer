@@ -26,7 +26,6 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.model.DaoMethodOutcome;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.jpa.starter.AppProperties;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.param.ReferenceParam;
 import ca.uhn.fhir.rest.param.TokenParam;
@@ -107,7 +106,7 @@ public class PasSubmitService {
     String authPrefix = pasProperties.authorizationNumberPrefix();
 
     // Resolve bundle resources to server-side resources before storing the Claim
-    bundleReferenceResolver.resolveAndStoreBundleResources(requestBundle, claim);
+    bundleReferenceResolver.resolveReferences(requestBundle, claim, true);
 
     // Store the incoming Claim for audit trail (all paths)
     claim.setId((String) null);
@@ -386,13 +385,10 @@ public class PasSubmitService {
     params.add("identifier", new TokenParam(traceId.getSystem(), traceId.getValue()));
     params.setSort(new ca.uhn.fhir.rest.api.SortSpec("_lastUpdated",
         ca.uhn.fhir.rest.api.SortOrderEnum.DESC));
-
-    IBundleProvider results = daoRegistry.getResourceDao(Claim.class)
-        .search(params, new SystemRequestDetails());
-
-    return results.getResources(0, 1).stream()
-        .filter(Claim.class::isInstance)
-        .map(Claim.class::cast)
+    params.setCount(1);
+    return daoRegistry.getResourceDao(Claim.class)
+        .searchForResources(params, new SystemRequestDetails())
+        .stream()
         .findFirst()
         .orElse(null);
   }
@@ -410,13 +406,10 @@ public class PasSubmitService {
 
     SearchParameterMap params = new SearchParameterMap();
     params.add("request", new ReferenceParam("Claim/" + serverClaimId));
-
-    IBundleProvider results = daoRegistry.getResourceDao(ClaimResponse.class)
-        .search(params, new SystemRequestDetails());
-
-    return results.getResources(0, 1).stream()
-        .filter(ClaimResponse.class::isInstance)
-        .map(ClaimResponse.class::cast)
+    params.setCount(1);
+    return daoRegistry.getResourceDao(ClaimResponse.class)
+        .searchForResources(params, new SystemRequestDetails())
+        .stream()
         .findFirst()
         .orElse(null);
   }

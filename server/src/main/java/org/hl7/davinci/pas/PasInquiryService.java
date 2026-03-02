@@ -2,7 +2,9 @@ package org.hl7.davinci.pas;
 
 import static org.hl7.davinci.common.FhirConstants.*;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -13,7 +15,6 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.Extension;
-import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Reference;
@@ -22,11 +23,10 @@ import org.springframework.stereotype.Service;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.param.ReferenceParam;
+import ca.uhn.fhir.rest.param.TokenOrListParam;
 import ca.uhn.fhir.rest.param.TokenParam;
-import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 /**
  * Orchestrates the PAS $inquire workflow: validate -> search -> build response.
@@ -59,7 +59,7 @@ public class PasInquiryService {
    */
   public Parameters inquire(Bundle requestBundle) {
     Claim claim = validator.validateInquiryBundle(requestBundle);
-    bundleReferenceResolver.resolveInquiryReferences(requestBundle, claim);
+    bundleReferenceResolver.resolveReferences(requestBundle, claim, false);
     List<ClaimResponse> matches = searchClaimResponses(claim);
     return responseBuilder.buildInquiryResponse(matches);
   }
@@ -84,19 +84,52 @@ public class PasInquiryService {
         params, "requestor", claim.getProvider(), "Organization|Practitioner|PractitionerRole",
         "Claim.provider");
 
-    IBundleProvider results = daoRegistry.getResourceDao(ClaimResponse.class)
-        .search(params, new SystemRequestDetails());
+    List<ClaimResponse> results = daoRegistry.getResourceDao(ClaimResponse.class)
+        .searchForResources(params, new SystemRequestDetails());
 
-    return results.getResources(0, Integer.MAX_VALUE).stream()
-        .filter(r -> r instanceof ClaimResponse)
-        .map(r -> (ClaimResponse) r)
-        .filter(cr -> matchesInquiryContext(claim, cr, inquiryCoverageRefs))
+    Map<String, Claim> requestedClaims = batchLoadRequestedClaims(results);
+
+    return results.stream()
+        .filter(cr -> matchesInquiryContext(claim, cr, inquiryCoverageRefs, requestedClaims))
         .collect(Collectors.toList());
   }
 
+  /**
+   * Batch loads all Claim resources referenced by the ClaimResponse results in a single query.
+   */
+  private Map<String, Claim> batchLoadRequestedClaims(List<ClaimResponse> claimResponses) {
+    Set<String> claimIds = new LinkedHashSet<>();
+    for (ClaimResponse cr : claimResponses) {
+      String claimIdPart = extractClaimIdFromResponse(cr);
+      if (claimIdPart != null) {
+        claimIds.add(claimIdPart);
+      }
+    }
+
+    if (claimIds.isEmpty()) {
+      return Map.of();
+    }
+
+    SearchParameterMap params = new SearchParameterMap();
+    TokenOrListParam idParam = new TokenOrListParam();
+    for (String id : claimIds) {
+      idParam.addOr(new TokenParam(id));
+    }
+    params.add("_id", idParam);
+
+    return daoRegistry.getResourceDao(Claim.class)
+        .searchForResources(params, new SystemRequestDetails())
+        .stream()
+        .collect(Collectors.toMap(
+            c -> c.getIdElement().getIdPart(),
+            c -> c,
+            (a, b) -> a));
+  }
+
   private boolean matchesInquiryContext(Claim inquiryClaim, ClaimResponse candidateResponse,
-      Set<String> inquiryCoverageRefs) {
-    Claim requestedClaim = readRequestedClaim(candidateResponse);
+      Set<String> inquiryCoverageRefs, Map<String, Claim> requestedClaims) {
+    String claimIdPart = extractClaimIdFromResponse(candidateResponse);
+    Claim requestedClaim = claimIdPart != null ? requestedClaims.get(claimIdPart) : null;
     if (requestedClaim == null) {
       return false;
     }
@@ -112,24 +145,14 @@ public class PasInquiryService {
     return hasProductOrServiceMatch(inquiryClaim, requestedClaim);
   }
 
-  private Claim readRequestedClaim(ClaimResponse claimResponse) {
+  private String extractClaimIdFromResponse(ClaimResponse claimResponse) {
     String requestRef = ResourceResolver.toVersionlessTypedReference(
         claimResponse.getRequest(), "Claim");
     if (requestRef == null) {
       return null;
     }
-
     String claimIdPart = ResourceResolver.normalizeReferenceId(requestRef, "Claim");
-    if (claimIdPart == null || claimIdPart.isBlank()) {
-      return null;
-    }
-
-    try {
-      return daoRegistry.getResourceDao(Claim.class)
-          .read(new IdType("Claim", claimIdPart), new SystemRequestDetails());
-    } catch (ResourceNotFoundException e) {
-      return null;
-    }
+    return (claimIdPart != null && !claimIdPart.isBlank()) ? claimIdPart : null;
   }
 
   private void addRequiredReferenceParam(SearchParameterMap params, String paramName,

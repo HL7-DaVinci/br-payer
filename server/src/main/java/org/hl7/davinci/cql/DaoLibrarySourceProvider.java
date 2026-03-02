@@ -1,5 +1,6 @@
 package org.hl7.davinci.cql;
 
+import java.util.List;
 import java.util.Set;
 
 import org.cqframework.cql.cql2elm.LibrarySourceProvider;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
@@ -58,17 +58,17 @@ public class DaoLibrarySourceProvider implements LibrarySourceProvider {
     if (version != null) {
       searchParams.add("version", new TokenParam(version));
     }
+    searchParams.setCount(1);
 
-    IBundleProvider results = daoRegistry
+    List<Library> results = daoRegistry
         .getResourceDao(Library.class)
-        .search(searchParams, new SystemRequestDetails());
-
+        .searchForResources(searchParams, new SystemRequestDetails());
     if (results.isEmpty()) {
       logger.debug("Library not found in repository: {} version {}", name, version);
       return null;
     }
 
-    Library library = (Library) results.getResources(0, 1).get(0);
+    Library library = results.get(0);
 
     Attachment cqlAttachment = library.getContent().stream()
         .filter(c -> CQL_CONTENT_TYPE.equals(c.getContentType()) && c.hasData())

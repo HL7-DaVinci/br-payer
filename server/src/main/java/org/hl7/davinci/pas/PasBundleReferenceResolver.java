@@ -19,7 +19,6 @@ import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.param.TokenParam;
 
@@ -37,28 +36,19 @@ public class PasBundleReferenceResolver {
   }
 
   /**
-   * Resolves references and stores missing bundle resources to preserve linkage for submit workflows.
+   * Resolves Patient/Organization/Coverage references from the bundle to server-side resources.
+   * When storeMissing is true (submit path), unresolved bundle resources are stored and
+   * cross-references are rewritten. When false (inquiry path), references are resolved without storing.
    */
-  public void resolveAndStoreBundleResources(Bundle requestBundle, Claim claim) {
-    Map<String, String> refMap = new LinkedHashMap<>();
-    resolvePatient(requestBundle, claim, refMap, true);
-    resolveOrganization(requestBundle, claim.getInsurer(), refMap, true);
-    resolveOrganization(requestBundle, claim.getProvider(), refMap, true);
-    resolveCoverage(requestBundle, claim, refMap, true);
+  public void resolveReferences(Bundle requestBundle, Claim claim, boolean storeMissing) {
+    Map<String, String> refMap = storeMissing ? new LinkedHashMap<>() : null;
+    resolvePatient(requestBundle, claim, refMap);
+    resolveOrganization(requestBundle, claim.getInsurer(), refMap);
+    resolveOrganization(requestBundle, claim.getProvider(), refMap);
+    resolveCoverage(requestBundle, claim, refMap);
   }
 
-  /**
-   * Resolves references without storing missing bundle resources for inquiry workflows.
-   */
-  public void resolveInquiryReferences(Bundle requestBundle, Claim claim) {
-    resolvePatient(requestBundle, claim, null, false);
-    resolveOrganization(requestBundle, claim.getInsurer(), null, false);
-    resolveOrganization(requestBundle, claim.getProvider(), null, false);
-    resolveCoverage(requestBundle, claim, null, false);
-  }
-
-  private void resolvePatient(Bundle requestBundle, Claim claim, Map<String, String> refMap,
-      boolean storeMissing) {
+  private void resolvePatient(Bundle requestBundle, Claim claim, Map<String, String> refMap) {
     if (claim == null || !claim.hasPatient() || !claim.getPatient().hasReference()) {
       return;
     }
@@ -81,13 +71,12 @@ public class PasBundleReferenceResolver {
       if (refMap != null) {
         refMap.put(patientRef, resolved);
       }
-    } else if (storeMissing) {
+    } else if (refMap != null) {
       daoRegistry.getResourceDao(Patient.class).update(bundlePatient, new SystemRequestDetails());
     }
   }
 
-  private void resolveOrganization(Bundle requestBundle, Reference orgRef, Map<String, String> refMap,
-      boolean storeMissing) {
+  private void resolveOrganization(Bundle requestBundle, Reference orgRef, Map<String, String> refMap) {
     if (orgRef == null || !orgRef.hasReference()) {
       return;
     }
@@ -110,13 +99,12 @@ public class PasBundleReferenceResolver {
       if (refMap != null) {
         refMap.put(originalRef, resolved);
       }
-    } else if (storeMissing) {
+    } else if (refMap != null) {
       daoRegistry.getResourceDao(Organization.class).update(bundleOrg, new SystemRequestDetails());
     }
   }
 
-  private void resolveCoverage(Bundle requestBundle, Claim claim, Map<String, String> refMap,
-      boolean storeMissing) {
+  private void resolveCoverage(Bundle requestBundle, Claim claim, Map<String, String> refMap) {
     if (claim == null || !claim.hasInsurance() || !claim.getInsuranceFirstRep().getCoverage().hasReference()) {
       return;
     }
@@ -137,7 +125,7 @@ public class PasBundleReferenceResolver {
       }
     }
 
-    if (storeMissing) {
+    if (refMap != null) {
       rewriteCoverageReferences(bundleCoverage, refMap);
       daoRegistry.getResourceDao(Coverage.class).update(bundleCoverage, new SystemRequestDetails());
     }
@@ -177,13 +165,10 @@ public class PasBundleReferenceResolver {
 
     SearchParameterMap params = new SearchParameterMap();
     params.add("identifier", new TokenParam(identifier.getSystem(), identifier.getValue()));
-
-    IBundleProvider results = daoRegistry.getResourceDao(resourceType)
-        .search(params, new SystemRequestDetails());
-
-    return results.getResources(0, 1).stream()
-        .filter(resourceType::isInstance)
-        .map(resourceType::cast)
+    params.setCount(1);
+    return daoRegistry.getResourceDao(resourceType)
+        .searchForResources(params, new SystemRequestDetails())
+        .stream()
         .findFirst()
         .orElse(null);
   }

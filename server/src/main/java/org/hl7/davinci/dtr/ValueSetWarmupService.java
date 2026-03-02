@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 
 /**
@@ -90,31 +89,10 @@ public class ValueSetWarmupService {
   Set<String> discoverVsacUrls() {
     Set<String> urls = new LinkedHashSet<>();
 
-    IBundleProvider results = daoRegistry.getResourceDao(Library.class)
-        .search(new SearchParameterMap(), new SystemRequestDetails());
-
-    List<Library> libraries = new ArrayList<>();
-    Integer total = results.size();
-    if (total != null) {
-      libraries = results.getResources(0, total).stream()
-          .filter(Library.class::isInstance)
-          .map(Library.class::cast)
-          .toList();
-    } else {
-      int from = 0;
-      int pageSize = 200;
-      while (true) {
-        List<Library> batch = results.getResources(from, from + pageSize).stream()
-            .filter(Library.class::isInstance)
-            .map(Library.class::cast)
-            .toList();
-        if (batch.isEmpty()) {
-          break;
-        }
-        libraries.addAll(batch);
-        from += batch.size();
-      }
-    }
+    SearchParameterMap searchParams = new SearchParameterMap();
+    searchParams.setLoadSynchronous(true);
+    List<Library> libraries = daoRegistry.getResourceDao(Library.class)
+        .searchForResources(searchParams, new SystemRequestDetails());
 
     for (Library library : libraries) {
       if (!library.hasDataRequirement()) {

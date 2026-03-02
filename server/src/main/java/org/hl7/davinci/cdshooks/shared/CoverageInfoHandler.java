@@ -3,28 +3,18 @@ package org.hl7.davinci.cdshooks.shared;
 import java.util.Date;
 import java.util.List;
 
-import org.hl7.davinci.common.CoverageInfoUtil;
 import org.hl7.davinci.common.ResourceResolver;
-import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DateType;
-import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Extension;
-import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Reference;
-import org.hl7.fhir.r4.model.RequestGroup;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.StringType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseSystemActionJson;
 
@@ -38,24 +28,6 @@ import static org.hl7.davinci.common.CrdConstants.COVERAGE_INFO_EXT;
 public class CoverageInfoHandler {
 
   private static final Logger logger = LoggerFactory.getLogger(CoverageInfoHandler.class);
-
-  @Autowired
-  private AppProperties appProperties;
-
-  /**
-   * Extracts the coverage-information extension from the RequestGroup action.
-   * Adds server-required fields (coverage, date, coverage-assertion-id) if not present.
-   *
-   * @return the complete extension ready to add to the order, or null if not found
-   */
-  public Extension extractCoverageExtension(RequestGroup requestGroup, Coverage coverage) {
-    Extension result = CoverageInfoUtil.extractCoverageExtension(
-        requestGroup, coverage, appProperties.getServer_address());
-    if (result != null) {
-      logger.info("Coverage info extension found from CQL");
-    }
-    return result;
-  }
 
   /**
    * Builds a system action to update the resource with the coverage-information extension.
@@ -89,16 +61,8 @@ public class CoverageInfoHandler {
     cleanupForResponse(updatedResource, coverageRef);
 
     // Add the new coverage-information extension
-    if (updatedResource instanceof DeviceRequest dr) {
+    if (updatedResource instanceof DomainResource dr) {
       dr.addExtension(coverageInfoExt);
-    } else if (updatedResource instanceof MedicationRequest mr) {
-      mr.addExtension(coverageInfoExt);
-    } else if (updatedResource instanceof ServiceRequest sr) {
-      sr.addExtension(coverageInfoExt);
-    } else if (updatedResource instanceof Appointment appt) {
-      appt.addExtension(coverageInfoExt);
-    } else if (updatedResource instanceof Encounter enc) {
-      enc.addExtension(coverageInfoExt);
     }
 
     CdsServiceResponseSystemActionJson systemAction = new CdsServiceResponseSystemActionJson();
@@ -193,16 +157,8 @@ public class CoverageInfoHandler {
    * Only removes coverage-information extensions that reference the same coverage.
    */
   private void cleanupForResponse(Resource resource, String coverageRef) {
-    if (resource instanceof DeviceRequest dr) {
+    if (resource instanceof DomainResource dr) {
       dr.getExtension().removeIf(ext -> isSameCoverageExtension(ext, coverageRef));
-    } else if (resource instanceof MedicationRequest mr) {
-      mr.getExtension().removeIf(ext -> isSameCoverageExtension(ext, coverageRef));
-    } else if (resource instanceof ServiceRequest sr) {
-      sr.getExtension().removeIf(ext -> isSameCoverageExtension(ext, coverageRef));
-    } else if (resource instanceof Appointment appt) {
-      appt.getExtension().removeIf(ext -> isSameCoverageExtension(ext, coverageRef));
-    } else if (resource instanceof Encounter enc) {
-      enc.getExtension().removeIf(ext -> isSameCoverageExtension(ext, coverageRef));
     }
   }
 

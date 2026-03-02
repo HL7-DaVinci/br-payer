@@ -10,7 +10,6 @@ import java.util.List;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
@@ -61,11 +60,9 @@ class PasInquiryServiceTest {
     when(daoRegistry.getResourceDao(Coverage.class)).thenReturn(coverageDao);
 
     // Default: resource resolution DAOs return empty results (no server-side match)
-    IBundleProvider emptyProvider = mock(IBundleProvider.class);
-    when(emptyProvider.getResources(anyInt(), anyInt())).thenReturn(List.of());
-    when(patientDao.search(any(), any())).thenReturn(emptyProvider);
-    when(organizationDao.search(any(), any())).thenReturn(emptyProvider);
-    when(coverageDao.search(any(), any())).thenReturn(emptyProvider);
+    when(patientDao.searchForResources(any(), any())).thenReturn(List.of());
+    when(organizationDao.searchForResources(any(), any())).thenReturn(List.of());
+    when(coverageDao.searchForResources(any(), any())).thenReturn(List.of());
 
     service = new PasInquiryService(validator, daoRegistry, responseBuilder, bundleReferenceResolver);
   }
@@ -75,9 +72,7 @@ class PasInquiryServiceTest {
     Bundle requestBundle = new Bundle();
     Claim claim = buildInquiryClaim("Coverage/1");
 
-    IBundleProvider emptyProvider = mock(IBundleProvider.class);
-    when(emptyProvider.getResources(anyInt(), anyInt())).thenReturn(List.of());
-    when(claimResponseDao.search(any(), any())).thenReturn(emptyProvider);
+    when(claimResponseDao.searchForResources(any(), any())).thenReturn(List.of());
     when(validator.validateInquiryBundle(requestBundle)).thenReturn(claim);
     when(responseBuilder.buildInquiryResponse(List.of())).thenReturn(new Parameters());
 
@@ -85,7 +80,7 @@ class PasInquiryServiceTest {
     assertNotNull(result);
 
     ArgumentCaptor<SearchParameterMap> paramsCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
-    verify(claimResponseDao).search(paramsCaptor.capture(), any());
+    verify(claimResponseDao).searchForResources(paramsCaptor.capture(), any());
     SearchParameterMap params = paramsCaptor.getValue();
     assertNotNull(params.get("status"));
     assertNotNull(params.get("use"));
@@ -103,15 +98,13 @@ class PasInquiryServiceTest {
     ClaimResponse matchingResponse = buildClaimResponse("CR-001", "Claim/100");
     ClaimResponse nonMatchingResponse = buildClaimResponse("CR-002", "Claim/200");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(matchingResponse, nonMatchingResponse));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/2"));
+    Claim matchingClaim = buildStoredClaim("100", "Coverage/1");
+    Claim nonMatchingClaim = buildStoredClaim("200", "Coverage/2");
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(matchingClaim, nonMatchingClaim));
 
     Parameters expected = new Parameters();
     expected.addParameter().setName("responseBundle").setResource(new Bundle());
@@ -132,15 +125,11 @@ class PasInquiryServiceTest {
     ClaimResponse matchingResponse = buildClaimResponseWithAuthNumber("CR-001", "Claim/100", "AUTH0001");
     ClaimResponse nonMatchingResponse = buildClaimResponseWithAuthNumber("CR-002", "Claim/200", "AUTH9999");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(matchingResponse, nonMatchingResponse));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(buildStoredClaim("100", "Coverage/1"), buildStoredClaim("200", "Coverage/1")));
 
     Parameters expected = new Parameters();
     when(responseBuilder.buildInquiryResponse(List.of(matchingResponse))).thenReturn(expected);
@@ -160,15 +149,11 @@ class PasInquiryServiceTest {
     ClaimResponse matchingResponse = buildClaimResponseWithAuthNumber("CR-001", "Claim/100", "AUTH0001");
     ClaimResponse nonMatchingResponse = buildClaimResponseWithAuthNumber("CR-002", "Claim/200", "AUTH9999");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(matchingResponse, nonMatchingResponse));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(buildStoredClaim("100", "Coverage/1"), buildStoredClaim("200", "Coverage/1")));
 
     Parameters expected = new Parameters();
     when(responseBuilder.buildInquiryResponse(List.of(matchingResponse))).thenReturn(expected);
@@ -188,15 +173,11 @@ class PasInquiryServiceTest {
     ClaimResponse matchingResponse = buildClaimResponseWithAdminRef("CR-001", "Claim/100", "PEND0001");
     ClaimResponse nonMatchingResponse = buildClaimResponseWithAdminRef("CR-002", "Claim/200", "PEND9999");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(matchingResponse, nonMatchingResponse));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(buildStoredClaim("100", "Coverage/1"), buildStoredClaim("200", "Coverage/1")));
 
     Parameters expected = new Parameters();
     when(responseBuilder.buildInquiryResponse(List.of(matchingResponse))).thenReturn(expected);
@@ -216,15 +197,11 @@ class PasInquiryServiceTest {
     ClaimResponse matchingResponse = buildClaimResponseWithAdminRef("CR-001", "Claim/100", "PEND0001");
     ClaimResponse nonMatchingResponse = buildClaimResponseWithAdminRef("CR-002", "Claim/200", "PEND9999");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(matchingResponse, nonMatchingResponse));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(buildStoredClaim("100", "Coverage/1"), buildStoredClaim("200", "Coverage/1")));
 
     Parameters expected = new Parameters();
     when(responseBuilder.buildInquiryResponse(List.of(matchingResponse))).thenReturn(expected);
@@ -244,15 +221,11 @@ class PasInquiryServiceTest {
     ClaimResponse cr1 = buildClaimResponseWithAuthNumber("CR-001", "Claim/100", "AUTH0001");
     ClaimResponse cr2 = buildClaimResponseWithAdminRef("CR-002", "Claim/200", "PEND0001");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(cr1, cr2));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(buildStoredClaim("Coverage/1"));
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(buildStoredClaim("100", "Coverage/1"), buildStoredClaim("200", "Coverage/1")));
 
     Parameters expected = new Parameters();
     when(responseBuilder.buildInquiryResponse(List.of(cr1, cr2))).thenReturn(expected);
@@ -293,23 +266,19 @@ class PasInquiryServiceTest {
     ClaimResponse matchingResponse = buildClaimResponse("CR-001", "Claim/100");
     ClaimResponse nonMatchingResponse = buildClaimResponse("CR-002", "Claim/200");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(matchingResponse, nonMatchingResponse));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
-    Claim matchingClaim = buildStoredClaim("Coverage/1");
+    Claim matchingClaim = buildStoredClaim("100", "Coverage/1");
     addItemWithProductOrService(matchingClaim,
         "https://codesystem.x12.org/005010/1365", "42");
 
-    Claim nonMatchingClaim = buildStoredClaim("Coverage/1");
+    Claim nonMatchingClaim = buildStoredClaim("200", "Coverage/1");
     addItemWithProductOrService(nonMatchingClaim,
         "https://codesystem.x12.org/005010/1365", "73");
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(matchingClaim);
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(nonMatchingClaim);
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(matchingClaim, nonMatchingClaim));
 
     Parameters expected = new Parameters();
     when(responseBuilder.buildInquiryResponse(List.of(matchingResponse))).thenReturn(expected);
@@ -330,22 +299,18 @@ class PasInquiryServiceTest {
     ClaimResponse cr1 = buildClaimResponse("CR-001", "Claim/100");
     ClaimResponse cr2 = buildClaimResponse("CR-002", "Claim/200");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(cr1, cr2));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
-    Claim claim1 = buildStoredClaim("Coverage/1");
+    Claim claim1 = buildStoredClaim("100", "Coverage/1");
     addItemWithProductOrService(claim1,
         "https://codesystem.x12.org/005010/1365", "42");
-    Claim claim2 = buildStoredClaim("Coverage/1");
+    Claim claim2 = buildStoredClaim("200", "Coverage/1");
     addItemWithProductOrService(claim2,
         "https://codesystem.x12.org/005010/1365", "73");
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(claim1);
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(claim2);
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(claim1, claim2));
 
     Parameters expected = new Parameters();
     when(responseBuilder.buildInquiryResponse(List.of(cr1, cr2))).thenReturn(expected);
@@ -374,21 +339,19 @@ class PasInquiryServiceTest {
       c.setInsurer(new Reference("Organization/example"));
       c.setProvider(new Reference("Organization/provider-server"));
       return null;
-    }).when(bundleReferenceResolver).resolveInquiryReferences(eq(requestBundle), eq(claim));
+    }).when(bundleReferenceResolver).resolveReferences(eq(requestBundle), eq(claim), eq(false));
 
     // Mock empty ClaimResponse search results (we just care about the reference resolution)
-    IBundleProvider emptyProvider = mock(IBundleProvider.class);
-    when(emptyProvider.getResources(anyInt(), anyInt())).thenReturn(List.of());
-    when(claimResponseDao.search(any(), any())).thenReturn(emptyProvider);
+    when(claimResponseDao.searchForResources(any(), any())).thenReturn(List.of());
     when(responseBuilder.buildInquiryResponse(List.of())).thenReturn(new Parameters());
 
     service.inquire(requestBundle);
 
     // Verify the resolver was invoked and the search used resolved references
-    verify(bundleReferenceResolver).resolveInquiryReferences(requestBundle, claim);
+    verify(bundleReferenceResolver).resolveReferences(requestBundle, claim, false);
 
     ArgumentCaptor<SearchParameterMap> paramsCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
-    verify(claimResponseDao).search(paramsCaptor.capture(), any());
+    verify(claimResponseDao).searchForResources(paramsCaptor.capture(), any());
     SearchParameterMap searchParams = paramsCaptor.getValue();
 
     String patientParam = searchParams.get("patient").get(0).get(0).getValueAsQueryToken();
@@ -413,23 +376,19 @@ class PasInquiryServiceTest {
     ClaimResponse matchingResponse = buildClaimResponse("CR-001", "Claim/100");
     ClaimResponse seedDataResponse = buildClaimResponse("CR-002", "Claim/200");
 
-    IBundleProvider mockProvider = mock(IBundleProvider.class);
-    when(mockProvider.getResources(anyInt(), anyInt()))
+    when(claimResponseDao.searchForResources(any(), any()))
         .thenReturn(List.of(matchingResponse, seedDataResponse));
-    when(claimResponseDao.search(any(), any())).thenReturn(mockProvider);
 
     // Claim/100 has the matching trace number
-    Claim matchingClaim = buildStoredClaim("Coverage/1");
+    Claim matchingClaim = buildStoredClaim("100", "Coverage/1");
     addItemWithTraceNumber(matchingClaim, "trace-hospital-beds");
 
     // Claim/200 has a different trace number (simulates seed/unrelated data)
-    Claim seedClaim = buildStoredClaim("Coverage/1");
+    Claim seedClaim = buildStoredClaim("200", "Coverage/1");
     addItemWithTraceNumber(seedClaim, "trace-unrelated-1122334");
 
-    when(claimDao.read(argThat(id -> id != null && "100".equals(id.getIdPart())), any()))
-        .thenReturn(matchingClaim);
-    when(claimDao.read(argThat(id -> id != null && "200".equals(id.getIdPart())), any()))
-        .thenReturn(seedClaim);
+    when(claimDao.searchForResources(any(), any()))
+        .thenReturn(List.of(matchingClaim, seedClaim));
 
     Parameters expected = new Parameters();
     when(responseBuilder.buildInquiryResponse(List.of(matchingResponse))).thenReturn(expected);
@@ -465,8 +424,9 @@ class PasInquiryServiceTest {
     return claim;
   }
 
-  private Claim buildStoredClaim(String coverageReference) {
+  private Claim buildStoredClaim(String claimId, String coverageReference) {
     Claim claim = new Claim();
+    claim.setId(claimId);
     claim.addInsurance().setFocal(true).setCoverage(new Reference(coverageReference));
     return claim;
   }

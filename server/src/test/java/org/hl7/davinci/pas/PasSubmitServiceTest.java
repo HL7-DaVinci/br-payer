@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -14,11 +13,9 @@ import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.api.model.DaoMethodOutcome;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.jpa.starter.AppProperties;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
 import org.hl7.davinci.pas.PasCoverageEvaluator.CoverageDecision;
 import org.hl7.davinci.pas.PasSubmitService.SubmissionType;
-import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -708,7 +705,7 @@ class PasSubmitServiceTest {
       Claim c = inv.getArgument(1);
       c.setPatient(new Reference("Patient/server-patient-123"));
       return null;
-    }).when(bundleReferenceResolver).resolveAndStoreBundleResources(eq(requestBundle), eq(claim));
+    }).when(bundleReferenceResolver).resolveReferences(eq(requestBundle), eq(claim), eq(true));
 
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
@@ -717,7 +714,7 @@ class PasSubmitServiceTest {
     service.submit(requestBundle);
 
     assertEquals("Patient/server-patient-123", claim.getPatient().getReference());
-    verify(bundleReferenceResolver).resolveAndStoreBundleResources(requestBundle, claim);
+    verify(bundleReferenceResolver).resolveReferences(requestBundle, claim, true);
   }
 
   @Test
@@ -731,7 +728,7 @@ class PasSubmitServiceTest {
 
     service.submit(requestBundle);
 
-    verify(bundleReferenceResolver).resolveAndStoreBundleResources(requestBundle, claim);
+    verify(bundleReferenceResolver).resolveReferences(requestBundle, claim, true);
   }
 
   @Test
@@ -745,7 +742,7 @@ class PasSubmitServiceTest {
       c.setInsurer(new Reference("Organization/server-insurer-id"));
       c.setProvider(new Reference("Organization/server-provider-id"));
       return null;
-    }).when(bundleReferenceResolver).resolveAndStoreBundleResources(eq(requestBundle), eq(claim));
+    }).when(bundleReferenceResolver).resolveReferences(eq(requestBundle), eq(claim), eq(true));
 
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
@@ -767,7 +764,7 @@ class PasSubmitServiceTest {
       Claim c = inv.getArgument(1);
       c.getInsuranceFirstRep().setCoverage(new Reference("Coverage/server-coverage-456"));
       return null;
-    }).when(bundleReferenceResolver).resolveAndStoreBundleResources(eq(requestBundle), eq(claim));
+    }).when(bundleReferenceResolver).resolveReferences(eq(requestBundle), eq(claim), eq(true));
 
     mockValidatorAndResponseBuilder(requestBundle, claim);
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
@@ -784,23 +781,15 @@ class PasSubmitServiceTest {
   private void mockStoredClaimSearch(Claim... storedClaims) {
     IFhirResourceDao<Claim> claimDao =
         (IFhirResourceDao<Claim>) daoRegistry.getResourceDao(Claim.class);
-    IBundleProvider bundleProvider = mock(IBundleProvider.class);
-    List<IBaseResource> resources = new ArrayList<>();
-    for (Claim c : storedClaims) resources.add(c);
-    when(bundleProvider.getResources(anyInt(), anyInt())).thenReturn(resources);
-    when(claimDao.search(any(SearchParameterMap.class), any(RequestDetails.class)))
-        .thenReturn(bundleProvider);
+    when(claimDao.searchForResources(any(SearchParameterMap.class), any(RequestDetails.class)))
+        .thenReturn(List.of(storedClaims));
   }
 
   private void mockClaimResponseSearch(ClaimResponse... responses) {
     IFhirResourceDao<ClaimResponse> crDao =
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
-    IBundleProvider bundleProvider = mock(IBundleProvider.class);
-    List<IBaseResource> resources = new ArrayList<>();
-    for (ClaimResponse cr : responses) resources.add(cr);
-    when(bundleProvider.getResources(anyInt(), anyInt())).thenReturn(resources);
-    when(crDao.search(any(SearchParameterMap.class), any(RequestDetails.class)))
-        .thenReturn(bundleProvider);
+    when(crDao.searchForResources(any(SearchParameterMap.class), any(RequestDetails.class)))
+        .thenReturn(List.of(responses));
   }
 
   private void mockValidatorAndResponseBuilder(Bundle requestBundle, Claim claim) {

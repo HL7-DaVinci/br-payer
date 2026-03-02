@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 
 class DtrLibraryResolverTest {
 
@@ -63,10 +62,7 @@ class DtrLibraryResolverTest {
   void singleLibraryWithElm() {
     Library lib = createLibraryWithElm("lib-1", "http://example.org/Library/test", "1.0");
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(lib));
-    when(mockLibDao.search(any(), any())).thenReturn(results);
+    when(mockLibDao.searchForResources(any(), any())).thenReturn(List.of(lib));
 
     Questionnaire q = new Questionnaire();
     q.addExtension(new Extension(CQF_LIBRARY_EXT,
@@ -91,10 +87,7 @@ class DtrLibraryResolverTest {
     cql.setData("library TestLib version '1.0'".getBytes(StandardCharsets.UTF_8));
     lib.addContent(cql);
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(lib));
-    when(mockLibDao.search(any(), any())).thenReturn(results);
+    when(mockLibDao.searchForResources(any(), any())).thenReturn(List.of(lib));
 
     when(mockElmCompiler.compileAndAttachElm(any(), any())).thenReturn(true);
 
@@ -118,15 +111,7 @@ class DtrLibraryResolverTest {
 
     Library helperLib = createLibraryWithElm("helper-lib", "http://example.org/Library/helper", "1.0");
 
-    IBundleProvider mainResults = mock(IBundleProvider.class);
-    when(mainResults.isEmpty()).thenReturn(false);
-    when(mainResults.getResources(0, 1)).thenReturn(List.of(mainLib));
-
-    IBundleProvider helperResults = mock(IBundleProvider.class);
-    when(helperResults.isEmpty()).thenReturn(false);
-    when(helperResults.getResources(0, 1)).thenReturn(List.of(helperLib));
-
-    when(mockLibDao.search(any(), any())).thenReturn(mainResults, helperResults);
+    when(mockLibDao.searchForResources(any(), any())).thenReturn(List.of(mainLib), List.of(helperLib));
 
     Questionnaire q = new Questionnaire();
     q.addExtension(new Extension(CQF_LIBRARY_EXT,
@@ -145,12 +130,8 @@ class DtrLibraryResolverTest {
         .setType(RelatedArtifact.RelatedArtifactType.DEPENDSON)
         .setResource("http://hl7.org/fhir/Library/FHIRHelpers|4.0.1");
 
-    IBundleProvider mainResults = mock(IBundleProvider.class);
-    when(mainResults.isEmpty()).thenReturn(false);
-    when(mainResults.getResources(0, 1)).thenReturn(List.of(mainLib));
-
     // Only one search call should occur (for main lib), none for FHIRHelpers
-    when(mockLibDao.search(any(), any())).thenReturn(mainResults);
+    when(mockLibDao.searchForResources(any(), any())).thenReturn(List.of(mainLib));
 
     Questionnaire q = new Questionnaire();
     q.addExtension(new Extension(CQF_LIBRARY_EXT,
@@ -161,15 +142,13 @@ class DtrLibraryResolverTest {
     assertEquals(1, resolution.libraries().size());
     assertTrue(resolution.warnings().isEmpty(), "No warnings should be emitted for classpath libraries");
     // Only one search call (for the main library)
-    verify(mockLibDao, times(1)).search(any(), any());
+    verify(mockLibDao, times(1)).searchForResources(any(), any());
   }
 
   @Test
   @DisplayName("Missing library: warning, continue")
   void missingLibrary_warning() {
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockLibDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockLibDao.searchForResources(any(), any())).thenReturn(List.of());
 
     Questionnaire q = new Questionnaire();
     q.addExtension(new Extension(CQF_LIBRARY_EXT,
@@ -190,15 +169,7 @@ class DtrLibraryResolverTest {
     Library lib2 = createLibraryWithElm("lib-2", "http://example.org/Library/test2", "1.0");
     lib2.setName("SameName");
 
-    IBundleProvider results1 = mock(IBundleProvider.class);
-    when(results1.isEmpty()).thenReturn(false);
-    when(results1.getResources(0, 1)).thenReturn(List.of(lib1));
-
-    IBundleProvider results2 = mock(IBundleProvider.class);
-    when(results2.isEmpty()).thenReturn(false);
-    when(results2.getResources(0, 1)).thenReturn(List.of(lib2));
-
-    when(mockLibDao.search(any(), any())).thenReturn(results1, results2);
+    when(mockLibDao.searchForResources(any(), any())).thenReturn(List.of(lib1), List.of(lib2));
 
     Questionnaire q = new Questionnaire();
     q.addExtension(new Extension(CQF_LIBRARY_EXT,

@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 
 class DtrSubQuestionnaireAssemblerTest {
 
@@ -59,10 +58,7 @@ class DtrSubQuestionnaireAssemblerTest {
     subQ.addItem().setLinkId("s1").setType(QuestionnaireItemType.STRING);
     subQ.addItem().setLinkId("s2").setType(QuestionnaireItemType.BOOLEAN);
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(subQ));
-    when(mockQDao.search(any(), any())).thenReturn(results);
+    when(mockQDao.searchForResources(any(), any())).thenReturn(List.of(subQ));
 
     // Parent questionnaire
     Questionnaire q = new Questionnaire();
@@ -98,10 +94,7 @@ class DtrSubQuestionnaireAssemblerTest {
     selfRef.addExtension(new Extension(SUB_Q_EXT_URL,
         new CanonicalType("http://example.org/Questionnaire/circular")));
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(subQ));
-    when(mockQDao.search(any(), any())).thenReturn(results);
+    when(mockQDao.searchForResources(any(), any())).thenReturn(List.of(subQ));
 
     Questionnaire q = new Questionnaire();
     q.setUrl("http://example.org/Questionnaire/parent");
@@ -129,10 +122,7 @@ class DtrSubQuestionnaireAssemblerTest {
     subQ.addExtension(new Extension(cqfLibUrl, new CanonicalType(sharedLibCanonical)));
     subQ.addItem().setLinkId("s1").setType(QuestionnaireItemType.STRING);
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(subQ));
-    when(mockQDao.search(any(), any())).thenReturn(results);
+    when(mockQDao.searchForResources(any(), any())).thenReturn(List.of(subQ));
 
     // Parent questionnaire already has one cqf-library
     Questionnaire parent = new Questionnaire();
@@ -170,10 +160,7 @@ class DtrSubQuestionnaireAssemblerTest {
     subQ.addExtension(new Extension(cqfLibUrl, new CanonicalType(sameCanonical)));
     subQ.addItem().setLinkId("s1").setType(QuestionnaireItemType.STRING);
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(subQ));
-    when(mockQDao.search(any(), any())).thenReturn(results);
+    when(mockQDao.searchForResources(any(), any())).thenReturn(List.of(subQ));
 
     // Parent already has the same canonical
     Questionnaire parent = new Questionnaire();
@@ -197,9 +184,7 @@ class DtrSubQuestionnaireAssemblerTest {
   @Test
   @DisplayName("Missing sub-questionnaire: warning returned, item left as-is")
   void missingSubQ_warning() {
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockQDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockQDao.searchForResources(any(), any())).thenReturn(List.of());
 
     Questionnaire q = new Questionnaire();
     QuestionnaireItemComponent item = q.addItem();

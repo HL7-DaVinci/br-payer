@@ -3,7 +3,6 @@ package org.hl7.davinci.cdshooks.shared;
 import java.util.List;
 
 import org.hl7.davinci.common.ResourceResolver;
-import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.MedicationRequest;
@@ -39,12 +38,5 @@ public final class FhirCodeExtractor {
           return null;
         });
     return org.hl7.davinci.common.FhirCodeExtractor.extractCodes(resource, normalizeSystem, resolved);
-  }
-
-  /**
-   * @see org.hl7.davinci.common.FhirCodeExtractor#codeableConceptDisplay(CodeableConcept)
-   */
-  public static String codeableConceptDisplay(CodeableConcept codeableConcept) {
-    return org.hl7.davinci.common.FhirCodeExtractor.codeableConceptDisplay(codeableConcept);
   }
 }

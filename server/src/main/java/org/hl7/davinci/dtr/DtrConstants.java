@@ -40,6 +40,10 @@ public final class DtrConstants {
   public static final String ALT_EXPRESSION_EXT =
       "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression";
 
+  // ===== Code Values =====
+
+  public static final String INTENDED_USE_WITH_ORDER = "withorder";
+
   // ===== Custom Headers =====
 
   public static final String ADAPTIVE_MODE_HEADER = "X-DTR-Adaptive-Mode";

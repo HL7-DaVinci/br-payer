@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDaoValueSet;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 
 class DtrValueSetCollectorTest {
@@ -57,10 +56,7 @@ class DtrValueSetCollectorTest {
   void collectFromAnswerValueSet() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(vs));
-    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Questionnaire q = new Questionnaire();
@@ -80,10 +76,7 @@ class DtrValueSetCollectorTest {
   void collectFromLibraryDataRequirement() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(vs));
-    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Library lib = new Library();
@@ -103,9 +96,7 @@ class DtrValueSetCollectorTest {
   @DisplayName("ValueSet resolved via validation support fallback")
   void valueSetResolvedViaValidationSupport() {
     // Not in local repository
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
 
     // Available via validation support chain
     ValueSet vs = createValueSet("vs-1", "http://hl7.org/fhir/ValueSet/request-intent", 3);
@@ -126,9 +117,7 @@ class DtrValueSetCollectorTest {
   @Test
   @DisplayName("ValueSet not in repo or validation support: warning")
   void valueSetNotFound_warning() {
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
 
     Questionnaire q = new Questionnaire();
     q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE)
@@ -155,10 +144,7 @@ class DtrValueSetCollectorTest {
         .setOp(ValueSet.FilterOperator.EQUAL)
         .setValue("161665007");
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(vs));
-    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Questionnaire q = new Questionnaire();
@@ -182,10 +168,7 @@ class DtrValueSetCollectorTest {
     // Ensure no description is set
     assertFalse(vs.hasDescription());
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(vs));
-    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Questionnaire q = new Questionnaire();
@@ -205,10 +188,7 @@ class DtrValueSetCollectorTest {
     vs.setTitle("Title");
     vs.setDescription("Original description");
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(vs));
-    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Questionnaire q = new Questionnaire();
@@ -226,10 +206,7 @@ class DtrValueSetCollectorTest {
   void deduplication() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(vs));
-    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     // Same URL in Questionnaire and Library
@@ -251,9 +228,7 @@ class DtrValueSetCollectorTest {
   @DisplayName("External ValueSet is persisted to JPA store with expansion")
   void externalValueSetPersistedWithExpansion() {
     // Not in local repository
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
 
     // Available via validation support chain
     String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.132";
@@ -280,9 +255,7 @@ class DtrValueSetCollectorTest {
   @Test
   @DisplayName("Expansion failure during persist does not prevent collection")
   void expansionFailureDuringPersist_stillCollects() {
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
 
     String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/example";
     ValueSet vs = createValueSet("vs-vsac", vsUrl, 5);
@@ -312,10 +285,7 @@ class DtrValueSetCollectorTest {
   void resolveAndPersist_returnsExistingJpaValueSet() {
     ValueSet vs = createValueSet("vs-1", "http://cts.nlm.nih.gov/fhir/ValueSet/example", 5);
 
-    IBundleProvider results = mock(IBundleProvider.class);
-    when(results.isEmpty()).thenReturn(false);
-    when(results.getResources(0, 1)).thenReturn(List.of(vs));
-    when(mockVsDao.search(any(), any())).thenReturn(results);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
 
     List<String> warnings = new java.util.ArrayList<>();
     ValueSet result = collector.resolveAndPersist(
@@ -331,9 +301,7 @@ class DtrValueSetCollectorTest {
   @Test
   @DisplayName("resolveAndPersist fetches from VSAC and persists when not in JPA")
   void resolveAndPersist_fetchesFromVsacAndPersists() {
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
 
     String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.132";
     ValueSet vs = createValueSet("vs-vsac", vsUrl, 3);
@@ -355,9 +323,7 @@ class DtrValueSetCollectorTest {
   @Test
   @DisplayName("resolveAndPersist returns null and adds warning when not found anywhere")
   void resolveAndPersist_returnsNullWhenNotFound() {
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
 
     List<String> warnings = new java.util.ArrayList<>();
     ValueSet result = collector.resolveAndPersist("http://example.org/ValueSet/missing", warnings);
@@ -370,9 +336,7 @@ class DtrValueSetCollectorTest {
   @Test
   @DisplayName("Persistence failure does not prevent collection")
   void persistenceFailure_stillCollects() {
-    IBundleProvider emptyResults = mock(IBundleProvider.class);
-    when(emptyResults.isEmpty()).thenReturn(true);
-    when(mockVsDao.search(any(), any())).thenReturn(emptyResults);
+    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
 
     String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/example2";
     ValueSet vs = createValueSet("vs-vsac", vsUrl, 5);

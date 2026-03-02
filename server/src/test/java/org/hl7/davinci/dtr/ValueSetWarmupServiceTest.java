@@ -16,8 +16,6 @@ import org.junit.jupiter.api.Test;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
-import ca.uhn.fhir.rest.server.SimpleBundleProvider;
 
 class ValueSetWarmupServiceTest {
 
@@ -48,8 +46,7 @@ class ValueSetWarmupServiceTest {
   }
 
   private void stubLibrarySearch(Library... libraries) {
-    IBundleProvider provider = new SimpleBundleProvider(List.of(libraries));
-    when(mockLibraryDao.search(any(), any())).thenReturn(provider);
+    when(mockLibraryDao.searchForResources(any(), any())).thenReturn(List.of(libraries));
   }
 
   @Test
@@ -93,7 +90,7 @@ class ValueSetWarmupServiceTest {
   @Test
   @DisplayName("Empty library list results in no URLs")
   void emptyLibraries() {
-    when(mockLibraryDao.search(any(), any())).thenReturn(new SimpleBundleProvider());
+    when(mockLibraryDao.searchForResources(any(), any())).thenReturn(List.of());
 
     Set<String> urls = warmupService.discoverVsacUrls();
 
