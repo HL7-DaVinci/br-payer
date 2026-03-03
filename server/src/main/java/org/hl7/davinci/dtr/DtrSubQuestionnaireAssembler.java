@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemComponent;
@@ -45,7 +46,7 @@ public class DtrSubQuestionnaireAssembler {
     Set<String> visited = new HashSet<>();
 
     // Track the root questionnaire's canonical to detect self-references
-    String rootCanonical = DtrFhirUtil.toVersionSpecific(
+    String rootCanonical = FhirUtil.toVersionSpecific(
         questionnaire.getUrl(), questionnaire.getVersion());
     if (rootCanonical != null) {
       visited.add(rootCanonical);
@@ -72,7 +73,7 @@ public class DtrSubQuestionnaireAssembler {
           continue;
         }
 
-        Questionnaire subQ = DtrFhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonical);
+        Questionnaire subQ = FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonical);
         if (subQ == null) {
           String warning = "Sub-questionnaire not found: " + canonical;
           logger.warn(warning);

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.cql.DaoLibrarySourceProvider;
 import org.hl7.davinci.cql.ElmCompiler;
 import org.hl7.davinci.cql.ElmCompilationException;
@@ -87,7 +88,7 @@ public class DtrLibraryResolver {
     visited.add(canonical);
 
     // Skip classpath-provided libraries (e.g. FHIRHelpers) - not stored in the repository
-    String[] parts = DtrFhirUtil.parseCanonical(canonical);
+    String[] parts = FhirUtil.parseCanonical(canonical);
     if (parts.length > 0) {
       String baseUrl = parts[0];
       int lastSlash = baseUrl.lastIndexOf('/');
@@ -100,7 +101,7 @@ public class DtrLibraryResolver {
       }
     }
 
-    Library library = DtrFhirUtil.resolveByCanonical(daoRegistry, Library.class, canonical);
+    Library library = FhirUtil.resolveByCanonical(daoRegistry, Library.class, canonical);
     if (library == null) {
       String warning = "Library not found: " + canonical;
       logger.warn(warning);
@@ -109,7 +110,7 @@ public class DtrLibraryResolver {
     }
 
     // Use version-specific canonical as the dedup key
-    String key = DtrFhirUtil.toVersionSpecific(library.getUrl(), library.getVersion());
+    String key = FhirUtil.toVersionSpecific(library.getUrl(), library.getVersion());
     if (resolved.containsKey(key)) {
       return;
     }

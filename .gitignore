@@ -46,6 +46,9 @@ Thumbs.db
 # VS Code CQL extension that wants all the CQL to be in /input/cql so this is to ignore symlinks we may have for that
 input
 
+# mkdocs build output
+site/
+
 
 # Keep agent documentation limited to root AGENTS.md file
 

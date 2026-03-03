@@ -130,7 +130,7 @@ Test request fixtures for CRD, DTR, and PAS are auto-generated from library Plan
 
 1. **`LibraryScenarioScanner`** scans the `library/` directory for PlanDefinition + Questionnaire pairs, extracting `ScenarioMetadata` (focus codes, hook triggers, order types, questionnaire URLs)
 2. Each IG has a scenario service and request builder pair in `scenarios/crd/`, `scenarios/dtr/`, `scenarios/pas/` sub-packages that transform metadata into valid request JSON
-3. **`TestRequestFileGenerator`** runs at build time (`process-test-classes` phase via Maven exec plugin) and writes generated files to `target/test-requests/`
+3. **`TestRequestFileGenerator`** runs at build time (`process-classes` phase via Maven exec plugin) and writes generated files to `target/test-requests/`
 
 ### Build Output
 
@@ -319,7 +319,7 @@ FHIR URL constants (profiles, extensions, code systems) are organized by impleme
 - CDS profile: `server/src/main/resources/application-cds.yaml` (loads CQL IGs, stricter ValueSet expansion)
 - Test: `server/src/test/resources/application-test.yaml`
 - VSAC integration: set `VSAC_API_KEY` env var (bean activates conditionally)
-- DTR adaptive config: `dtr.adaptive.next-question-url`, `dtr.adaptive.session-ttl-minutes`
+- DTR adaptive config: `dtr.adaptive.next-question-url`
 - DTR warmup: `dtr.valueset-warmup.enabled` (pre-expands ValueSets at startup)
 - PAS config: `pas.pended-resolution-delay-seconds` (default 15s), `pas.authorization-number-prefix` (default `AUTH-`)
 

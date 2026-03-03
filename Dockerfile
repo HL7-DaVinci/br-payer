@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for FHIR Server with TanStack SPA Frontend
+# Multi-stage Dockerfile for FHIR Server with TanStack SPA Frontend and Documentation
 
 ##########################################################################
 # Stage 1: Build the TanStack SPA frontend
@@ -24,7 +24,17 @@ WORKDIR /app/frontend
 RUN bun run build
 
 ##########################################################################
-# Stage 2: Build the HAPI FHIR Server
+# Stage 2: Build the documentation site (mkdocs)
+##########################################################################
+FROM python:3-alpine AS build-docs
+
+WORKDIR /app
+COPY mkdocs.yml .
+COPY docs/ ./docs/
+RUN pip install --no-cache-dir mkdocs-material && mkdocs build
+
+##########################################################################
+# Stage 3: Build the HAPI FHIR Server
 ##########################################################################
 FROM docker.io/library/maven:3.9.11-eclipse-temurin-17 AS build-server
 
@@ -47,18 +57,21 @@ COPY server/src/ /tmp/hapi-fhir-jpaserver-starter/src/
 # Copy frontend build artifacts to server's static resources directory
 COPY --from=build-frontend /app/frontend/dist/ /tmp/hapi-fhir-jpaserver-starter/src/main/resources/static/
 
+# Copy documentation site to static/docs/
+COPY --from=build-docs /app/site/ /tmp/hapi-fhir-jpaserver-starter/src/main/resources/static/docs/
+
 # Build the server
 RUN mvn clean install -DskipTests -Djdk.lang.Process.launchMechanism=vfork
 
 ##########################################################################
-# Stage 3: Package for Spring Boot
+# Stage 4: Package for Spring Boot
 ##########################################################################
 FROM build-server AS build-distroless
 RUN mvn package -DskipTests spring-boot:repackage -Pboot
 RUN mkdir /app && cp /tmp/hapi-fhir-jpaserver-starter/target/ROOT.war /app/main.war
 
 ##########################################################################
-# Stage 4: Final Production Image (Distroless)
+# Stage 5: Final Production Image (Distroless)
 ##########################################################################
 FROM gcr.io/distroless/java17-debian12:nonroot AS default
 

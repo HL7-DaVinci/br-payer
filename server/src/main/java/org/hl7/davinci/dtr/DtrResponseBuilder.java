@@ -198,7 +198,7 @@ public class DtrResponseBuilder {
     } else {
       contained.addSubjectType("Patient");
     }
-    String sourceCanonical = DtrFhirUtil.toVersionSpecific(questionnaire.getUrl(), questionnaire.getVersion());
+    String sourceCanonical = FhirUtil.toVersionSpecific(questionnaire.getUrl(), questionnaire.getVersion());
     if (sourceCanonical != null && !sourceCanonical.isBlank()) {
       contained.addDerivedFrom(sourceCanonical);
     }
@@ -303,7 +303,7 @@ public class DtrResponseBuilder {
     qr.setStatus(QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS);
 
     // Version-specific questionnaire canonical
-    String canonical = DtrFhirUtil.toVersionSpecific(questionnaire.getUrl(), questionnaire.getVersion());
+    String canonical = FhirUtil.toVersionSpecific(questionnaire.getUrl(), questionnaire.getVersion());
     qr.setQuestionnaire(canonical);
 
     // Subject from coverage beneficiary

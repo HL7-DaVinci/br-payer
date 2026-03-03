@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hl7.davinci.common.BundleResourceUtil;
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
@@ -87,7 +88,7 @@ public class AdaptiveNextQuestionService {
     String sourceCanonical = extractSourceCanonical(containedQ);
 
     // Resolve source questionnaire from FHIR repository
-    Questionnaire sourceQ = DtrFhirUtil.resolveByCanonical(
+    Questionnaire sourceQ = FhirUtil.resolveByCanonical(
         daoRegistry, Questionnaire.class, sourceCanonical);
     if (sourceQ == null) {
       throw new InternalErrorException(

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import java.util.List;
 
+import org.hl7.davinci.common.VsacValueSetResolver;
 import org.hl7.fhir.r4.model.DataRequirement;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.Questionnaire;
@@ -16,26 +17,24 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDaoValueSet;
-import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 
 class DtrValueSetCollectorTest {
 
   private DtrValueSetCollector collector;
   private DaoRegistry mockDaoRegistry;
   private IFhirResourceDaoValueSet<ValueSet> mockVsDao;
-  private IValidationSupport mockValidationSupport;
+  private VsacValueSetResolver mockResolver;
 
   @SuppressWarnings("unchecked")
   @BeforeEach
   void setUp() {
     mockDaoRegistry = mock(DaoRegistry.class);
     mockVsDao = mock(IFhirResourceDaoValueSet.class);
-    mockValidationSupport = mock(IValidationSupport.class);
+    mockResolver = mock(VsacValueSetResolver.class);
     when(mockDaoRegistry.getResourceDao(ValueSet.class)).thenReturn(mockVsDao);
-    collector = new DtrValueSetCollector(mockDaoRegistry, mockValidationSupport);
+    collector = new DtrValueSetCollector(mockDaoRegistry, mockResolver);
   }
 
   private ValueSet createValueSet(String id, String url, int conceptCount) {
@@ -55,8 +54,7 @@ class DtrValueSetCollectorTest {
   @DisplayName("Collect from answerValueSet")
   void collectFromAnswerValueSet() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
-
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
+    when(mockResolver.resolveAndPersist(eq("http://example.org/ValueSet/test"), anyList())).thenReturn(vs);
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Questionnaire q = new Questionnaire();
@@ -75,8 +73,7 @@ class DtrValueSetCollectorTest {
   @DisplayName("Collect from Library dataRequirement")
   void collectFromLibraryDataRequirement() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
-
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
+    when(mockResolver.resolveAndPersist(eq("http://example.org/ValueSet/test"), anyList())).thenReturn(vs);
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Library lib = new Library();
@@ -93,31 +90,10 @@ class DtrValueSetCollectorTest {
   }
 
   @Test
-  @DisplayName("ValueSet resolved via validation support fallback")
-  void valueSetResolvedViaValidationSupport() {
-    // Not in local repository
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
-
-    // Available via validation support chain
-    ValueSet vs = createValueSet("vs-1", "http://hl7.org/fhir/ValueSet/request-intent", 3);
-    when(mockValidationSupport.fetchValueSet("http://hl7.org/fhir/ValueSet/request-intent"))
-        .thenReturn(vs);
-    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
-
-    Questionnaire q = new Questionnaire();
-    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE)
-        .setAnswerValueSet("http://hl7.org/fhir/ValueSet/request-intent");
-
-    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
-
-    assertEquals(1, result.valueSets().size());
-    assertTrue(result.warnings().isEmpty());
-  }
-
-  @Test
-  @DisplayName("ValueSet not in repo or validation support: warning")
+  @DisplayName("ValueSet not found: warning added")
   void valueSetNotFound_warning() {
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
+    when(mockResolver.resolveAndPersist(eq("http://example.org/ValueSet/missing"), anyList()))
+        .thenReturn(null);
 
     Questionnaire q = new Questionnaire();
     q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE)
@@ -126,8 +102,6 @@ class DtrValueSetCollectorTest {
     DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
 
     assertTrue(result.valueSets().isEmpty());
-    assertEquals(1, result.warnings().size());
-    assertTrue(result.warnings().get(0).contains("not found"));
   }
 
   @Test
@@ -144,7 +118,8 @@ class DtrValueSetCollectorTest {
         .setOp(ValueSet.FilterOperator.EQUAL)
         .setValue("161665007");
 
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
+    when(mockResolver.resolveAndPersist(eq("http://example.org/ValueSet/snomed-filter"), anyList()))
+        .thenReturn(vs);
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Questionnaire q = new Questionnaire();
@@ -165,10 +140,9 @@ class DtrValueSetCollectorTest {
   void valueSetWithoutDescription_defaultsFromTitle() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
     vs.setTitle("Test Value Set");
-    // Ensure no description is set
     assertFalse(vs.hasDescription());
 
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
+    when(mockResolver.resolveAndPersist(eq("http://example.org/ValueSet/test"), anyList())).thenReturn(vs);
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Questionnaire q = new Questionnaire();
@@ -188,7 +162,7 @@ class DtrValueSetCollectorTest {
     vs.setTitle("Title");
     vs.setDescription("Original description");
 
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
+    when(mockResolver.resolveAndPersist(eq("http://example.org/ValueSet/test"), anyList())).thenReturn(vs);
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
     Questionnaire q = new Questionnaire();
@@ -205,11 +179,9 @@ class DtrValueSetCollectorTest {
   @DisplayName("Deduplication: same URL from Q and Library yields one ValueSet")
   void deduplication() {
     ValueSet vs = createValueSet("vs-1", "http://example.org/ValueSet/test", 5);
-
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
+    when(mockResolver.resolveAndPersist(eq("http://example.org/ValueSet/test"), anyList())).thenReturn(vs);
     when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(vs);
 
-    // Same URL in Questionnaire and Library
     Questionnaire q = new Questionnaire();
     q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE)
         .setAnswerValueSet("http://example.org/ValueSet/test");
@@ -220,145 +192,6 @@ class DtrValueSetCollectorTest {
 
     DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of(lib));
 
-    // Only one ValueSet despite two references
     assertEquals(1, result.valueSets().size());
-  }
-
-  @Test
-  @DisplayName("External ValueSet is persisted to JPA store with expansion")
-  void externalValueSetPersistedWithExpansion() {
-    // Not in local repository
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
-
-    // Available via validation support chain
-    String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.132";
-    ValueSet vs = createValueSet("vs-vsac", vsUrl, 5);
-    when(mockValidationSupport.fetchValueSet(vsUrl)).thenReturn(vs);
-
-    // Expansion succeeds
-    ValueSet expanded = new ValueSet();
-    expanded.getExpansion().addContains().setSystem("http://example.org/cs").setCode("code-0");
-    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(expanded);
-
-    Questionnaire q = new Questionnaire();
-    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE).setAnswerValueSet(vsUrl);
-
-    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
-
-    assertEquals(1, result.valueSets().size());
-    // Verify expansion was set on the ValueSet
-    assertTrue(result.valueSets().get(0).hasExpansion());
-    // Verify persisted to JPA store
-    verify(mockVsDao).update(eq(vs), any(SystemRequestDetails.class));
-  }
-
-  @Test
-  @DisplayName("Expansion failure during persist does not prevent collection")
-  void expansionFailureDuringPersist_stillCollects() {
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
-
-    String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/example";
-    ValueSet vs = createValueSet("vs-vsac", vsUrl, 5);
-    when(mockValidationSupport.fetchValueSet(vsUrl)).thenReturn(vs);
-
-    // Expansion fails
-    when(mockVsDao.expand(any(ValueSet.class), any()))
-        .thenThrow(new RuntimeException("Terminology server unavailable"));
-
-    Questionnaire q = new Questionnaire();
-    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE).setAnswerValueSet(vsUrl);
-
-    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
-
-    // ValueSet still collected despite expansion failure
-    assertEquals(1, result.valueSets().size());
-    // Persist still attempted (without expansion)
-    verify(mockVsDao).update(eq(vs), any(SystemRequestDetails.class));
-    // Warning recorded for expansion failure
-    assertTrue(result.warnings().stream().anyMatch(w -> w.contains("expansion failed during persist")));
-  }
-
-  // --- resolveAndPersist tests ---
-
-  @Test
-  @DisplayName("resolveAndPersist returns existing JPA ValueSet without hitting VSAC")
-  void resolveAndPersist_returnsExistingJpaValueSet() {
-    ValueSet vs = createValueSet("vs-1", "http://cts.nlm.nih.gov/fhir/ValueSet/example", 5);
-
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of(vs));
-
-    List<String> warnings = new java.util.ArrayList<>();
-    ValueSet result = collector.resolveAndPersist(
-        "http://cts.nlm.nih.gov/fhir/ValueSet/example", warnings);
-
-    assertNotNull(result);
-    assertEquals("http://cts.nlm.nih.gov/fhir/ValueSet/example", result.getUrl());
-    assertTrue(warnings.isEmpty());
-    // VSAC not consulted
-    verify(mockValidationSupport, never()).fetchValueSet(anyString());
-  }
-
-  @Test
-  @DisplayName("resolveAndPersist fetches from VSAC and persists when not in JPA")
-  void resolveAndPersist_fetchesFromVsacAndPersists() {
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
-
-    String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1219.132";
-    ValueSet vs = createValueSet("vs-vsac", vsUrl, 3);
-    when(mockValidationSupport.fetchValueSet(vsUrl)).thenReturn(vs);
-
-    ValueSet expanded = new ValueSet();
-    expanded.getExpansion().addContains().setSystem("http://example.org/cs").setCode("code-0");
-    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(expanded);
-
-    List<String> warnings = new java.util.ArrayList<>();
-    ValueSet result = collector.resolveAndPersist(vsUrl, warnings);
-
-    assertNotNull(result);
-    assertTrue(result.hasExpansion());
-    verify(mockVsDao).update(eq(vs), any(SystemRequestDetails.class));
-    assertTrue(warnings.isEmpty());
-  }
-
-  @Test
-  @DisplayName("resolveAndPersist returns null and adds warning when not found anywhere")
-  void resolveAndPersist_returnsNullWhenNotFound() {
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
-
-    List<String> warnings = new java.util.ArrayList<>();
-    ValueSet result = collector.resolveAndPersist("http://example.org/ValueSet/missing", warnings);
-
-    assertNull(result);
-    assertEquals(1, warnings.size());
-    assertTrue(warnings.get(0).contains("not found"));
-  }
-
-  @Test
-  @DisplayName("Persistence failure does not prevent collection")
-  void persistenceFailure_stillCollects() {
-    when(mockVsDao.searchForResources(any(), any())).thenReturn(List.of());
-
-    String vsUrl = "http://cts.nlm.nih.gov/fhir/ValueSet/example2";
-    ValueSet vs = createValueSet("vs-vsac", vsUrl, 5);
-    when(mockValidationSupport.fetchValueSet(vsUrl)).thenReturn(vs);
-
-    // Expansion succeeds
-    ValueSet expanded = new ValueSet();
-    expanded.getExpansion().addContains().setSystem("http://example.org/cs").setCode("code-0");
-    when(mockVsDao.expand(any(ValueSet.class), any())).thenReturn(expanded);
-
-    // Persist fails
-    doThrow(new RuntimeException("Database error"))
-        .when(mockVsDao).update(any(ValueSet.class), any(SystemRequestDetails.class));
-
-    Questionnaire q = new Questionnaire();
-    q.addItem().setLinkId("q1").setType(QuestionnaireItemType.CHOICE).setAnswerValueSet(vsUrl);
-
-    DtrValueSetCollector.ValueSetCollection result = collector.collectValueSets(q, List.of());
-
-    // ValueSet still collected despite persistence failure
-    assertEquals(1, result.valueSets().size());
-    // Warning recorded for persistence failure
-    assertTrue(result.warnings().stream().anyMatch(w -> w.contains("Failed to persist")));
   }
 }

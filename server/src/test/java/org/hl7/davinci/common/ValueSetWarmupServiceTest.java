@@ -1,4 +1,4 @@
-package org.hl7.davinci.dtr;
+package org.hl7.davinci.common;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -21,17 +21,17 @@ class ValueSetWarmupServiceTest {
 
   private ValueSetWarmupService warmupService;
   private DaoRegistry mockDaoRegistry;
-  private DtrValueSetCollector mockCollector;
+  private VsacValueSetResolver mockResolver;
   private IFhirResourceDao<Library> mockLibraryDao;
 
   @SuppressWarnings("unchecked")
   @BeforeEach
   void setUp() {
     mockDaoRegistry = mock(DaoRegistry.class);
-    mockCollector = mock(DtrValueSetCollector.class);
+    mockResolver = mock(VsacValueSetResolver.class);
     mockLibraryDao = mock(IFhirResourceDao.class);
     when(mockDaoRegistry.getResourceDao(Library.class)).thenReturn(mockLibraryDao);
-    warmupService = new ValueSetWarmupService(mockDaoRegistry, mockCollector);
+    warmupService = new ValueSetWarmupService(mockDaoRegistry, mockResolver);
   }
 
   private Library createLibraryWithVsacUrl(String id, String... vsUrls) {
@@ -106,12 +106,12 @@ class ValueSetWarmupServiceTest {
 
     ValueSet vs = new ValueSet();
     vs.setUrl(url1);
-    when(mockCollector.resolveAndPersist(anyString(), anyList())).thenReturn(vs);
+    when(mockResolver.resolveAndPersist(anyString(), anyList())).thenReturn(vs);
 
     warmupService.warmup();
 
-    verify(mockCollector).resolveAndPersist(eq(url1), anyList());
-    verify(mockCollector).resolveAndPersist(eq(url2), anyList());
+    verify(mockResolver).resolveAndPersist(eq(url1), anyList());
+    verify(mockResolver).resolveAndPersist(eq(url2), anyList());
   }
 
   @Test
@@ -121,15 +121,15 @@ class ValueSetWarmupServiceTest {
     String url2 = "http://cts.nlm.nih.gov/fhir/ValueSet/succeeding";
     stubLibrarySearch(createLibraryWithVsacUrl("lib-1", url1, url2));
 
-    when(mockCollector.resolveAndPersist(eq(url1), anyList()))
+    when(mockResolver.resolveAndPersist(eq(url1), anyList()))
         .thenThrow(new RuntimeException("VSAC timeout"));
     ValueSet vs = new ValueSet();
     vs.setUrl(url2);
-    when(mockCollector.resolveAndPersist(eq(url2), anyList())).thenReturn(vs);
+    when(mockResolver.resolveAndPersist(eq(url2), anyList())).thenReturn(vs);
 
     warmupService.warmup();
 
-    verify(mockCollector).resolveAndPersist(eq(url2), anyList());
+    verify(mockResolver).resolveAndPersist(eq(url2), anyList());
   }
 
   @Test

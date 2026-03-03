@@ -1,6 +1,17 @@
 site_name: Burden Reduction Payer Reference Implementation
 nav:
   - Home: index.md
+  - Getting started:
+    - getting-started/index.md
+    - Prerequisites: getting-started/prerequisites.md
+    - Running the server: getting-started/running.md
+    - Testing the setup: getting-started/testing.md
+  - Configuration: configuration.md
+  - Architecture: architecture.md
+  - Clinical content library:
+    - clinical-content/index.md
+    - Library modules: clinical-content/library-modules.md
+    - Scenarios and testing: clinical-content/scenarios.md
 theme:
   name: material
   palette:

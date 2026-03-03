@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hl7.davinci.common.CoverageInfoUtil;
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.common.FhirCodeExtractor;
 import org.hl7.davinci.common.PayorIdentifierUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
@@ -127,7 +128,7 @@ public class DtrQuestionnaireResolver {
     if (hasQuestionnaire) {
       for (CanonicalType canonical : canonicals) {
         String canonicalValue = canonical.getValue();
-        Questionnaire q = DtrFhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonicalValue);
+        Questionnaire q = FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonicalValue);
 
         String warning = null;
         if (q == null) {
@@ -137,7 +138,7 @@ public class DtrQuestionnaireResolver {
 
         // Normalize to version-specific key
         String key = (q != null)
-            ? DtrFhirUtil.toVersionSpecific(q.getUrl(), q.getVersion())
+            ? FhirUtil.toVersionSpecific(q.getUrl(), q.getVersion())
             : canonicalValue;
 
         ResolvedQuestionnaire resolved = new ResolvedQuestionnaire(
@@ -267,7 +268,7 @@ public class DtrQuestionnaireResolver {
             for (Extension qExt : questionnaireExts) {
               if (qExt.getValue() instanceof CanonicalType canonicalType) {
                 String canonicalValue = canonicalType.getValue();
-                Questionnaire q = DtrFhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonicalValue);
+                Questionnaire q = FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonicalValue);
 
                 if (q == null) {
                   String warning = "Questionnaire from PlanDefinition evaluation not found: " + canonicalValue;
@@ -280,14 +281,14 @@ public class DtrQuestionnaireResolver {
                 if (isExpired(q) && !results.containsKey(canonicalValue)) {
                   // Order-based: expired questionnaires are excluded unless questionnaire
                   // parameter already included them
-                  String key = DtrFhirUtil.toVersionSpecific(q.getUrl(), q.getVersion());
+                  String key = FhirUtil.toVersionSpecific(q.getUrl(), q.getVersion());
                   if (!results.containsKey(key)) {
                     logger.info("Excluding expired questionnaire from order-based resolution: {}", canonicalValue);
                     continue;
                   }
                 }
 
-                String key = DtrFhirUtil.toVersionSpecific(q.getUrl(), q.getVersion());
+                String key = FhirUtil.toVersionSpecific(q.getUrl(), q.getVersion());
                 List<String> orderIds = new ArrayList<>();
                 orderIds.add(orderId);
                 ResolvedQuestionnaire resolved = new ResolvedQuestionnaire(
@@ -392,7 +393,7 @@ public class DtrQuestionnaireResolver {
         // PlanDefinition.library may include a version suffix (e.g.,
         // "Library/Foo|1.0.0").
         // Strip it before resolving by resource ID.
-        String[] canonicalParts = DtrFhirUtil.parseCanonical(ref);
+        String[] canonicalParts = FhirUtil.parseCanonical(ref);
         if (canonicalParts.length == 0 || canonicalParts[0] == null || canonicalParts[0].isBlank()) {
           continue;
         }

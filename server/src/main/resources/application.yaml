@@ -467,9 +467,13 @@ initial-data:
   - seed-data
   - library  # Copied from /library folder in project root as defined in pom and Dockerfile
 
-dtr:
-  valueset-warmup:
+vsac:
+  api-key: ${VSAC_API_KEY:}
+  # url: https://cts.nlm.nih.gov/fhir  (default)
+  warmup:
     enabled: true
+
+dtr:
   adaptive:
     # next-question-url defaults to {hapi.fhir.server_address}/Questionnaire/$next-question
     # Override to point to a different endpoint:

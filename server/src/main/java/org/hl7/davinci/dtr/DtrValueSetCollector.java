@@ -8,7 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.davinci.common.VsacValueSetResolver;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.DataRequirement;
@@ -20,10 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDaoValueSet;
-import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.util.UrlUtil;
 
 /**
@@ -39,11 +37,11 @@ public class DtrValueSetCollector {
   private static final int EXPANSION_THRESHOLD = 40;
 
   private final DaoRegistry daoRegistry;
-  private final IValidationSupport validationSupport;
+  private final VsacValueSetResolver valueSetResolver;
 
-  public DtrValueSetCollector(DaoRegistry daoRegistry, IValidationSupport validationSupport) {
+  public DtrValueSetCollector(DaoRegistry daoRegistry, VsacValueSetResolver valueSetResolver) {
     this.daoRegistry = daoRegistry;
-    this.validationSupport = validationSupport;
+    this.valueSetResolver = valueSetResolver;
   }
 
   public record ValueSetCollection(List<ValueSet> valueSets, List<String> warnings) {}
@@ -69,7 +67,7 @@ public class DtrValueSetCollector {
     // Resolve and optionally expand each ValueSet
     List<ValueSet> valueSets = new ArrayList<>();
     for (String url : valueSetUrls.keySet()) {
-      ValueSet vs = resolveAndPersist(url, warnings);
+      ValueSet vs = valueSetResolver.resolveAndPersist(url, warnings);
 
       if (vs == null) {
         continue;
@@ -92,66 +90,6 @@ public class DtrValueSetCollector {
     }
 
     return new ValueSetCollection(valueSets, warnings);
-  }
-
-  /**
-   * Resolve a ValueSet by canonical URL: first from JPA, then via the validation support chain
-   * (which includes VSAC). If fetched externally, expands and persists to JPA so subsequent
-   * lookups are local. Returns null if the ValueSet cannot be resolved.
-   */
-  public ValueSet resolveAndPersist(String url, List<String> warnings) {
-    ValueSet vs = DtrFhirUtil.resolveByCanonical(daoRegistry, ValueSet.class, url);
-
-    if (vs == null && validationSupport != null) {
-      String baseUrl = DtrFhirUtil.parseCanonical(url)[0];
-      IBaseResource fetched = validationSupport.fetchValueSet(baseUrl);
-      if (fetched instanceof ValueSet) {
-        vs = (ValueSet) fetched;
-        logger.debug("ValueSet resolved via validation support: {}", url);
-        persistExternalValueSet(vs, warnings);
-      }
-    }
-
-    if (vs == null) {
-      String warning = "ValueSet not found: " + url;
-      logger.warn(warning);
-      warnings.add(warning);
-    }
-
-    return vs;
-  }
-
-  /**
-   * Persist an externally-fetched ValueSet (e.g. from VSAC) to the JPA store so downstream
-   * consumers like the CQL engine's RepositoryTerminologyProvider can find it via repository search.
-   * Expands the ValueSet first so the CQL engine can use pre-existing expansion elements.
-   */
-  private void persistExternalValueSet(ValueSet vs, List<String> warnings) {
-    IFhirResourceDaoValueSet<ValueSet> vsDao =
-        (IFhirResourceDaoValueSet<ValueSet>) daoRegistry.getResourceDao(ValueSet.class);
-
-    // Expand before persisting so CQL naive expansion has something to work with
-    if (!vs.hasExpansion()) {
-      try {
-        ValueSet expanded = vsDao.expand(vs, null);
-        if (expanded != null && expanded.hasExpansion()) {
-          vs.setExpansion(expanded.getExpansion());
-        }
-      } catch (Exception e) {
-        String warning = "ValueSet expansion failed during persist for " + vs.getUrl() + ": " + e.getMessage();
-        logger.warn(warning);
-        warnings.add(warning);
-      }
-    }
-
-    try {
-      vsDao.update(vs, new SystemRequestDetails());
-      logger.debug("Persisted external ValueSet to JPA store: {}", vs.getUrl());
-    } catch (Exception e) {
-      String warning = "Failed to persist external ValueSet " + vs.getUrl() + ": " + e.getMessage();
-      logger.warn(warning);
-      warnings.add(warning);
-    }
   }
 
   private void collectFromItems(List<QuestionnaireItemComponent> items, Map<String, String> urls) {

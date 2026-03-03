@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import {
+  BookOpen,
   FileJson,
   FlameIcon,
   Form,
@@ -23,7 +24,17 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
-const data = {
+const data: {
+  navMain: Array<{
+    title: string;
+    items: Array<{
+      title: string;
+      url: string;
+      icon: typeof LayoutDashboard;
+      external?: boolean;
+    }>;
+  }>;
+} = {
   navMain: [
     {
       title: "Main",
@@ -55,6 +66,17 @@ const data = {
         },
       ],
     },
+    {
+      title: "Reference",
+      items: [
+        {
+          title: "Documentation",
+          url: "/docs",
+          icon: BookOpen,
+          external: true,
+        },
+      ],
+    },
   ],
 };
 
@@ -82,17 +104,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 {section.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild tooltip={item.title}>
-                      <Link
-                        to={item.url}
-                        activeProps={{
-                          className:
-                            "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
-                        }}
-                        activeOptions={{ exact: item.url === "/" }}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
+                      {item.external ? (
+                        <a href={item.url} target="_blank" rel="noreferrer">
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </a>
+                      ) : (
+                        <Link
+                          to={item.url}
+                          activeProps={{
+                            className:
+                              "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+                          }}
+                          activeOptions={{ exact: item.url === "/" }}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}

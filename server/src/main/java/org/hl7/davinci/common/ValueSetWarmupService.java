@@ -1,4 +1,4 @@
-package org.hl7.davinci.dtr;
+package org.hl7.davinci.common;
 
 import static org.hl7.davinci.common.FhirConstants.VSAC_VALUESET_PREFIX;
 
@@ -26,17 +26,17 @@ import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
  * $questionnaire-package request by warming the JPA cache with pre-expanded ValueSets.
  */
 @Component
-@ConditionalOnExpression("!'${vsac.api-key:}'.isEmpty() && ${dtr.valueset-warmup.enabled:true}")
+@ConditionalOnExpression("!'${vsac.api-key:}'.isEmpty() && ${vsac.warmup.enabled:true}")
 public class ValueSetWarmupService {
 
   private static final Logger logger = LoggerFactory.getLogger(ValueSetWarmupService.class);
 
   private final DaoRegistry daoRegistry;
-  private final DtrValueSetCollector valueSetCollector;
+  private final VsacValueSetResolver valueSetResolver;
 
-  public ValueSetWarmupService(DaoRegistry daoRegistry, DtrValueSetCollector valueSetCollector) {
+  public ValueSetWarmupService(DaoRegistry daoRegistry, VsacValueSetResolver valueSetResolver) {
     this.daoRegistry = daoRegistry;
-    this.valueSetCollector = valueSetCollector;
+    this.valueSetResolver = valueSetResolver;
   }
 
   @EventListener(ApplicationReadyEvent.class)
@@ -65,7 +65,7 @@ public class ValueSetWarmupService {
       index++;
       try {
         List<String> warnings = new ArrayList<>();
-        var vs = valueSetCollector.resolveAndPersist(url, warnings);
+        var vs = valueSetResolver.resolveAndPersist(url, warnings);
         if (vs != null && warnings.isEmpty()) {
           resolved++;
           logger.info("Warmed up ValueSet {}/{}: {}", index, vsacUrls.size(), url);
