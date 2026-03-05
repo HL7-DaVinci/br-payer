@@ -14,7 +14,7 @@ interface FhirError extends Error {
   operationOutcome?: OperationOutcome;
 }
 
-async function fhirFetch<T>(url: string): Promise<T> {
+export async function fhirFetch<T>(url: string): Promise<T> {
   const response = await fetch(url, {
     headers: {
       Accept: "application/fhir+json",

@@ -69,7 +69,7 @@ public class AppProperties {
 
 	private BinaryStorageMode binary_storage_mode = BinaryStorageMode.DATABASE;
 	private String binary_storage_filesystem_base_directory;
-	private Integer inline_resource_storage_below_size;
+	private Integer binary_storage_minimum_binary_size;
 	private Boolean bulk_export_enabled = false;
 	private Boolean bulk_import_enabled = false;
 	private Boolean default_pretty_print = true;
@@ -129,6 +129,9 @@ public class AppProperties {
 	private Boolean mark_resources_for_reindexing_upon_search_parameter_change = true;
 	private Integer reindex_thread_count = null;
 	private Integer expunge_thread_count = null;
+	private Elasticsearch elasticsearch = null;
+
+	private Integer bulk_export_file_retention_period_hours = 2;
 
 	public List<String> getCustomInterceptorClasses() {
 		return custom_interceptor_classes;
@@ -510,12 +513,12 @@ public class AppProperties {
 		this.binary_storage_filesystem_base_directory = binary_storage_filesystem_base_directory;
 	}
 
-	public Integer getInline_resource_storage_below_size() {
-		return inline_resource_storage_below_size;
+	public Integer getBinary_storage_minimum_binary_size() {
+		return binary_storage_minimum_binary_size;
 	}
 
-	public void setInline_resource_storage_below_size(Integer inline_resource_storage_below_size) {
-		this.inline_resource_storage_below_size = inline_resource_storage_below_size;
+	public void setBinary_storage_minimum_binary_size(Integer binary_storage_minimum_binary_size) {
+		this.binary_storage_minimum_binary_size = binary_storage_minimum_binary_size;
 	}
 
 	public Boolean getBulk_export_enabled() {
@@ -847,6 +850,21 @@ public class AppProperties {
 		this.store_meta_source_information = store_meta_source_information;
 	}
 
+	public Elasticsearch getElasticsearch() {
+		return elasticsearch;
+	}
+
+	public void setElasticsearch(Elasticsearch elasticsearch) {
+		this.elasticsearch = elasticsearch;
+	}
+
+	public Integer getBulk_export_file_retention_period_hours() {
+		return bulk_export_file_retention_period_hours;
+	}
+
+	public void setBulk_export_file_retention_period_hours(Integer bulk_export_file_retention_period_hours) {
+		this.bulk_export_file_retention_period_hours = bulk_export_file_retention_period_hours;
+	}
 
 	public static class Cors {
 		private Boolean allow_Credentials = true;
@@ -1195,6 +1213,19 @@ public class AppProperties {
 			public void setQuitWait(Boolean quitWait) {
 				this.quitWait = quitWait;
 			}
+		}
+	}
+
+	public static class Elasticsearch {
+
+		private String index_prefix = "";
+
+		public String getIndex_prefix() {
+			return index_prefix;
+		}
+
+		public void setIndex_prefix(String index_prefix) {
+			this.index_prefix = index_prefix;
 		}
 	}
 }

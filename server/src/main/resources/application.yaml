@@ -37,6 +37,16 @@ management:
         enabled: true
 
 spring:
+#  elasticsearch:
+#    uris: http://localhost:9200
+#    username: elastic
+#    password: elastic
+  # -------------------------------------------------------------------------------
+  # Application Name
+  # -------------------------------------------------------------------------------
+  application:
+    name: "@project.artifactId@"
+
   # -------------------------------------------------------------------------------
   # A. Spring AI — Model Context Protocol (MCP)
   # -------------------------------------------------------------------------------
@@ -81,6 +91,7 @@ spring:
   main:
     allow-bean-definition-overriding: false
     allow-circular-references: true
+    banner-mode: off
 
   devtools:
     restart:
@@ -128,8 +139,10 @@ spring:
           use_minimal_puts: false
 
         # --- Hibernate Search (Lucene/Elasticsearch) ---
-        search:
-          enabled: false
+        #search:
+        #  schema_management:
+        #    strategy: CREATE
+        #  enabled: true
           # Lucene backend (default example)
           # backend:
           #   type: lucene
@@ -140,10 +153,25 @@ spring:
           #     root: target/lucenefiles
           #   lucene_version: lucene_current
           # Elasticsearch backend (alternative) — see also hapi.fhir.elasticsearch section in docs
-          # backend:
-          #   type: elasticsearch
-          #   analysis:
-          #     configurer: ca.uhn.fhir.jpa.search.HapiHSearchAnalysisConfigurers$HapiElasticAnalysisConfigurer
+#          backend:
+#            layout:
+#              strategy: ca.uhn.fhir.jpa.search.elastic.IndexNamePrefixLayoutStrategy
+#            type: elasticsearch
+#            protocol: http
+#            analysis:
+#              configurer: ca.uhn.fhir.jpa.search.HapiHSearchAnalysisConfigurers$HapiElasticsearchAnalysisConfigurer
+#            scroll_timeout: 60
+#            schema_management:
+#              settings_file: ca/uhn/fhir/jpa/elastic/index-settings.json
+#              minimal_required_status_wait_timeout: 10000
+#              minimal_required_status: YELLOW
+#
+#            dynamic_mapping: true
+#          indexing:
+#            plan:
+#              synchronization:
+#                strategy: async
+
 
 # -------------------------------------------------------------------------------------
 # HAPI FHIR — grouped by domain
@@ -262,8 +290,8 @@ hapi:
     # -------------------------------------------------------------------------------
     # NOTE: Extended Lucene/Elasticsearch indexing is experimental.
     # See https://hapifhir.io/hapi-fhir/docs/server_jpa/elastic.html
-    advanced_lucene_indexing: false
-    search_index_full_text_enabled: false
+    # advanced_lucene_indexing: true
+    # search_index_full_text_enabled: true
     # language_search_parameter_enabled: true
     # upliftedRefchains_enabled: true
     # index_storage_optimized: false
@@ -273,10 +301,17 @@ hapi:
     # store_resource_in_lucene_index_enabled: true
 
     # -------------------------------------------------------------------------------
+    # Elasticsearch Configuration
+    # -------------------------------------------------------------------------------
+    # elasticsearch:
+    #   index_prefix: "myprefix"   # Prefix for all Elasticsearch indexes (e.g., myprefix_observation_index)
+
+    # -------------------------------------------------------------------------------
     # E. Bulk Operations
     # -------------------------------------------------------------------------------
     bulk_export_enabled: false
     bulk_import_enabled: false
+    bulk_export_file_retention_period_hours: 2
 
     # -------------------------------------------------------------------------------
     # F. Write / Delete / Integrity
@@ -415,7 +450,7 @@ hapi:
     #   binary_storage_filesystem_base_directory: /binstore
     # When binary_storage_mode is FILESYSTEM and this value is not set,
     # the starter defaults to 102400 bytes so smaller binaries stay inline.
-    inline_resource_storage_below_size: 4000
+    binary_storage_minimum_binary_size: 4000
 
     # -------------------------------------------------------------------------------
     # P. Remote Terminology Service (disabled by default)
@@ -454,6 +489,16 @@ hapi:
     # R. LastN (analytics)
     # -------------------------------------------------------------------------------
     # lastn_enabled: true
+    
+    # -------------------------------------------------------------------------------
+    # S. Testers (webui)
+    # -------------------------------------------------------------------------------
+    tester:
+      home:
+        name: Local Tester
+        server_address: 'http://localhost:8080/fhir'
+        refuse_to_fetch_third_party_urls: false
+        fhir_version: R4
 
 
 # -------------------------------------------------------------------------------------

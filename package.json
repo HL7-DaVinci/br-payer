@@ -9,8 +9,8 @@
   },
   "private": true,
   "devDependencies": {
-    "@nx/workspace": "22.4.4",
-    "nx": "22.4.4",
-    "nx-fhir": "0.2.0"
+    "@nx/workspace": "22.5.3",
+    "nx": "22.5.3",
+    "nx-fhir": "0.2.1"
   }
 }

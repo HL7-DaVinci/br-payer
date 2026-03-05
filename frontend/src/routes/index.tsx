@@ -34,6 +34,19 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
+const categoryOrder = [
+  "Individuals",
+  "Entities",
+  "Clinical",
+  "Medications",
+  "Workflow",
+  "Financial",
+  "Documents",
+  "Questionnaires",
+  "Conformance",
+  "Other",
+];
+
 function Dashboard() {
   const { serverUrl, presetServers, setServerUrl, isCustomServer } =
     useFhirServer();
@@ -60,19 +73,6 @@ function Dashboard() {
     () => groupResourcesByCategory(resourceTypes),
     [resourceTypes],
   );
-
-  const categoryOrder = [
-    "Individuals",
-    "Entities",
-    "Clinical",
-    "Medications",
-    "Workflow",
-    "Financial",
-    "Documents",
-    "Questionnaires",
-    "Conformance",
-    "Other",
-  ];
 
   const sortedCategories = useMemo(() => {
     return categoryOrder.filter((cat) => categorizedResources[cat]?.length > 0);
