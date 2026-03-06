@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { keyOf } from "@/lib/utils";
 
 export interface ItemProps {
   item: QuestionnaireItem;
@@ -629,10 +630,7 @@ export function RepeatableItemField(props: ItemProps) {
         </Label>
       )}
       {effectiveAnswers.map((answer, index) => (
-        <div
-          key={`${item.linkId}-${index}`}
-          className="flex items-center gap-2"
-        >
+        <div key={keyOf(answer)} className="flex items-center gap-2">
           <div className="flex-1">
             <RepeatingPrimitiveInput
               item={item}

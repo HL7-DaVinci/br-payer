@@ -62,7 +62,7 @@ export function CommandPalette({
         navigate({ to: "/hooks", search: {} });
       } else if (value === "dtr") {
         navigate({ to: "/dtr", search: {} });
-      }  else if (value === "pas") {
+      } else if (value === "pas") {
         navigate({ to: "/pas", search: {} });
       } else if (value === "settings") {
         onOpenSettings?.();

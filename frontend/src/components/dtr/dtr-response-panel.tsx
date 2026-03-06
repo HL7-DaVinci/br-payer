@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import type { DtrError } from "@/hooks/use-dtr-api";
 import type { DtrPackageResponse, ParsedPackageBundle } from "@/lib/dtr-types";
+import { keyOf } from "@/lib/utils";
 
 interface DtrResponsePanelProps {
   response: DtrPackageResponse | null;
@@ -61,9 +62,9 @@ export function DtrResponsePanel({
             <p className="text-sm">{error.message}</p>
             {error.operationOutcome && (
               <div className="mt-3 space-y-1">
-                {error.operationOutcome.issue?.map((issue, i) => (
+                {error.operationOutcome.issue?.map((issue) => (
                   <div
-                    key={`issue-${issue.code}-${i}`}
+                    key={keyOf(issue)}
                     className="text-xs p-2 bg-destructive/10 rounded"
                   >
                     <span className="font-medium">{issue.severity}:</span>{" "}
@@ -207,9 +208,9 @@ export function DtrResponsePanel({
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
-              {response.outcome.issue?.map((issue, i) => (
+              {response.outcome.issue?.map((issue) => (
                 <div
-                  key={`warning-${issue.code}-${i}`}
+                  key={keyOf(issue)}
                   className="text-xs p-2 bg-amber-500/10 rounded"
                 >
                   <span className="font-medium">{issue.severity}:</span>{" "}

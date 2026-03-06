@@ -21,6 +21,7 @@ import type {
   CoverageInformationExtension,
 } from "@/lib/cds-types";
 import { parseCoverageInformation } from "@/lib/cds-types";
+import { keyOf } from "@/lib/utils";
 
 interface CdsResponsePanelProps {
   response: CdsResponse | null;
@@ -58,7 +59,7 @@ function OperationOutcomeDisplay({ outcome }: { outcome: OperationOutcome }) {
 
   return (
     <div className="space-y-2">
-      {issues.map((issue, index) => {
+      {issues.map((issue) => {
         const severityColors: Record<string, string> = {
           fatal: "text-destructive",
           error: "text-destructive",
@@ -70,7 +71,7 @@ function OperationOutcomeDisplay({ outcome }: { outcome: OperationOutcome }) {
 
         return (
           <div
-            key={`${issue.code}-${index}`}
+            key={keyOf(issue)}
             className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1"
           >
             <div className="flex items-center gap-2">
@@ -243,7 +244,7 @@ export function CdsResponsePanel({
             {coverageInfoActions.map((item) =>
               item.coverageInfo.map((ci, ciIndex) => (
                 <CoverageInformationPanel
-                  key={`${item.resourceType}-${item.resourceId}-${ciIndex}`}
+                  key={keyOf(ci)}
                   coverageInfo={ci}
                   resourceType={item.resourceType}
                   resourceId={item.resourceId}

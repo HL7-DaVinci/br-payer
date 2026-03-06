@@ -8,6 +8,9 @@
     "test": "nx run-many -t test"
   },
   "private": true,
+  "workspaces": [
+    "frontend"
+  ],
   "devDependencies": {
     "@nx/workspace": "22.5.3",
     "nx": "22.5.3",

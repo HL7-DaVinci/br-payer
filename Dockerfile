@@ -17,7 +17,11 @@ RUN bun install --frozen-lockfile
 
 # Copy frontend source code
 WORKDIR /app
-COPY frontend/ ./frontend/
+COPY frontend/index.html ./frontend/
+COPY frontend/tsconfig.json ./frontend/
+COPY frontend/vite.config.ts ./frontend/
+COPY frontend/public/ ./frontend/public/
+COPY frontend/src/ ./frontend/src/
 
 # Build the frontend for production
 WORKDIR /app/frontend
@@ -36,12 +40,12 @@ RUN pip install --no-cache-dir mkdocs-material && mkdocs build
 ##########################################################################
 # Stage 3: Build the HAPI FHIR Server
 ##########################################################################
-FROM docker.io/library/maven:3.9.11-eclipse-temurin-17 AS build-server
+FROM docker.io/library/maven:3.9.12-eclipse-temurin-17 AS build-server
 
 WORKDIR /tmp/hapi-fhir-jpaserver-starter
 
 # Download OpenTelemetry agent
-ARG OPENTELEMETRY_JAVA_AGENT_VERSION=2.20.1
+ARG OPENTELEMETRY_JAVA_AGENT_VERSION=2.24.0
 RUN curl -LSsO https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OPENTELEMETRY_JAVA_AGENT_VERSION}/opentelemetry-javaagent.jar
 
 # Copy Maven configuration and download dependencies
@@ -61,26 +65,20 @@ COPY --from=build-frontend /app/frontend/dist/ /tmp/hapi-fhir-jpaserver-starter/
 COPY --from=build-docs /app/site/ /tmp/hapi-fhir-jpaserver-starter/src/main/resources/static/docs/
 
 # Build the server
-RUN mvn clean install -DskipTests -Djdk.lang.Process.launchMechanism=vfork
-
-##########################################################################
-# Stage 4: Package for Spring Boot
-##########################################################################
-FROM build-server AS build-distroless
-RUN mvn package -DskipTests spring-boot:repackage -Pboot
+RUN mvn clean package -DskipTests -Djdk.lang.Process.launchMechanism=vfork
 RUN mkdir /app && cp /tmp/hapi-fhir-jpaserver-starter/target/ROOT.war /app/main.war
 
 ##########################################################################
-# Stage 5: Final Production Image (Distroless)
+# Stage 4: Final Production Image
 ##########################################################################
-FROM gcr.io/distroless/java17-debian12:nonroot AS default
-
+FROM gcr.io/distroless/java21-debian13:nonroot AS default
+# 65532 is the nonroot user's uid
+# used here instead of the name to allow Kubernetes to easily detect that the container
+# is running as a non-root (uid != 0) user.
 USER 65532:65532
 WORKDIR /app
 
-COPY --chown=nonroot:nonroot --from=build-distroless /app /app
+COPY --chown=nonroot:nonroot --from=build-server /app /app
 COPY --chown=nonroot:nonroot --from=build-server /tmp/hapi-fhir-jpaserver-starter/opentelemetry-javaagent.jar /app
-
-EXPOSE 8080
 
 ENTRYPOINT ["java", "--class-path", "/app/main.war", "-Dloader.path=main.war!/WEB-INF/classes/,main.war!/WEB-INF/,/app/extra-classes", "org.springframework.boot.loader.PropertiesLauncher"]
