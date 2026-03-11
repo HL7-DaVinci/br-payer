@@ -5,6 +5,7 @@ import static org.hl7.davinci.common.FhirConstants.X12_REVIEW_CODE_SYSTEM;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.Extension;
@@ -155,6 +156,45 @@ public final class PasExtensions {
     ext.addExtension("applicationSenderCode", new StringType(senderCode));
     ext.addExtension("applicationReceiverCode", new StringType(receiverCode));
     return ext;
+  }
+
+  /**
+   * Extracts the full TransmissionIdentifiers extension from a resource, or null if absent.
+   */
+  public static Extension extractTransmissionIdentifiers(DomainResource resource) {
+    return resource.getExtensionByUrl(PasConstants.TRANSMISSION_IDENTIFIERS);
+  }
+
+  /**
+   * Extracts the applicationSenderCode value from a resource's TransmissionIdentifiers
+   * extension, or null if the extension or sub-extension is absent.
+   */
+  public static String extractApplicationSenderCode(DomainResource resource) {
+    return extractTransmissionIdentifierValue(resource, "applicationSenderCode");
+  }
+
+  /**
+   * Extracts the applicationReceiverCode value from a resource's TransmissionIdentifiers
+   * extension, or null if the extension or sub-extension is absent.
+   */
+  public static String extractApplicationReceiverCode(DomainResource resource) {
+    return extractTransmissionIdentifierValue(resource, "applicationReceiverCode");
+  }
+
+  private static String extractTransmissionIdentifierValue(DomainResource resource,
+      String subExtensionUrl) {
+    Extension transmissionIds = extractTransmissionIdentifiers(resource);
+    if (transmissionIds == null) {
+      return null;
+    }
+
+    Extension valueExtension = transmissionIds.getExtensionByUrl(subExtensionUrl);
+    if (valueExtension != null && valueExtension.getValue() instanceof StringType stringType
+        && stringType.hasValue()) {
+      return stringType.getValue();
+    }
+
+    return null;
   }
 
   /**

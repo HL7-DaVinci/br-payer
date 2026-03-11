@@ -82,7 +82,7 @@ public class PasBundleReferenceResolver {
     }
 
     String originalRef = orgRef.getReference();
-    Organization bundleOrg = ResourceResolver.findInBundle(originalRef, Organization.class, requestBundle);
+    Organization bundleOrg = findOrganizationInBundle(requestBundle, orgRef);
     if (bundleOrg == null) {
       return;
     }
@@ -154,6 +154,30 @@ public class PasBundleReferenceResolver {
       if (NPI_SYSTEM.equals(identifier.getSystem())) {
         return identifier;
       }
+    }
+    return null;
+  }
+
+  static Organization findOrganizationInBundle(Bundle requestBundle, Reference orgRef) {
+    if (requestBundle == null || orgRef == null || !orgRef.hasReference()) {
+      return null;
+    }
+
+    return ResourceResolver.findInBundle(orgRef.getReference(), Organization.class, requestBundle);
+  }
+
+  static String findOrganizationNpiInBundle(Bundle requestBundle, Reference orgRef) {
+    return extractNpiValue(findOrganizationInBundle(requestBundle, orgRef));
+  }
+
+  static String extractNpiValue(Organization organization) {
+    if (organization == null) {
+      return null;
+    }
+
+    Identifier npiIdentifier = findNpiIdentifier(organization);
+    if (npiIdentifier != null && npiIdentifier.hasValue()) {
+      return npiIdentifier.getValue();
     }
     return null;
   }

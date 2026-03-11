@@ -62,13 +62,15 @@ public class PasSubmitService {
   private final DaoRegistry daoRegistry;
   private final PasBundleReferenceResolver bundleReferenceResolver;
   private final PasPendedResolutionService resolutionService;
+  private final PasSubscriptionNotificationService notificationService;
   private final PasProperties pasProperties;
   private final String serverBase;
 
   public PasSubmitService(PasBundleValidator validator, PasCoverageEvaluator evaluator,
       PasResponseBuilder responseBuilder, DaoRegistry daoRegistry,
       PasBundleReferenceResolver bundleReferenceResolver,
-      PasPendedResolutionService resolutionService, AppProperties appProperties,
+      PasPendedResolutionService resolutionService,
+      PasSubscriptionNotificationService notificationService, AppProperties appProperties,
       PasProperties pasProperties) {
     this.validator = validator;
     this.evaluator = evaluator;
@@ -76,6 +78,7 @@ public class PasSubmitService {
     this.daoRegistry = daoRegistry;
     this.bundleReferenceResolver = bundleReferenceResolver;
     this.resolutionService = resolutionService;
+    this.notificationService = notificationService;
     this.pasProperties = pasProperties;
     this.serverBase = FhirUtil.normalizeServerBase(appProperties.getServer_address());
   }
@@ -165,6 +168,7 @@ public class PasSubmitService {
   private Bundle persistUpdatePath(SubmissionResult result, String authPrefix, Bundle requestBundle) {
     ClaimResponse existingCr = result.priorClaimResponse();
     boolean hadPendedTag = existingCr.getMeta().getTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE) != null;
+    boolean resolvedPendedAuthorization = false;
 
     // Compute pended state from decisions + uncovered items BEFORE modifying the CR
     boolean anyStillPended = result.itemDecisions().values().stream()
@@ -193,6 +197,7 @@ public class PasSubmitService {
       tagToRemove.addTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE, null);
       crDao.metaDeleteOperation(existingCr.getIdElement().toUnqualifiedVersionless(),
           tagToRemove, new SystemRequestDetails());
+      resolvedPendedAuthorization = true;
     }
 
     String crId = existingCr.getIdElement().getIdPart();
@@ -200,6 +205,10 @@ public class PasSubmitService {
       resolutionService.scheduleResolution(crId);
     } else {
       resolutionService.cancelResolution(crId);
+    }
+
+    if (resolvedPendedAuthorization) {
+      notificationService.dispatchResolvedClaimResponse(crId);
     }
 
     return responseBuilder.wrapInResponseBundle(existingCr, requestBundle);

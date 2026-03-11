@@ -30,6 +30,7 @@ class PasSubmitServiceTest {
   private PasResponseBuilder responseBuilder;
   private PasBundleReferenceResolver bundleReferenceResolver;
   private PasPendedResolutionService resolutionService;
+  private PasSubscriptionNotificationService notificationService;
   private DaoRegistry daoRegistry;
   private PasSubmitService service;
 
@@ -41,6 +42,7 @@ class PasSubmitServiceTest {
     responseBuilder = mock(PasResponseBuilder.class);
     bundleReferenceResolver = mock(PasBundleReferenceResolver.class);
     resolutionService = mock(PasPendedResolutionService.class);
+    notificationService = mock(PasSubscriptionNotificationService.class);
     daoRegistry = mock(DaoRegistry.class);
 
     IFhirResourceDao<ClaimResponse> crDao = mock(IFhirResourceDao.class);
@@ -79,7 +81,7 @@ class PasSubmitServiceTest {
 
     PasProperties pasProperties = new PasProperties(30, "AUTH-");
     service = new PasSubmitService(validator, evaluator, responseBuilder, daoRegistry,
-        bundleReferenceResolver, resolutionService, appProperties, pasProperties);
+        bundleReferenceResolver, resolutionService, notificationService, appProperties, pasProperties);
   }
 
   @Test
@@ -533,6 +535,7 @@ class PasSubmitServiceTest {
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
     verify(crDao).update(any(), any(RequestDetails.class));
     verify(crDao).metaDeleteOperation(any(), any(Meta.class), any(RequestDetails.class));
+    verify(notificationService).dispatchResolvedClaimResponse("prior-cr-id");
   }
 
   @Test
@@ -587,6 +590,7 @@ class PasSubmitServiceTest {
     verify(crDao).update(any(), any(RequestDetails.class));
     // After applying A1 decisions, no items are A4, so pended tag should be removed
     verify(crDao).metaDeleteOperation(any(), any(Meta.class), any(RequestDetails.class));
+    verify(notificationService).dispatchResolvedClaimResponse("prior-cr-id");
   }
 
   // ===== Resolution Scheduling Tests =====
@@ -634,6 +638,7 @@ class PasSubmitServiceTest {
 
     verify(resolutionService).cancelResolution("prior-cr-id");
     verify(resolutionService, never()).scheduleResolution(any());
+    verify(notificationService).dispatchResolvedClaimResponse("prior-cr-id");
   }
 
   @Test
@@ -672,6 +677,7 @@ class PasSubmitServiceTest {
 
     verify(resolutionService).cancelResolution("prior-cr-id");
     verify(resolutionService, never()).scheduleResolution(any());
+    verify(notificationService).dispatchResolvedClaimResponse("prior-cr-id");
   }
 
   @Test

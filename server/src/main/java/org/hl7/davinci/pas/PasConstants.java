@@ -37,6 +37,26 @@ public final class PasConstants {
   public static final String INFO_CHANGED = PAS_BASE + "extension-infoChanged";
   public static final String INFO_CANCELLED = PAS_BASE + "modifierextension-infoCancelled";
 
+  // Subscription Topic
+  public static final String PAS_SUBSCRIPTION_TOPIC =
+      "http://hl7.org/fhir/us/davinci-pas/SubscriptionTopic/PASSubscriptionTopic";
+  public static final String PROFILE_PAS_SUBSCRIPTION =
+      "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-subscription";
+
+  // Subscription Backport extensions
+  public static final String BACKPORT_FILTER_CRITERIA =
+      "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-filter-criteria";
+  public static final String BACKPORT_PAYLOAD_CONTENT =
+      "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-payload-content";
+
+  // HAPI topic subscription meta tag
+  public static final String SUBSCRIPTION_MATCHING_TAG_SYSTEM =
+      "http://hapifhir.io/fhir/StructureDefinition/subscription-matching-strategy";
+  public static final String SUBSCRIPTION_MATCHING_TAG_CODE = "TOPIC";
+
+  // Filter parameter
+  public static final String FILTER_ORG_IDENTIFIER = "orgIdentifier";
+
   // PAS Profile URLs
   public static final String PROFILE_PAS_REQUEST_BUNDLE = "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-pas-request-bundle";
   public static final String PROFILE_PAS_INQUIRY_REQUEST_BUNDLE = "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-pas-inquiry-request-bundle";

@@ -420,8 +420,9 @@ class PasResponseBuilderTest {
   // ===== CR-level identifier and transmissionIdentifiers =====
 
   @Test
-  void buildSubmitResponse_hasIdentifierAndTransmissionIdentifiers() {
+  void buildSubmitResponse_echoesTransmissionIdentifiersFromRequest() {
     Claim claim = buildClaim();
+    claim.addExtension(PasExtensions.buildTransmissionIdentifiersExtension("SENDER-APP", "RECEIVER-APP"));
     var decisions = Map.of(1,
         new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
 
@@ -431,11 +432,54 @@ class PasResponseBuilderTest {
     assertFalse(cr.getIdentifier().isEmpty(), "ClaimResponse must have at least one identifier");
     Extension txExt = cr.getExtensionByUrl(PasConstants.TRANSMISSION_IDENTIFIERS);
     assertNotNull(txExt, "ClaimResponse must have transmissionIdentifiers extension");
-    assertNull(txExt.getValue(), "Complex extension should not have a root value");
-    assertNotNull(txExt.getExtensionByUrl("applicationSenderCode"),
-        "transmissionIdentifiers must have applicationSenderCode");
-    assertNotNull(txExt.getExtensionByUrl("applicationReceiverCode"),
-        "transmissionIdentifiers must have applicationReceiverCode");
+    assertEquals("RECEIVER-APP",
+        ((StringType) txExt.getExtensionByUrl("applicationSenderCode").getValue()).getValue());
+    assertEquals("SENDER-APP",
+        ((StringType) txExt.getExtensionByUrl("applicationReceiverCode").getValue()).getValue());
+  }
+
+  @Test
+  void buildSubmitResponse_derivesTransmissionIdentifiersFromOrganizationNpi() {
+    Claim claim = buildClaim();
+    claim.setProvider(new Reference("Organization/provider-org"));
+    claim.setInsurer(new Reference("Organization/insurer-org"));
+
+    Organization provider = new Organization();
+    provider.setId("provider-org");
+    provider.addIdentifier().setSystem("http://hl7.org/fhir/sid/us-npi").setValue("8189991234");
+
+    Organization insurer = new Organization();
+    insurer.setId("insurer-org");
+    insurer.addIdentifier().setSystem("http://hl7.org/fhir/sid/us-npi").setValue("1234567893");
+
+    Bundle requestBundle = new Bundle();
+    requestBundle.addEntry().setResource(provider).setFullUrl("Organization/provider-org");
+    requestBundle.addEntry().setResource(insurer).setFullUrl("Organization/insurer-org");
+
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+    Bundle response = builder.buildSubmitResponse(claim, requestBundle, decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    Extension txExt = cr.getExtensionByUrl(PasConstants.TRANSMISSION_IDENTIFIERS);
+    assertNotNull(txExt, "ClaimResponse must derive transmissionIdentifiers from Org NPI");
+    assertEquals("1234567893",
+        ((StringType) txExt.getExtensionByUrl("applicationSenderCode").getValue()).getValue());
+    assertEquals("8189991234",
+        ((StringType) txExt.getExtensionByUrl("applicationReceiverCode").getValue()).getValue());
+  }
+
+  @Test
+  void buildSubmitResponse_omitsTransmissionIdentifiersWhenNoSourceAvailable() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A1, "Certified in total", false));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    Extension txExt = cr.getExtensionByUrl(PasConstants.TRANSMISSION_IDENTIFIERS);
+    assertNull(txExt, "TransmissionIdentifiers should be omitted when no source available");
   }
 
   // ===== Item-level trace numbers =====

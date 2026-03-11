@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.hl7.davinci.pas.PasConstants;
+import org.hl7.davinci.pas.PasExtensions;
 import org.hl7.davinci.scenarios.LibraryScenarioScanner.ScenarioMetadata;
 import org.hl7.davinci.scenarios.ScenarioResourceUtil;
 import org.hl7.fhir.r4.model.BooleanType;
@@ -49,6 +50,10 @@ public class PasRequestBuilder {
       NDC_SYSTEM,
       DATA_ABSENT_REASON_SYSTEM);
 
+  // NPI identifiers matching examples-pas seed Organizations
+  static final String PROVIDER_NPI = "8189991234";
+  static final String INSURER_NPI = "1234567893";
+
   // Shared resource IDs matching examples-pas seed data
   static final String PATIENT_ID = "BeneficiaryExample";
   static final String INSURER_ID = "InsurerExample";
@@ -76,7 +81,8 @@ public class PasRequestBuilder {
       Coding focusCode = meta.focusCodes().get(0);
       String description = ScenarioResourceUtil.buildDescription(meta);
 
-      // Shared trace number links the initial submission with its update/cancel/inquiry variants
+      // Shared trace number links the initial submission with its
+      // update/cancel/inquiry variants
       String initialTraceNumber = UUID.randomUUID().toString();
 
       List<PasVariant> variants = new ArrayList<>();
@@ -94,7 +100,8 @@ public class PasRequestBuilder {
           meta.id() + "-cancel", "Cancel", "$submit", "cancel",
           buildCancelBundle(meta, focusCode, seed, initialTraceNumber)));
       // $inquire variant -- targets the Claim/$inquire endpoint
-      // Inquiry gets its own TRN per PAS IG; item trace numbers still link to the original
+      // Inquiry gets its own TRN per PAS IG; item trace numbers still link to the
+      // original
       variants.add(new PasVariant(
           meta.id() + "-inquiry", "Inquiry", "$inquire", "inquiry",
           buildInquiryBundle(meta, focusCode, seed)));
@@ -176,8 +183,8 @@ public class PasRequestBuilder {
 
   // ===== Claim construction =====
 
-  static Claim buildClaim(ScenarioMetadata meta, Coding focusCode, ServiceRequest serviceRequest, 
-        String certTypeCode, String certTypeDisplay, String traceNumber) {
+  static Claim buildClaim(ScenarioMetadata meta, Coding focusCode, ServiceRequest serviceRequest,
+      String certTypeCode, String certTypeDisplay, String traceNumber) {
     Claim claim = new Claim();
     claim.setId(meta.id() + "-claim");
 
@@ -206,6 +213,10 @@ public class PasRequestBuilder {
         .setSequence(1)
         .setFocal(true)
         .setCoverage(new Reference("Coverage/" + COVERAGE_ID));
+
+    // TransmissionIdentifiers: provider NPI as sender, insurer NPI as receiver
+    claim.addExtension(PasExtensions.buildTransmissionIdentifiersExtension(
+        PROVIDER_NPI, INSURER_NPI));
 
     // Care team
     claim.addCareTeam()
@@ -364,7 +375,7 @@ public class PasRequestBuilder {
     org.setId(INSURER_ID);
     org.getMeta().addProfile(PasConstants.PROFILE_PAS_INSURER);
     org.setActive(true);
-    org.addIdentifier().setSystem(NPI_SYSTEM).setValue("1234567893");
+    org.addIdentifier().setSystem(NPI_SYSTEM).setValue(INSURER_NPI);
     org.addType().addCoding(new Coding("https://codesystem.x12.org/005010/98", "PR", null));
     org.setName("MARYLAND CAPITAL INSURANCE COMPANY");
     return org;
@@ -375,7 +386,7 @@ public class PasRequestBuilder {
     org.setId(PROVIDER_ID);
     org.getMeta().addProfile(PasConstants.PROFILE_PAS_REQUESTOR);
     org.setActive(true);
-    org.addIdentifier().setSystem(NPI_SYSTEM).setValue("8189991234");
+    org.addIdentifier().setSystem(NPI_SYSTEM).setValue(PROVIDER_NPI);
     org.addType().addCoding(new Coding("https://codesystem.x12.org/005010/98", "X3", null));
     org.setName("DR. JOE SMITH CORPORATION");
     return org;
@@ -435,7 +446,8 @@ public class PasRequestBuilder {
   }
 
   private static CodeableConcept buildMemberIdType() {
-    // Keep MB for PAS slicing and add MR to satisfy IdentifierType terminology checks.
+    // Keep MB for PAS slicing and add MR to satisfy IdentifierType terminology
+    // checks.
     return new CodeableConcept()
         .addCoding(new Coding(IDENTIFIER_TYPE_SYSTEM, "MB", "Member Number"))
         .addCoding(new Coding(IDENTIFIER_TYPE_SYSTEM, "MR", "Medical record number"));

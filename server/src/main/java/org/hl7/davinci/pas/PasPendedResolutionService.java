@@ -34,14 +34,17 @@ public class PasPendedResolutionService {
 
   private final DaoRegistry daoRegistry;
   private final PasResponseBuilder responseBuilder;
+  private final PasSubscriptionNotificationService notificationService;
   private final PasProperties pasProperties;
   private final TaskScheduler taskScheduler;
   private final ConcurrentHashMap<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
 
   public PasPendedResolutionService(DaoRegistry daoRegistry, PasResponseBuilder responseBuilder,
-      PasProperties pasProperties, TaskScheduler taskScheduler) {
+      PasSubscriptionNotificationService notificationService, PasProperties pasProperties,
+      TaskScheduler taskScheduler) {
     this.daoRegistry = daoRegistry;
     this.responseBuilder = responseBuilder;
+    this.notificationService = notificationService;
     this.pasProperties = pasProperties;
     this.taskScheduler = taskScheduler;
   }
@@ -167,6 +170,9 @@ public class PasPendedResolutionService {
     crDao.metaDeleteOperation(pendedCr.getIdElement().toUnqualifiedVersionless(),
         tagToRemove, new SystemRequestDetails());
 
-    log.info("Resolved pended authorization: ClaimResponse/{}", pendedCr.getIdElement().getIdPart());
+    String claimResponseId = pendedCr.getIdElement().getIdPart();
+    notificationService.dispatchResolvedClaimResponse(claimResponseId);
+
+    log.info("Resolved pended authorization: ClaimResponse/{}", claimResponseId);
   }
 }

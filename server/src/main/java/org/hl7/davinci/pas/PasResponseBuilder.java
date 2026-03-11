@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.common.ResourceResolver;
@@ -31,7 +32,10 @@ import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.Type;
 import org.springframework.stereotype.Component;
 
+import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.starter.AppProperties;
+import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
+import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 /**
  * Constructs PAS-conformant ClaimResponse bundles and inquiry response Parameters.
@@ -61,7 +65,7 @@ public class PasResponseBuilder {
   public Bundle buildSubmitResponse(Claim requestClaim, Bundle requestBundle,
       Map<Integer, CoverageDecision> itemDecisions, String authNumberPrefix) {
 
-    ClaimResponse claimResponse = buildClaimResponse(requestClaim, itemDecisions, authNumberPrefix);
+    ClaimResponse claimResponse = buildClaimResponse(requestClaim, requestBundle, itemDecisions, authNumberPrefix);
     return wrapInResponseBundle(claimResponse, requestBundle);
   }
 
@@ -185,7 +189,47 @@ public class PasResponseBuilder {
     }
   }
 
+  /**
+   * Builds a PAS Response Bundle for subscription notifications. Resolves referenced
+   * resources (Patient, Insurer, Requestor) from the database rather than a request bundle.
+   */
+  public Bundle buildNotificationResponseBundle(ClaimResponse claimResponse, DaoRegistry daoRegistry) {
+    ClaimResponse sanitized = sanitizeForBundle(claimResponse);
+    Bundle bundle = wrapInResponseBundle(sanitized);
+
+    addReferencedResources(bundle, sanitized, ref -> readReferencedResource(ref, daoRegistry));
+
+    return bundle;
+  }
+
+  private Resource readReferencedResource(Reference ref, DaoRegistry daoRegistry) {
+    if (ref == null || !ref.hasReference()) {
+      return null;
+    }
+
+    try {
+      IdType refId = new IdType(ref.getReference());
+      String resourceType = refId.getResourceType();
+      if (resourceType == null || resourceType.isBlank()) {
+        return null;
+      }
+
+      return (Resource) daoRegistry.getResourceDao(resourceType)
+          .read(refId, new SystemRequestDetails());
+    } catch (ResourceNotFoundException e) {
+      // Referenced resource no longer exists; skip it
+      return null;
+    }
+  }
+
   // ===== Internal =====
+
+  /**
+   * Resolves an Organization reference from a bundle and returns its first NPI value, or null.
+   */
+  private String resolveNpiFromBundle(Reference ref, Bundle bundle) {
+    return PasBundleReferenceResolver.findOrganizationNpiInBundle(bundle, ref);
+  }
 
   private void finalizePendedItems(ClaimResponse claimResponse,
       String targetCode, String targetDisplay, String authNumberPrefix) {
@@ -211,7 +255,7 @@ public class PasResponseBuilder {
     }
   }
 
-  private ClaimResponse buildClaimResponse(Claim requestClaim,
+  private ClaimResponse buildClaimResponse(Claim requestClaim, Bundle requestBundle,
       Map<Integer, CoverageDecision> itemDecisions, String authNumberPrefix) {
 
     ClaimResponse cr = new ClaimResponse();
@@ -238,10 +282,23 @@ public class PasResponseBuilder {
         .setSystem("http://example.org/PATIENT_EVENT_TRACE_NUMBER")
         .setValue(UUID.randomUUID().toString()));
 
-    // transmissionIdentifiers extension (senderCode + receiverCode)
-    cr.addExtension(PasExtensions.buildTransmissionIdentifiersExtension(
-        "SENDER-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(),
-        "RECEIVER-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()));
+    // Reverse TransmissionIdentifiers for the response (payer is now sender, provider is receiver)
+    Extension requestTransmissionIds = PasExtensions.extractTransmissionIdentifiers(requestClaim);
+    if (requestTransmissionIds != null) {
+      String requestSender = PasExtensions.extractApplicationSenderCode(requestClaim);
+      String requestReceiver = PasExtensions.extractApplicationReceiverCode(requestClaim);
+      cr.addExtension(PasExtensions.buildTransmissionIdentifiersExtension(
+          requestReceiver != null ? requestReceiver : "",
+          requestSender != null ? requestSender : ""));
+    } else {
+      String providerNpi = resolveNpiFromBundle(requestClaim.getProvider(), requestBundle);
+      String insurerNpi = resolveNpiFromBundle(requestClaim.getInsurer(), requestBundle);
+      if (providerNpi != null || insurerNpi != null) {
+        cr.addExtension(PasExtensions.buildTransmissionIdentifiersExtension(
+            insurerNpi != null ? insurerNpi : "",
+            providerNpi != null ? providerNpi : ""));
+      }
+    }
 
     Map<Integer, String> itemAuthNumbers = new HashMap<>();
 
@@ -349,7 +406,8 @@ public class PasResponseBuilder {
     }
 
     if (requestBundle != null) {
-      addReferencedResources(bundle, claimResponse, requestBundle);
+      addReferencedResources(bundle, claimResponse,
+          ref -> ResourceResolver.findInBundle(ref.getReference(), Resource.class, requestBundle));
     }
 
     return bundle;
@@ -360,43 +418,38 @@ public class PasResponseBuilder {
    * from the request bundle into the response bundle, using server-base fullUrls
    * so bundle resolution rules match the relative references on the ClaimResponse.
    */
-  private void addReferencedResources(Bundle responseBundle, ClaimResponse cr, Bundle requestBundle) {
+  private void addReferencedResources(Bundle responseBundle, ClaimResponse cr,
+      Function<Reference, Resource> resourceResolver) {
     Set<String> addedKeys = new HashSet<>();
-    addReferencedResource(responseBundle, cr.getPatient(), requestBundle, addedKeys);
-    addReferencedResource(responseBundle, cr.getInsurer(), requestBundle, addedKeys);
-    addReferencedResource(responseBundle, cr.getRequestor(), requestBundle, addedKeys);
+    addReferencedResource(responseBundle, cr.getPatient(), resourceResolver, addedKeys);
+    addReferencedResource(responseBundle, cr.getInsurer(), resourceResolver, addedKeys);
+    addReferencedResource(responseBundle, cr.getRequestor(), resourceResolver, addedKeys);
   }
 
-  private void addReferencedResource(Bundle responseBundle, Reference ref, Bundle requestBundle,
-      Set<String> addedKeys) {
+  private void addReferencedResource(Bundle responseBundle, Reference ref,
+      Function<Reference, Resource> resourceResolver, Set<String> addedKeys) {
     if (ref == null || !ref.hasReference()) {
       return;
     }
+
     String reference = ref.getReference();
     if (addedKeys.contains(reference)) {
       return;
     }
-    for (Bundle.BundleEntryComponent entry : requestBundle.getEntry()) {
-      Resource resource = entry.getResource();
-      if (resource == null) {
-        continue;
-      }
-      if (ResourceResolver.referencesMatchResource(reference, resource)
-          || (entry.hasFullUrl() && reference.equals(entry.getFullUrl()))) {
-        addedKeys.add(reference);
-        Bundle.BundleEntryComponent responseEntry = responseBundle.addEntry()
-            .setResource(resource);
-        // Build fullUrl from server base so it matches relative reference resolution
-        String resourceType = resource.getResourceType().name();
-        String idPart = resource.getIdElement().getIdPart();
-        String fullUrl = FhirUtil.buildVersionlessResourceUrl(serverBase, resourceType, idPart);
-        if (fullUrl != null) {
-          responseEntry.setFullUrl(fullUrl);
-        } else if (entry.hasFullUrl()) {
-          responseEntry.setFullUrl(entry.getFullUrl());
-        }
-        return;
-      }
+
+    Resource resource = resourceResolver.apply(ref);
+    if (resource == null) {
+      return;
+    }
+
+    addedKeys.add(reference);
+    Bundle.BundleEntryComponent responseEntry = responseBundle.addEntry()
+        .setResource(resource);
+    String resourceType = resource.getResourceType().name();
+    String idPart = resource.getIdElement().getIdPart();
+    String fullUrl = FhirUtil.buildVersionlessResourceUrl(serverBase, resourceType, idPart);
+    if (fullUrl != null) {
+      responseEntry.setFullUrl(fullUrl);
     }
   }
 

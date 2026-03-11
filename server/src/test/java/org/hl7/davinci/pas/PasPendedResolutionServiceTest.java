@@ -26,6 +26,7 @@ class PasPendedResolutionServiceTest {
 
   private DaoRegistry daoRegistry;
   private PasResponseBuilder responseBuilder;
+  private PasSubscriptionNotificationService notificationService;
   private PasProperties pasProperties;
   private TaskScheduler taskScheduler;
   private PasPendedResolutionService service;
@@ -36,6 +37,7 @@ class PasPendedResolutionServiceTest {
   void setUp() {
     daoRegistry = mock(DaoRegistry.class);
     responseBuilder = mock(PasResponseBuilder.class);
+    notificationService = mock(PasSubscriptionNotificationService.class);
     pasProperties = new PasProperties(15, "AUTH-");
     taskScheduler = mock(TaskScheduler.class);
 
@@ -43,7 +45,7 @@ class PasPendedResolutionServiceTest {
     when(daoRegistry.getResourceDao(ClaimResponse.class)).thenReturn(crDao);
 
     service = new PasPendedResolutionService(daoRegistry, responseBuilder,
-        pasProperties, taskScheduler);
+        notificationService, pasProperties, taskScheduler);
   }
 
   @Test
@@ -110,6 +112,7 @@ class PasPendedResolutionServiceTest {
               PasSubmitService.PENDED_TAG_SYSTEM.equals(t.getSystem())
                   && PasSubmitService.PENDED_TAG_CODE.equals(t.getCode()));
         }), any(RequestDetails.class));
+    verify(notificationService).dispatchResolvedClaimResponse("cr-1");
   }
 
   @Test
@@ -149,6 +152,7 @@ class PasPendedResolutionServiceTest {
 
     verify(responseBuilder).resolvePendedItems(eq(pended), eq("AUTH-"));
     verify(crDao).update(eq(pended), any(RequestDetails.class));
+    verifyNoInteractions(notificationService);
     verify(crDao, never()).metaDeleteOperation(any(), any(Meta.class), any(RequestDetails.class));
 
     ArgumentCaptor<Instant> instantCaptor = ArgumentCaptor.forClass(Instant.class);
@@ -177,6 +181,9 @@ class PasPendedResolutionServiceTest {
 
     verify(responseBuilder).resolvePendedItems(eq(pended), eq("AUTH-"));
     verify(crDao).update(eq(pended), any(RequestDetails.class));
+    verify(crDao).metaDeleteOperation(argThat(id -> "cr-exec".equals(id.getIdPart())),
+        any(Meta.class), any(RequestDetails.class));
+    verify(notificationService).dispatchResolvedClaimResponse("cr-exec");
   }
 
   @Test
@@ -191,6 +198,7 @@ class PasPendedResolutionServiceTest {
 
     verify(responseBuilder).resolvePendedItems(eq(stale), eq("AUTH-"));
     verify(crDao).update(eq(stale), any(RequestDetails.class));
+    verify(notificationService).dispatchResolvedClaimResponse("cr-stale");
   }
 
   @Test
@@ -230,6 +238,7 @@ class PasPendedResolutionServiceTest {
         any(RequestDetails.class));
     verify(responseBuilder).resolvePendedItems(eq(stale), eq("AUTH-"));
     verify(crDao).update(eq(stale), any(RequestDetails.class));
+    verify(notificationService).dispatchResolvedClaimResponse("cr-null-size");
   }
 
   @Test
@@ -252,6 +261,7 @@ class PasPendedResolutionServiceTest {
     verify(crDao).update(eq(pended), any(RequestDetails.class));
     verify(crDao).metaDeleteOperation(argThat(id -> "cr-auth".equals(id.getIdPart())),
         any(Meta.class), any(RequestDetails.class));
+    verify(notificationService).dispatchResolvedClaimResponse("cr-auth");
   }
 
   private ClaimResponse buildPendedClaimResponse(String id) {

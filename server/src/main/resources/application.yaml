@@ -229,7 +229,7 @@ hapi:
     # supported_resource_types:
     #   - Patient
     #   - Observation
-    # allowed_bundle_types: COLLECTION,DOCUMENT,MESSAGE,TRANSACTION,TRANSACTIONRESPONSE,BATCH,BATCHRESPONSE,HISTORY,SEARCHSET
+    allowed_bundle_types: COLLECTION,DOCUMENT,MESSAGE,TRANSACTION,TRANSACTIONRESPONSE,BATCH,BATCHRESPONSE,HISTORY,SEARCHSET
 
     # -------------------------------------------------------------------------------
     # C. Clinical Reasoning / CQL / Care Gaps / CDS Hooks
@@ -469,9 +469,9 @@ hapi:
     # -------------------------------------------------------------------------------
     # Q. Subscriptions (disabled by default)
     # -------------------------------------------------------------------------------
-    # subscription:
-    #   resthook_enabled: true
-    #   websocket_enabled: false
+    subscription:
+      resthook_enabled: true
+      websocket_enabled: true
     #   polling_interval_ms: 5000
     #   immediately_queued: false
     #   email:
