@@ -41,6 +41,10 @@ export function PasSubscriptionControl({
 
   return (
     <div className="flex items-center gap-3 p-3 mt-2 border rounded-lg bg-muted/30">
+      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">
+        WS
+      </span>
+
       {/* Status indicator */}
       <div className="flex items-center gap-1.5">
         <div

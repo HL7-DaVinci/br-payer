@@ -79,7 +79,7 @@ class PasSubmitServiceTest {
     AppProperties appProperties = mock(AppProperties.class);
     when(appProperties.getServer_address()).thenReturn(SERVER_BASE);
 
-    PasProperties pasProperties = new PasProperties(30, "AUTH-");
+    PasProperties pasProperties = new PasProperties(30, "AUTH-", 100);
     service = new PasSubmitService(validator, evaluator, responseBuilder, daoRegistry,
         bundleReferenceResolver, resolutionService, notificationService, appProperties, pasProperties);
   }

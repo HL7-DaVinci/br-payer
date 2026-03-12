@@ -1,17 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  ReviewActionCode,
-  SubscriptionStatus,
-  TimelineEntry,
-} from "@/lib/pas-types";
-import {
-  extractAdminRefNumber,
-  extractAllItemReviewActions,
-  extractAuthorizationNumber,
-  extractClaimResponseFromBundle,
-  extractPreAuthPeriod,
-  extractReviewAction,
-} from "@/lib/pas-types";
+import type { SubscriptionStatus, TimelineEntry } from "@/lib/pas-types";
+import { parseNotificationBundle } from "@/lib/pas-types";
 
 interface UsePasSubscriptionOptions {
   serverUrl: string;
@@ -86,50 +75,6 @@ function deriveWsUrl(serverUrl: string): string {
   }
 
   return base.toString().replace(/\/$/, "");
-}
-
-/**
- * Parses a HAPI WebSocket subscription notification.
- * The payload is a history Bundle where entry[0] is a SubscriptionStatus
- * Parameters resource and entry[1] is the PAS response Bundle containing
- * the ClaimResponse.
- */
-function parseNotificationPayload(json: string): TimelineEntry | null {
-  try {
-    const historyBundle = JSON.parse(json);
-    if (historyBundle?.resourceType !== "Bundle") return null;
-
-    // entry[0] = SubscriptionStatus Parameters, entry[1] = PAS response Bundle
-    const responseBundle = historyBundle.entry?.[1]?.resource;
-    if (!responseBundle || responseBundle.resourceType !== "Bundle")
-      return null;
-
-    const cr = extractClaimResponseFromBundle(responseBundle);
-    const reviewAction: ReviewActionCode | null = cr
-      ? extractReviewAction(cr)
-      : null;
-    const authorizationId = (cr as { id?: string } | null)?.id ?? null;
-
-    return {
-      id: crypto.randomUUID(),
-      timestamp: new Date(),
-      source: "subscription",
-      operation: null,
-      payloadType: "notification",
-      requestBundle: null,
-      responseData: historyBundle,
-      error: null,
-      authorizationId,
-      reviewAction,
-      authorizationNumber: cr ? extractAuthorizationNumber(cr) : null,
-      adminRefNumber: cr ? extractAdminRefNumber(cr) : null,
-      preAuthPeriod: cr ? extractPreAuthPeriod(cr) : null,
-      itemReviewActions: cr ? extractAllItemReviewActions(cr) : null,
-      durationMs: 0,
-    };
-  } catch {
-    return null;
-  }
 }
 
 const ACTIVATION_POLL_MS = 500;
@@ -212,15 +157,18 @@ export function usePasSubscription({
   const connectionAttemptRef = useRef(0);
   const activeSubscriptionRef = useRef<SubscriptionHandle | null>(null);
 
-  const deleteSubscription = useCallback((handle: SubscriptionHandle | null) => {
-    if (!handle) {
-      return;
-    }
+  const deleteSubscription = useCallback(
+    (handle: SubscriptionHandle | null) => {
+      if (!handle) {
+        return;
+      }
 
-    fetch(`${handle.serverUrl}/Subscription/${handle.subscriptionId}`, {
-      method: "DELETE",
-    }).catch(() => {});
-  }, []);
+      fetch(`${handle.serverUrl}/Subscription/${handle.subscriptionId}`, {
+        method: "DELETE",
+      }).catch(() => {});
+    },
+    [],
+  );
 
   const closeSocket = useCallback(() => {
     const ws = wsRef.current;
@@ -352,9 +300,13 @@ export function usePasSubscription({
 
         // For topic subscriptions with full-resource payload, HAPI sends
         // the raw FHIR resource JSON directly as the WebSocket message
-        const entry = parseNotificationPayload(data);
-        if (entry) {
-          onNotificationRef.current(entry);
+        try {
+          const entry = parseNotificationBundle(JSON.parse(data));
+          if (entry) {
+            onNotificationRef.current(entry);
+          }
+        } catch {
+          // Malformed JSON from WebSocket
         }
       };
 
@@ -405,7 +357,14 @@ export function usePasSubscription({
       setError(msg);
       setStatus("error");
     }
-  }, [clearTrackedSubscription, cleanup, closeSocket, deleteSubscription, npi, serverUrl]);
+  }, [
+    clearTrackedSubscription,
+    cleanup,
+    closeSocket,
+    deleteSubscription,
+    npi,
+    serverUrl,
+  ]);
 
   // Cleanup on unmount
   useEffect(() => {

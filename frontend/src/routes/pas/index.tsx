@@ -22,6 +22,7 @@ import {
 import { PasAutoPollControl } from "@/components/pas/pas-autopoll-control";
 import { PasManualConfig } from "@/components/pas/pas-manual-config";
 import { PasRequestEditor } from "@/components/pas/pas-request-editor";
+import { PasResthookControl } from "@/components/pas/pas-resthook-control";
 import { PasScenarioList } from "@/components/pas/pas-scenario-list";
 import { PasSubscriptionControl } from "@/components/pas/pas-subscription-control";
 import { PasSuggestionBar } from "@/components/pas/pas-suggestion-bar";
@@ -46,11 +47,12 @@ import { useServerStatus } from "@/hooks/use-fhir-api";
 import { useFhirServer, useServerSelection } from "@/hooks/use-fhir-server";
 import { usePasInquire, usePasSubmit } from "@/hooks/use-pas-api";
 import { usePasAutoPoll } from "@/hooks/use-pas-autopoll";
+import { usePasResthookSubscription } from "@/hooks/use-pas-resthook-subscription";
 import { usePasScenarios } from "@/hooks/use-pas-scenarios";
 import { usePasSubscription } from "@/hooks/use-pas-subscription";
 import { usePasSuggestions } from "@/hooks/use-pas-suggestions";
 import { usePasTimeline } from "@/hooks/use-pas-timeline";
-import { PAS_WEBSOCKET_ENABLED } from "@/lib/fhir-config";
+import { PAS_RESTHOOK_ENABLED, PAS_WEBSOCKET_ENABLED } from "@/lib/fhir-config";
 import type {
   AutoPollConfig,
   PasError,
@@ -181,6 +183,11 @@ function PasPage() {
     onNotification: addEntry,
   });
 
+  const resthookSubscription = usePasResthookSubscription({
+    serverUrl,
+    onNotification: addEntry,
+  });
+
   // Track whether user has manually edited the NPI field
   const npiManuallySetRef = useRef(false);
   const handleNpiChange = useCallback(
@@ -189,6 +196,14 @@ function PasPage() {
       subscription.setNpi(value);
     },
     [subscription.setNpi],
+  );
+
+  const handleResthookNpiChange = useCallback(
+    (value: string) => {
+      npiManuallySetRef.current = true;
+      resthookSubscription.setNpi(value);
+    },
+    [resthookSubscription.setNpi],
   );
 
   // Reset state when server changes
@@ -201,8 +216,14 @@ function PasPage() {
     clearAll();
     inquiryBundleMapRef.current.clear();
     subscription.disconnect();
+    resthookSubscription.disconnect();
     npiManuallySetRef.current = false;
-  }, [serverUrl, clearAll, subscription.disconnect]);
+  }, [
+    serverUrl,
+    clearAll,
+    subscription.disconnect,
+    resthookSubscription.disconnect,
+  ]);
 
   // Persist auto-poll config to sessionStorage
   useEffect(() => {
@@ -239,8 +260,9 @@ function PasPage() {
     const senderCode = extractSenderCode(submitVariant.bundle);
     if (senderCode) {
       subscription.setNpi(senderCode);
+      resthookSubscription.setNpi(senderCode);
     }
-  }, [selectedScenario, subscription.setNpi]);
+  }, [selectedScenario, subscription.setNpi, resthookSubscription.setNpi]);
 
   // Mode switching
   const handleModeChange = useCallback((newMode: string) => {
@@ -819,6 +841,18 @@ function PasPage() {
                 onIntervalChange={handlePollIntervalChange}
                 pendedCount={pendedAuthorizationIds.length}
               />
+              {(PAS_WEBSOCKET_ENABLED || PAS_RESTHOOK_ENABLED) && (
+                <div className="mt-3 mb-1">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    FHIR Subscriptions
+                  </span>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Receive real-time notifications when pended authorizations
+                    resolve. Enter the sender code from the request and
+                    subscribe before submitting.
+                  </p>
+                </div>
+              )}
               {PAS_WEBSOCKET_ENABLED && (
                 <PasSubscriptionControl
                   status={subscription.status}
@@ -828,6 +862,27 @@ function PasPage() {
                   onDisconnect={subscription.disconnect}
                   error={subscription.error}
                   subscriptionId={subscription.subscriptionId}
+                />
+              )}
+              {PAS_RESTHOOK_ENABLED && (
+                <PasResthookControl
+                  status={resthookSubscription.status}
+                  npi={resthookSubscription.npi}
+                  onNpiChange={handleResthookNpiChange}
+                  endpointMode={resthookSubscription.endpointMode}
+                  onEndpointModeChange={resthookSubscription.setEndpointMode}
+                  customEndpoint={resthookSubscription.customEndpoint}
+                  onCustomEndpointChange={
+                    resthookSubscription.setCustomEndpoint
+                  }
+                  pollIntervalSeconds={resthookSubscription.pollIntervalSeconds}
+                  onPollIntervalChange={
+                    resthookSubscription.setPollIntervalSeconds
+                  }
+                  onConnect={resthookSubscription.connect}
+                  onDisconnect={resthookSubscription.disconnect}
+                  error={resthookSubscription.error}
+                  subscriptionId={resthookSubscription.subscriptionId}
                 />
               )}
             </div>

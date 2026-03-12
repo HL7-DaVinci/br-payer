@@ -527,3 +527,4 @@ dtr:
 pas:
   pended-resolution-delay-seconds: 15
   authorization-number-prefix: "AUTH-"
+  resthook-inbox-max-size: 100

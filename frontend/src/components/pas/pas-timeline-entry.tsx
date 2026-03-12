@@ -31,6 +31,11 @@ const SOURCE_LABELS: Record<string, { label: string; className: string }> = {
     className:
       "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400",
   },
+  "rest-hook": {
+    label: "REST Hook",
+    className:
+      "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+  },
 };
 
 function formatShortDate(iso: string): string {

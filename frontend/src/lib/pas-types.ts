@@ -127,11 +127,23 @@ export type SubscriptionStatus =
   | "disconnected"
   | "error";
 
+export type RestHookSubscriptionStatus =
+  | "idle"
+  | "creating"
+  | "activating"
+  | "active"
+  | "disconnected"
+  | "error";
+
 // =============================================================================
 // Timeline Types
 // =============================================================================
 
-export type TimelineEntrySource = "user" | "auto-poll" | "subscription";
+export type TimelineEntrySource =
+  | "user"
+  | "auto-poll"
+  | "subscription"
+  | "rest-hook";
 
 export interface PasError extends Error {
   status?: number;
@@ -438,4 +450,59 @@ export function extractSenderCode(bundle: unknown): string | null {
   }
 
   return null;
+}
+
+/**
+ * Parses a HAPI subscription notification Bundle into a TimelineEntry.
+ * The payload is a history Bundle where entry[0] is a SubscriptionStatus
+ * Parameters resource and entry[1] is the PAS response Bundle containing
+ * the ClaimResponse.
+ *
+ * Accepts a pre-parsed object. WebSocket callers must JSON.parse() before
+ * passing; REST hook callers pass the already-parsed response.json() result.
+ */
+export function parseNotificationBundle(
+  historyBundle: unknown,
+  source: TimelineEntrySource = "subscription",
+): TimelineEntry | null {
+  try {
+    const bundle = historyBundle as {
+      resourceType?: string;
+      entry?: Array<{ resource?: unknown }>;
+    };
+    if (bundle?.resourceType !== "Bundle") return null;
+
+    const responseBundle = bundle.entry?.[1]?.resource;
+    if (
+      !responseBundle ||
+      (responseBundle as { resourceType?: string }).resourceType !== "Bundle"
+    )
+      return null;
+
+    const cr = extractClaimResponseFromBundle(responseBundle);
+    const reviewAction: ReviewActionCode | null = cr
+      ? extractReviewAction(cr)
+      : null;
+    const authorizationId = (cr as { id?: string } | null)?.id ?? null;
+
+    return {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      source,
+      operation: null,
+      payloadType: "notification",
+      requestBundle: null,
+      responseData: historyBundle as object,
+      error: null,
+      authorizationId,
+      reviewAction,
+      authorizationNumber: cr ? extractAuthorizationNumber(cr) : null,
+      adminRefNumber: cr ? extractAdminRefNumber(cr) : null,
+      preAuthPeriod: cr ? extractPreAuthPeriod(cr) : null,
+      itemReviewActions: cr ? extractAllItemReviewActions(cr) : null,
+      durationMs: 0,
+    };
+  } catch {
+    return null;
+  }
 }

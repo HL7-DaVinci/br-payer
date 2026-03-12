@@ -16,6 +16,9 @@ public class ConfigController {
   @Value("${hapi.fhir.subscription.websocket_enabled:false}")
   private boolean pasWebsocketEnabled;
 
+  @Value("${hapi.fhir.subscription.resthook_enabled:false}")
+  private boolean pasResthookEnabled;
+
   @GetMapping(value = "/config.js", produces = "application/javascript")
   public String getConfig() {
     StringBuilder config = new StringBuilder("window.APP_CONFIG = {");
@@ -29,6 +32,7 @@ public class ConfigController {
     config.append(", cdsServers: ").append(cdsServers);
 
     config.append(", pasWebsocketEnabled: ").append(pasWebsocketEnabled);
+    config.append(", pasResthookEnabled: ").append(pasResthookEnabled);
 
     config.append(" };");
     return config.toString();

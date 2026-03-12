@@ -12,6 +12,7 @@ interface AppConfig {
   fhirServers?: FhirServer[];
   cdsServers?: CdsServer[];
   pasWebsocketEnabled?: boolean;
+  pasResthookEnabled?: boolean;
 }
 
 declare global {
@@ -91,5 +92,12 @@ export const PAS_WEBSOCKET_ENABLED: boolean = (() => {
     return window.APP_CONFIG.pasWebsocketEnabled;
   }
   // Default: enabled in dev (config.js not served), disabled in prod
+  return import.meta.env.DEV;
+})();
+
+export const PAS_RESTHOOK_ENABLED: boolean = (() => {
+  if (window?.APP_CONFIG?.pasResthookEnabled !== undefined) {
+    return window.APP_CONFIG.pasResthookEnabled;
+  }
   return import.meta.env.DEV;
 })();

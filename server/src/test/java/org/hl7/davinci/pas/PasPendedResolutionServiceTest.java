@@ -38,7 +38,7 @@ class PasPendedResolutionServiceTest {
     daoRegistry = mock(DaoRegistry.class);
     responseBuilder = mock(PasResponseBuilder.class);
     notificationService = mock(PasSubscriptionNotificationService.class);
-    pasProperties = new PasProperties(15, "AUTH-");
+    pasProperties = new PasProperties(15, "AUTH-", 100);
     taskScheduler = mock(TaskScheduler.class);
 
     crDao = mock(IFhirResourceDao.class);
