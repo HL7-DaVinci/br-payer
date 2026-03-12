@@ -11,6 +11,7 @@ export interface CdsServer {
 interface AppConfig {
   fhirServers?: FhirServer[];
   cdsServers?: CdsServer[];
+  pasWebsocketEnabled?: boolean;
 }
 
 declare global {
@@ -84,3 +85,11 @@ export function setStoredServerUrl(url: string): void {
 export function getServerByUrl(url: string): FhirServer | undefined {
   return FHIR_SERVERS.find((server) => server.url === url);
 }
+
+export const PAS_WEBSOCKET_ENABLED: boolean = (() => {
+  if (window?.APP_CONFIG?.pasWebsocketEnabled !== undefined) {
+    return window.APP_CONFIG.pasWebsocketEnabled;
+  }
+  // Default: enabled in dev (config.js not served), disabled in prod
+  return import.meta.env.DEV;
+})();

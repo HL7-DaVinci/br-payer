@@ -65,7 +65,9 @@ export const PasTimelineEntry = memo(function PasTimelineEntry({
     : entry.error
       ? "bg-red-500"
       : "bg-gray-300";
-  const claimId = extractClaimId(entry.requestBundle);
+  const claimId = entry.requestBundle
+    ? extractClaimId(entry.requestBundle)
+    : null;
   const claimResponseId = entry.authorizationId;
 
   return (
@@ -83,12 +85,14 @@ export const PasTimelineEntry = memo(function PasTimelineEntry({
           <span className="text-[10px] text-muted-foreground tabular-nums">
             {entry.timestamp.toLocaleTimeString()}
           </span>
-          <Badge
-            variant="outline"
-            className="text-[10px] font-mono px-1.5 py-0"
-          >
-            {entry.operation}
-          </Badge>
+          {entry.operation && (
+            <Badge
+              variant="outline"
+              className="text-[10px] font-mono px-1.5 py-0"
+            >
+              {entry.operation}
+            </Badge>
+          )}
           <span className="text-[10px] text-muted-foreground capitalize">
             {entry.payloadType}
           </span>
@@ -98,10 +102,12 @@ export const PasTimelineEntry = memo(function PasTimelineEntry({
           >
             {sourceConfig.label}
           </Badge>
-          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5" />
-            {entry.durationMs}ms
-          </span>
+          {entry.durationMs > 0 && (
+            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+              <Clock className="h-2.5 w-2.5" />
+              {entry.durationMs}ms
+            </span>
+          )}
         </div>
 
         {/* Result */}
@@ -180,21 +186,23 @@ export const PasTimelineEntry = memo(function PasTimelineEntry({
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px] px-2"
-            onClick={() =>
-              onViewJson(
-                entry.requestBundle,
-                `${entry.operation} Request`,
-                `${entry.payloadType} - ${entry.timestamp.toLocaleString()}`,
-              )
-            }
-          >
-            <Eye className="h-3 w-3 mr-1" />
-            Request
-          </Button>
+          {entry.requestBundle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[10px] px-2"
+              onClick={() =>
+                onViewJson(
+                  entry.requestBundle,
+                  `${entry.operation} Request`,
+                  `${entry.payloadType} - ${entry.timestamp.toLocaleString()}`,
+                )
+              }
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              Request
+            </Button>
+          )}
           {entry.responseData && (
             <Button
               variant="ghost"
@@ -206,9 +214,12 @@ export const PasTimelineEntry = memo(function PasTimelineEntry({
                   : entry.reviewAction
                     ? REVIEW_ACTIONS[entry.reviewAction].label
                     : "";
+                const title = entry.operation
+                  ? `${entry.operation} Response`
+                  : "Notification";
                 onViewJson(
                   entry.responseData,
-                  `${entry.operation} Response`,
+                  title,
                   `${status} - ${entry.timestamp.toLocaleString()}`.replace(
                     /^ - /,
                     "",
@@ -217,7 +228,7 @@ export const PasTimelineEntry = memo(function PasTimelineEntry({
               }}
             >
               <Eye className="h-3 w-3 mr-1" />
-              Response
+              {entry.operation ? "Response" : "View"}
             </Button>
           )}
         </div>

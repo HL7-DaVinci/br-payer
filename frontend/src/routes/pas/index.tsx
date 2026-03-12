@@ -23,6 +23,7 @@ import { PasAutoPollControl } from "@/components/pas/pas-autopoll-control";
 import { PasManualConfig } from "@/components/pas/pas-manual-config";
 import { PasRequestEditor } from "@/components/pas/pas-request-editor";
 import { PasScenarioList } from "@/components/pas/pas-scenario-list";
+import { PasSubscriptionControl } from "@/components/pas/pas-subscription-control";
 import { PasSuggestionBar } from "@/components/pas/pas-suggestion-bar";
 import { PasTimeline } from "@/components/pas/pas-timeline";
 import { Badge } from "@/components/ui/badge";
@@ -46,8 +47,10 @@ import { useFhirServer, useServerSelection } from "@/hooks/use-fhir-server";
 import { usePasInquire, usePasSubmit } from "@/hooks/use-pas-api";
 import { usePasAutoPoll } from "@/hooks/use-pas-autopoll";
 import { usePasScenarios } from "@/hooks/use-pas-scenarios";
+import { usePasSubscription } from "@/hooks/use-pas-subscription";
 import { usePasSuggestions } from "@/hooks/use-pas-suggestions";
 import { usePasTimeline } from "@/hooks/use-pas-timeline";
+import { PAS_WEBSOCKET_ENABLED } from "@/lib/fhir-config";
 import type {
   AutoPollConfig,
   PasError,
@@ -66,6 +69,7 @@ import {
   extractPreAuthPeriod,
   extractResponseBundlesFromParameters,
   extractReviewAction,
+  extractSenderCode,
   findResponseBundleByClaimResponseId,
 } from "@/lib/pas-types";
 
@@ -172,6 +176,21 @@ function PasPage() {
   // Mapping from authorizationId -> inquiry bundle for auto-poll
   const inquiryBundleMapRef = useRef<Map<string, object>>(new Map());
 
+  const subscription = usePasSubscription({
+    serverUrl,
+    onNotification: addEntry,
+  });
+
+  // Track whether user has manually edited the NPI field
+  const npiManuallySetRef = useRef(false);
+  const handleNpiChange = useCallback(
+    (value: string) => {
+      npiManuallySetRef.current = true;
+      subscription.setNpi(value);
+    },
+    [subscription.setNpi],
+  );
+
   // Reset state when server changes
   useEffect(() => {
     if (previousServerUrlRef.current === serverUrl) return;
@@ -181,7 +200,9 @@ function PasPage() {
     setRequestJson("");
     clearAll();
     inquiryBundleMapRef.current.clear();
-  }, [serverUrl, clearAll]);
+    subscription.disconnect();
+    npiManuallySetRef.current = false;
+  }, [serverUrl, clearAll, subscription.disconnect]);
 
   // Persist auto-poll config to sessionStorage
   useEffect(() => {
@@ -207,6 +228,20 @@ function PasPage() {
     onResult: addEntry,
   });
 
+  // Auto-populate sender code from selected scenario's first $submit variant
+  useEffect(() => {
+    if (npiManuallySetRef.current) return;
+    if (!selectedScenario) return;
+    const submitVariant = selectedScenario.variants.find(
+      (v) => v.operation === "$submit",
+    );
+    if (!submitVariant) return;
+    const senderCode = extractSenderCode(submitVariant.bundle);
+    if (senderCode) {
+      subscription.setNpi(senderCode);
+    }
+  }, [selectedScenario, subscription.setNpi]);
+
   // Mode switching
   const handleModeChange = useCallback((newMode: string) => {
     setMode(newMode as PasMode);
@@ -222,6 +257,7 @@ function PasPage() {
       setRequestJson(JSON.stringify(defaultVariant.bundle, null, 2));
       clearAll();
       inquiryBundleMapRef.current.clear();
+      npiManuallySetRef.current = false;
     },
     [clearAll],
   );
@@ -783,6 +819,17 @@ function PasPage() {
                 onIntervalChange={handlePollIntervalChange}
                 pendedCount={pendedAuthorizationIds.length}
               />
+              {PAS_WEBSOCKET_ENABLED && (
+                <PasSubscriptionControl
+                  status={subscription.status}
+                  npi={subscription.npi}
+                  onNpiChange={handleNpiChange}
+                  onConnect={subscription.connect}
+                  onDisconnect={subscription.disconnect}
+                  error={subscription.error}
+                  subscriptionId={subscription.subscriptionId}
+                />
+              )}
             </div>
           </div>
         </div>

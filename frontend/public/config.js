@@ -12,4 +12,5 @@
 //     { name: "Local CDS Server", url: "http://localhost:8080" },
 //   ],
 //   singleServerMode: true,
+//   pasWebsocketEnabled: true,
 // };

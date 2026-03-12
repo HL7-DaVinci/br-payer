@@ -13,6 +13,9 @@ public class ConfigController {
   @Value("${app.cds.servers:}")
   private String cdsServersJson;
 
+  @Value("${hapi.fhir.subscription.websocket_enabled:false}")
+  private boolean pasWebsocketEnabled;
+
   @GetMapping(value = "/config.js", produces = "application/javascript")
   public String getConfig() {
     StringBuilder config = new StringBuilder("window.APP_CONFIG = {");
@@ -24,6 +27,8 @@ public class ConfigController {
     // CDS servers
     String cdsServers = cdsServersJson.isEmpty() ? "[]" : cdsServersJson;
     config.append(", cdsServers: ").append(cdsServers);
+
+    config.append(", pasWebsocketEnabled: ").append(pasWebsocketEnabled);
 
     config.append(" };");
     return config.toString();

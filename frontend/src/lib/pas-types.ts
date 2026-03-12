@@ -118,6 +118,15 @@ export interface PasVariant {
 
 export type PasMode = "scenarios" | "manual";
 
+export type SubscriptionStatus =
+  | "idle"
+  | "creating"
+  | "connecting"
+  | "binding"
+  | "active"
+  | "disconnected"
+  | "error";
+
 // =============================================================================
 // Timeline Types
 // =============================================================================
@@ -140,9 +149,9 @@ export interface TimelineEntry {
   id: string;
   timestamp: Date;
   source: TimelineEntrySource;
-  operation: "$submit" | "$inquire";
+  operation: "$submit" | "$inquire" | null;
   payloadType: string;
-  requestBundle: object;
+  requestBundle: object | null;
   responseData: object | null;
   error: PasError | null;
   authorizationId: string | null;
@@ -400,4 +409,33 @@ export function findResponseBundleByClaimResponseId(
   }
 
   return responseBundles[0] ?? null;
+}
+
+const TRANSMISSION_IDENTIFIERS_URL =
+  "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-TransmissionIdentifiers";
+
+/**
+ * Extracts the applicationSenderCode from a PAS request Bundle's Claim resource.
+ * This is the value used for subscription orgIdentifier filtering -- the response
+ * reverses sender/receiver, so the request's sender becomes the response's receiver
+ * that the filter matcher compares against.
+ */
+export function extractSenderCode(bundle: unknown): string | null {
+  const b = bundle as Bundle | undefined;
+  if (!b?.entry) return null;
+
+  for (const entry of b.entry) {
+    if (entry.resource?.resourceType !== "Claim") continue;
+    const claim = entry.resource as { extension?: FhirExtension[] };
+    const txExt = claim.extension?.find(
+      (e) => e.url === TRANSMISSION_IDENTIFIERS_URL,
+    );
+    if (!txExt?.extension) continue;
+    const senderExt = txExt.extension.find(
+      (e) => e.url === "applicationSenderCode",
+    );
+    if (senderExt?.valueString) return senderExt.valueString;
+  }
+
+  return null;
 }
