@@ -30,7 +30,7 @@ To run these tests against a specific server, configure the server details withi
 ```json
 {
   "default": {
-    "host": "localhost:8080",
+    "host": "localhost:8081",
     "username": "username",
     "password": "password"
   }

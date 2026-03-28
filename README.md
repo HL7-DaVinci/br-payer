@@ -2,12 +2,20 @@
 
 [![Build Status](https://ci.hl7.org/api/badges/HL7-DaVinci/br-payer/status.svg)](https://ci.hl7.org/HL7-DaVinci/br-payer)
 
-This is a reference implementation FHIR server built on the [HAPI FHIR JPA Starter Server](https://github.com/hapifhir/hapi-fhir-jpaserver-starter) in an [Nx](https://nx.dev) workspace.
+This is a reference implementation FHIR server and frontend built on the [HAPI FHIR JPA Starter Server](https://github.com/hapifhir/hapi-fhir-jpaserver-starter) in an [Nx](https://nx.dev) workspace.
 
 It implements the following Da Vinci implementation guides:
 - [Coverage Requirements Discovery (CRD)](https://build.fhir.org/ig/HL7/davinci-crd/)
 - [Documentation Templates and Rules (DTR)](https://build.fhir.org/ig/HL7/davinci-dtr/)
 - [Prior Authorization Support (PAS)](https://build.fhir.org/ig/HL7/davinci-pas/)
+
+This server is intended to support the burden reduction uses cases from the payer side. It implements the server-side components of the CRD, DTR, and PAS IGs, including:
+
+- CRD coverage determination through CDS hooks
+- DTR operations `$questionnaire-package` and `$next-question` operation
+- PAS operations `$submit` and  `$inquire` along with subscriptions
+
+The corresponding provider reference implementation is available at <https://github.com/HL7-DaVinci/br-provider>
 
 ## Prerequisites
 
@@ -33,7 +41,7 @@ bun install
 bun serve
 ```
 
-The server will be available at `http://localhost:8080/fhir` and the frontend at `http://localhost:3000`
+The server will be available at `http://localhost:8081/fhir` and the frontend at `http://localhost:3000`
 
 ### Option 2: Run Separately
 
@@ -54,10 +62,10 @@ Build and run the server and frontend using Docker:
 docker build -t br-payer .
 
 # Run the container
-docker run -p 8080:8080 br-payer
+docker run -p 8081:8081 br-payer
 ```
 
-The frontend will be available at `http://localhost:8080` with the FHIR endpoint at `http://localhost:8080/fhir`
+The frontend will be available at `http://localhost:8081` with the FHIR endpoint at `http://localhost:8081/fhir`
 
 ## VSAC terminology
 

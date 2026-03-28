@@ -110,7 +110,7 @@ If all ValueSets are bundled inline in the library modules, VSAC is not required
     Or pass it to Docker:
 
     ```bash
-    docker run -p 8080:8080 -e VSAC_API_KEY=your-api-key-here br-payer
+    docker run -p 8081:8081 -e VSAC_API_KEY=your-api-key-here br-payer
     ```
 
 ### Configuration

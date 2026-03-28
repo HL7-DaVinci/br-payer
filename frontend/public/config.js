@@ -5,11 +5,11 @@
 // Example configuration:
 // window.APP_CONFIG = {
 //   fhirServers: [
-//     { name: "Local FHIR Server", url: "http://localhost:8080/fhir" },
+//     { name: "Local FHIR Server", url: "http://localhost:8081/fhir" },
 //     { name: "Public HAPI R4", url: "https://hapi.fhir.org/baseR4" },
 //   ],
 //   cdsServers: [
-//     { name: "Local CDS Server", url: "http://localhost:8080" },
+//     { name: "Local CDS Server", url: "http://localhost:8081" },
 //   ],
 //   singleServerMode: true,
 //   pasWebsocketEnabled: true,

@@ -24,7 +24,7 @@ declare global {
 const DEFAULT_FHIR_SERVERS: FhirServer[] = [
   {
     name: "Local Server",
-    url: "http://localhost:8080/fhir",
+    url: "http://localhost:8081/fhir",
   },
 ];
 

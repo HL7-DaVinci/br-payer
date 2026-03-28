@@ -39,7 +39,7 @@ public class DtrPackageService {
   private static final Logger logger = LoggerFactory.getLogger(DtrPackageService.class);
 
   private static final String DEFAULT_NEXT_QUESTION_URL =
-      "http://localhost:8080/fhir/Questionnaire/$next-question";
+      "http://localhost:8081/fhir/Questionnaire/$next-question";
 
   private final DtrQuestionnaireResolver questionnaireResolver;
   private final DtrSubQuestionnaireAssembler subQuestionnaireAssembler;

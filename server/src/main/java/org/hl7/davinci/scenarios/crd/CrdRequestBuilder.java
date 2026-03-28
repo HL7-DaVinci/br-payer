@@ -38,7 +38,7 @@ public class CrdRequestBuilder {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final Set<String> ORDER_BASED_HOOKS = Set.of(
       "order-sign", "order-select", "appointment-book", "order-dispatch");
-  private static final String FHIR_SERVER = "http://localhost:8080/fhir";
+  private static final String FHIR_SERVER = "http://localhost:8081/fhir";
   private static final String PATIENT_ID = "example";
 
   private CrdRequestBuilder() {}

@@ -17,7 +17,7 @@ function deriveCdsServerFromFhir(fhirUrl: string): CdsServer {
   } catch {
     return {
       name: "Local CDS Server",
-      url: "http://localhost:8080",
+      url: "http://localhost:8081",
     };
   }
 }
@@ -25,7 +25,7 @@ function deriveCdsServerFromFhir(fhirUrl: string): CdsServer {
 const DEFAULT_CDS_SERVERS: CdsServer[] = [
   {
     name: "Local CDS Server",
-    url: "http://localhost:8080",
+    url: "http://localhost:8081",
   },
 ];
 
@@ -88,11 +88,11 @@ const STORAGE_KEY = "cds-server-url";
 
 export function getStoredCdsServerUrl(): string {
   if (typeof window === "undefined") {
-    return CDS_SERVERS[0]?.url ?? "http://localhost:8080";
+    return CDS_SERVERS[0]?.url ?? "http://localhost:8081";
   }
   return (
     (localStorage.getItem(STORAGE_KEY) || CDS_SERVERS[0]?.url) ??
-    "http://localhost:8080"
+    "http://localhost:8081"
   );
 }
 

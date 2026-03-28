@@ -46,7 +46,7 @@ The data initializer loads new resources on startup. Watch the logs for CQL comp
 ### 3. Check scenario generation
 
 ```bash
-curl http://localhost:8080/api/crd/scenarios
+curl http://localhost:8081/api/crd/scenarios
 ```
 
 Find the module's scenario in the list. The ID will be the kebab-case version of the PlanDefinition's `name`.
@@ -55,10 +55,10 @@ Find the module's scenario in the list. The ID will be the kebab-case version of
 
 ```bash
 # Grab the hook request
-curl http://localhost:8080/api/crd/scenarios/{module-id}/hooks/order-sign -o hook-request.json
+curl http://localhost:8081/api/crd/scenarios/{module-id}/hooks/order-sign -o hook-request.json
 
 # Send it
-curl -X POST http://localhost:8080/cds-services/order-sign-crd \
+curl -X POST http://localhost:8081/cds-services/order-sign-crd \
   -H "Content-Type: application/json" \
   -d @hook-request.json
 ```
@@ -68,9 +68,9 @@ Inspect the response cards. If the `"Rule Applies"` expression evaluated to true
 ### 5. Test DTR
 
 ```bash
-curl http://localhost:8080/api/dtr/scenarios/{module-id}/requests/canonical -o dtr-request.json
+curl http://localhost:8081/api/dtr/scenarios/{module-id}/requests/canonical -o dtr-request.json
 
-curl -X POST http://localhost:8080/fhir/Questionnaire/\$questionnaire-package \
+curl -X POST http://localhost:8081/fhir/Questionnaire/\$questionnaire-package \
   -H "Content-Type: application/fhir+json" \
   -d @dtr-request.json
 ```
@@ -80,9 +80,9 @@ The response should contain a Bundle with the Questionnaire, its Library, and an
 ### 6. Test PAS
 
 ```bash
-curl http://localhost:8080/api/pas/scenarios/{module-id}/variants/initial -o pas-request.json
+curl http://localhost:8081/api/pas/scenarios/{module-id}/variants/initial -o pas-request.json
 
-curl -X POST http://localhost:8080/fhir/Claim/\$submit \
+curl -X POST http://localhost:8081/fhir/Claim/\$submit \
   -H "Content-Type: application/fhir+json" \
   -d @pas-request.json
 ```

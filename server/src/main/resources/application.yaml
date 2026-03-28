@@ -51,14 +51,14 @@ spring:
   # A. Spring AI — Model Context Protocol (MCP)
   # -------------------------------------------------------------------------------
   ai:
-    # Run e.g. `npx @modelcontextprotocol/inspector` and connect to http://localhost:8080/mcp/messages using Streamable HTTP
+    # Run e.g. `npx @modelcontextprotocol/inspector` and connect to http://localhost:8081/mcp/messages using Streamable HTTP
 
     # Add the following to the MCP server settings file in e.g. cursor or claude (Desktop applications) for local debugging:
     #    cursor:
     #    {
     #      "mcpServers": {
     #        "hapi": {
-    #          "url": "http://localhost:8080/mcp/messages"
+    #          "url": "http://localhost:8081/mcp/messages"
     #        }
     #      }
     #    }
@@ -69,7 +69,7 @@ spring:
     #          "command": "npx",
     #          "args": [
     #            "mcp-remote@latest",
-    #            "http://localhost:8080/mcp/messages"
+    #            "http://localhost:8081/mcp/messages"
     #          ]
     #        }
     #      }
@@ -493,7 +493,7 @@ hapi:
     # tester:
     #   home:
     #     name: Local Tester
-    #     server_address: 'http://localhost:8080/fhir'
+    #     server_address: 'http://localhost:8081/fhir'
     #     refuse_to_fetch_third_party_urls: false
     #     fhir_version: R4
 

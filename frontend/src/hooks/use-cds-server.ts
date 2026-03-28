@@ -23,7 +23,7 @@ const cdsServerUrlStore = {
   },
 
   getServerSnapshot(): string {
-    return CDS_SERVERS[0]?.url ?? "http://localhost:8080";
+    return CDS_SERVERS[0]?.url ?? "http://localhost:8081";
   },
 
   subscribe(listener: () => void): () => void {

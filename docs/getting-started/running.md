@@ -9,7 +9,7 @@
     bun serve
     ```
 
-    The FHIR server will be at `http://localhost:8080/fhir` and the frontend at `http://localhost:3000`
+    The FHIR server will be at `http://localhost:8081/fhir` and the frontend at `http://localhost:3000`
 
 === "Maven + Bun"
 
@@ -20,7 +20,7 @@
     mvn spring-boot:run
     ```
 
-    The FHIR server will be available at `http://localhost:8080/fhir`
+    The FHIR server will be available at `http://localhost:8081/fhir`
 
     The frontend can be run in a separate terminal with:
 
@@ -38,10 +38,10 @@
 
     ```bash
     docker build -t br-payer .
-    docker run -p 8080:8080 br-payer
+    docker run -p 8081:8081 br-payer
     ```
 
-    The frontend is bundled into the server and available at `http://localhost:8080` with the FHIR endpoint at `http://localhost:8080/fhir`
+    The frontend is bundled into the server and available at `http://localhost:8081` with the FHIR endpoint at `http://localhost:8081/fhir`
 
 ## What happens at startup
 
