@@ -5,7 +5,7 @@ server:
   # Uncomment to serve FHIR under a non-default context path (e.g., /example/path/fhir)
   # servlet:
   #   context-path: /example/path
-  port: 8080
+  port: 8081
   tomcat:
     # allow | as a separator in URLs
     relaxed-query-chars: "|"
@@ -188,7 +188,7 @@ hapi:
     # use_apache_address_strategy_https: false
     # custom_content_path: ./custom               # folder name must be 'custom'
     # app_content_path: ./configs/app            # served under /web/app
-    server_address: http://localhost:8080/fhir
+    server_address: http://localhost:8081/fhir
     # defer_indexing_for_codesystems_of_size: 101
 
     # -------------------------------------------------------------------------------
@@ -200,18 +200,15 @@ hapi:
     implementationguides:
       hl7fhirusdavincicrd:
         name: hl7.fhir.us.davinci-crd
-        version: 2.2.0
-        packageUrl: https://build.fhir.org/ig/HL7/davinci-crd/package.tgz
+        version: 2.2.1
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincidtr:
         name: hl7.fhir.us.davinci-dtr
         version: 2.2.0
-        packageUrl: https://build.fhir.org/ig/HL7/davinci-dtr/package.tgz
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincipas:
         name: hl7.fhir.us.davinci-pas
-        version: 2.2.0
-        packageUrl: https://build.fhir.org/ig/HL7/davinci-pas/package.tgz
+        version: 2.2.1
         installMode: STORE_AND_INSTALL
     #   swiss:
     #     name: swiss.mednet.fhir

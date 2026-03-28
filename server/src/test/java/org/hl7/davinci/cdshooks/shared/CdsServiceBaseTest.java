@@ -455,6 +455,11 @@ class CdsServiceBaseTest {
       assertNotNull(ext.getExtensionByUrl("covered"), "Must have covered code");
       assertNotNull(ext.getExtensionByUrl("date"), "Must have date");
       assertNotNull(ext.getExtensionByUrl("coverage-assertion-id"), "Must have assertion ID");
+
+      // Per invariant crd-ci-q3: info-needed required when covered is "conditional"
+      assertNotNull(ext.getExtensionByUrl("info-needed"),
+          "Must have info-needed when covered is conditional (crd-ci-q3)");
+      assertEquals("detail-code", ext.getExtensionByUrl("info-needed").getValue().primitiveValue());
     }
 
     @Test

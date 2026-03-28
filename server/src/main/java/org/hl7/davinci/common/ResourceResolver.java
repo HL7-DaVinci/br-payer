@@ -475,9 +475,19 @@ public class ResourceResolver {
       if (!payorRef.hasReference()) {
         continue;
       }
+      String ref = payorRef.getReference();
       for (Organization org : organizations) {
+        // Contained references (#id) won't match via toRelativeReference/referencesMatch
+        // because they lack a resource type. Match by fragment ID directly.
+        if (ref.startsWith("#") && org.hasIdElement()) {
+          String containedId = ref.substring(1);
+          if (containedId.equals(org.getIdElement().getIdPart())) {
+            matched.add(org);
+            continue;
+          }
+        }
         String orgRef = toRelativeReference(org);
-        if (orgRef != null && referencesMatch(payorRef.getReference(), orgRef)) {
+        if (orgRef != null && referencesMatch(ref, orgRef)) {
           matched.add(org);
         }
       }

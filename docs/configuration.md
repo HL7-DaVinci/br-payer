@@ -14,18 +14,15 @@ hapi:
     implementationguides:
       hl7fhirusdavincicrd:
         name: hl7.fhir.us.davinci-crd
-        version: 2.2.0
-        packageUrl: https://build.fhir.org/ig/HL7/davinci-crd/package.tgz
+        version: 2.2.1
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincidtr:
         name: hl7.fhir.us.davinci-dtr
         version: 2.2.0
-        packageUrl: https://build.fhir.org/ig/HL7/davinci-dtr/package.tgz
         installMode: STORE_AND_INSTALL
       hl7fhirusdavincipas:
         name: hl7.fhir.us.davinci-pas
-        version: 2.2.0
-        packageUrl: https://build.fhir.org/ig/HL7/davinci-pas/package.tgz
+        version: 2.2.1
         installMode: STORE_AND_INSTALL
 ```
 

@@ -284,6 +284,22 @@ class ResourceResolverTest {
   }
 
   @Test
+  @DisplayName("findPayorOrganizations matches contained organization references")
+  void findPayorOrganizations_matchesContainedOrganizations() {
+    Organization contained = new Organization();
+    contained.setId("OrgExample");
+
+    Coverage coverage = new Coverage();
+    coverage.addContained(contained);
+    coverage.addPayor(new Reference("#OrgExample"));
+
+    var matched = ResourceResolver.findPayorOrganizations(coverage, List.of(contained));
+
+    assertEquals(1, matched.size());
+    assertSame(contained, matched.get(0));
+  }
+
+  @Test
   @DisplayName("referencesMatch handles equivalent references across forms")
   void referencesMatch_handlesEquivalentReferences() {
     assertTrue(ResourceResolver.referencesMatch("Patient/123", "http://example.org/fhir/Patient/123"));

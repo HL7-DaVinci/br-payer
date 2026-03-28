@@ -10,6 +10,7 @@ import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StringType;
 import org.slf4j.Logger;
@@ -49,8 +50,20 @@ public class CoverageInfoHandler {
       }
     }
 
-    // Clone the resource and clean up stale CRD artifacts before adding new ones
+    // Clone the resource and clean up stale CRD artifacts before adding new ones.
+    // copy() does not carry the id element, so restore it from the original.
+    // HAPI Bundle parsing seemingly sets fullUrl (urn:uuid:xxx) as the resource id;
+    // use IdType.isUrn() to detect this and extract the logical id portion.
     Resource updatedResource = resource.copy();
+    IdType originalId = resource.getIdElement();
+    if (originalId != null && !originalId.isEmpty()) {
+      if (originalId.isUrn()) {
+        String urn = originalId.getValueAsString();
+        updatedResource.setId(new IdType(urn.substring(urn.lastIndexOf(':') + 1)));
+      } else {
+        updatedResource.setId(originalId.getIdPart());
+      }
+    }
 
     // Extract coverage reference from the new extension to match against old ones
     String coverageRef = null;
@@ -137,6 +150,11 @@ public class CoverageInfoHandler {
     Extension coveredExt = new Extension("covered");
     coveredExt.setValue(new CodeType("conditional"));
     coverageInfoExt.addExtension(coveredExt);
+
+    // Per invariant crd-ci-q3: info-needed is required when covered is "conditional"
+    Extension infoNeededExt = new Extension("info-needed");
+    infoNeededExt.setValue(new CodeType("detail-code"));
+    coverageInfoExt.addExtension(infoNeededExt);
 
     // Date
     Extension dateExt = new Extension("date");

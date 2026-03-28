@@ -51,6 +51,24 @@ class PayorIdentifierUtilTest {
   }
 
   @Test
+  void extractFromCoverageAndOrganizations_resolvesContainedPayorOrganization() {
+    Organization contained = new Organization();
+    contained.setId("OrgExample");
+    contained.addIdentifier().setSystem("urn:oid:2.16.840.1.113883.4.7").setValue("10D0202020");
+
+    Coverage coverage = new Coverage();
+    coverage.addContained(contained);
+    coverage.addPayor().setReference("#OrgExample");
+
+    List<Identifier> identifiers = PayorIdentifierUtil.extractFromCoverageAndOrganizations(
+        coverage, List.of(contained));
+
+    assertEquals(1, identifiers.size());
+    assertEquals("urn:oid:2.16.840.1.113883.4.7", identifiers.get(0).getSystem());
+    assertEquals("10D0202020", identifiers.get(0).getValue());
+  }
+
+  @Test
   void addValidIdentifiers_ignoresNullInputs() {
     PayorIdentifierUtil.addValidIdentifiers(null, null);
     assertTrue(PayorIdentifierUtil.validIdentifiers(null).isEmpty());
