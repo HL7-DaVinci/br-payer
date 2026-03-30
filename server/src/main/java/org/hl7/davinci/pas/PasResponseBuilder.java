@@ -29,6 +29,7 @@ import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.Type;
 import org.springframework.stereotype.Component;
 
@@ -66,7 +67,13 @@ public class PasResponseBuilder {
       Map<Integer, CoverageDecision> itemDecisions, String authNumberPrefix) {
 
     ClaimResponse claimResponse = buildClaimResponse(requestClaim, requestBundle, itemDecisions, authNumberPrefix);
-    return wrapInResponseBundle(claimResponse, requestBundle);
+    Bundle responseBundle = wrapInResponseBundle(claimResponse, requestBundle);
+
+    // Per PAS IG, include a Task resource for pended items that need additional documentation.
+    // Task.code = "attachment-request-questionnaire" directs providers to complete DTR questionnaires.
+    addDocumentationRequestTasks(responseBundle, requestClaim, claimResponse, itemDecisions);
+
+    return responseBundle;
   }
 
   /**
@@ -253,6 +260,14 @@ public class PasResponseBuilder {
         }
       }
     }
+
+    // Update outcome: if no pended items remain, mark as complete
+    boolean stillPended = claimResponse.getItem().stream()
+        .flatMap(item -> item.getAdjudication().stream())
+        .anyMatch(this::isPendedReviewAction);
+    if (!stillPended) {
+      claimResponse.setOutcome(ClaimResponse.RemittanceOutcome.COMPLETE);
+    }
   }
 
   private ClaimResponse buildClaimResponse(Claim requestClaim, Bundle requestBundle,
@@ -269,7 +284,12 @@ public class PasResponseBuilder {
     cr.setCreated(new Date());
     cr.setInsurer(requestClaim.getInsurer().copy());
     cr.setRequestor(requestClaim.getProvider().copy());
-    cr.setOutcome(ClaimResponse.RemittanceOutcome.COMPLETE);
+    // Outcome depends on whether any items are pended
+    boolean anyPended = itemDecisions.values().stream()
+        .anyMatch(CoverageDecision::isPended);
+    cr.setOutcome(anyPended
+        ? ClaimResponse.RemittanceOutcome.QUEUED
+        : ClaimResponse.RemittanceOutcome.COMPLETE);
 
     // Reference back to the original Claim
     String claimId = requestClaim.getIdElement().getIdPart();
@@ -515,5 +535,31 @@ public class PasResponseBuilder {
       return parsed;
     }
     return rawId;
+  }
+
+  /**
+   * Per the PAS IG, when a payer pends a request and needs additional documentation,
+   * a Task resource with code "attachment-request-questionnaire" is included in the
+   * response bundle. This directs the provider to complete DTR questionnaires.
+   */
+  private void addDocumentationRequestTasks(Bundle responseBundle, Claim requestClaim,
+      ClaimResponse claimResponse, Map<Integer, CoverageDecision> itemDecisions) {
+    String claimRef = "Claim/" + extractClaimResponseIdPart(claimResponse);
+    String patientRef = requestClaim.hasPatient() ? requestClaim.getPatient().getReference() : null;
+    String insurerRef = requestClaim.hasInsurer() ? requestClaim.getInsurer().getReference() : null;
+
+    for (Map.Entry<Integer, CoverageDecision> entry : itemDecisions.entrySet()) {
+      CoverageDecision decision = entry.getValue();
+      if (!REVIEW_CODE_A4.equals(decision.reviewActionCode())) continue;
+      if (!decision.hasAdditionalDocumentationInfo()) continue;
+
+      Task task = PasExtensions.buildDocumentationRequestTask(
+          claimRef, patientRef, insurerRef,
+          decision.questionnaireUrls(), serverBase);
+
+      responseBundle.addEntry()
+          .setFullUrl("urn:uuid:" + task.getId())
+          .setResource(task);
+    }
   }
 }

@@ -33,6 +33,12 @@ public final class PasConstants {
   public static final String TRANSMISSION_IDENTIFIERS = PAS_BASE + "extension-TransmissionIdentifiers";
   public static final String ITEM_REQUESTED_SERVICE = PAS_BASE + "extension-requestedService";
 
+  // PAS Task codes for requesting additional documentation
+  public static final String TASK_CODE_SYSTEM = "http://hl7.org/fhir/us/davinci-pas/CodeSystem/PASTempCodes";
+  public static final String TASK_CODE_ATTACHMENT_REQUEST = "attachment-request-code";
+  public static final String TASK_CODE_QUESTIONNAIRE_REQUEST = "attachment-request-questionnaire";
+  public static final String PROFILE_PAS_TASK = PAS_BASE + "profile-task";
+
   // Claim Update extensions
   public static final String INFO_CHANGED = PAS_BASE + "extension-infoChanged";
   public static final String INFO_CANCELLED = PAS_BASE + "modifierextension-infoCancelled";

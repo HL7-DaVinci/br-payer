@@ -724,7 +724,7 @@ class DtrResponseBuilderTest {
       Questionnaire contained = (Questionnaire) qr.getContained().get(0);
       assertNotNull(contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT),
           "Extension should still be present");
-      assertEquals("http://localhost:8080/fhir/Questionnaire/$next-question",
+      assertEquals("http://localhost:8081/fhir/Questionnaire/$next-question",
           ((UrlType) contained.getExtensionByUrl(QUESTIONNAIRE_ADAPTIVE_EXT).getValue()).asStringValue());
       assertTrue(result.warnings().isEmpty());
     }

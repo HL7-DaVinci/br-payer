@@ -2,11 +2,13 @@ package org.hl7.davinci.pas;
 
 import static org.hl7.davinci.common.FhirConstants.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.hl7.davinci.common.CoverageInfoUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
@@ -35,20 +37,33 @@ public class PasCoverageEvaluator {
    * Result of coverage evaluation for a single claim item.
    * The modification fields support A6 (Modified) decisions where the payer
    * approves with changes to the requested service or quantity.
+   * The docNeeded and questionnaireUrls fields carry documentation context
+   * for pended items so the provider can launch DTR from PAS context.
    */
   public record CoverageDecision(
       String reviewActionCode,
       String reviewActionDisplay,
       boolean isPended,
       CodeableConcept modifiedProductOrService,
-      SimpleQuantity modifiedQuantity) {
+      SimpleQuantity modifiedQuantity,
+      String docNeeded,
+      List<String> questionnaireUrls) {
 
     public CoverageDecision(String reviewActionCode, String reviewActionDisplay, boolean isPended) {
-      this(reviewActionCode, reviewActionDisplay, isPended, null, null);
+      this(reviewActionCode, reviewActionDisplay, isPended, null, null, null, List.of());
+    }
+
+    public CoverageDecision(String reviewActionCode, String reviewActionDisplay, boolean isPended,
+        CodeableConcept modifiedProductOrService, SimpleQuantity modifiedQuantity) {
+      this(reviewActionCode, reviewActionDisplay, isPended, modifiedProductOrService, modifiedQuantity, null, List.of());
     }
 
     public boolean hasModification() {
       return modifiedProductOrService != null || modifiedQuantity != null;
+    }
+
+    public boolean hasAdditionalDocumentationInfo() {
+      return docNeeded != null && !questionnaireUrls.isEmpty();
     }
   }
 
@@ -128,17 +143,32 @@ public class PasCoverageEvaluator {
       return new CoverageDecision(REVIEW_CODE_A2, "Not Certified", false);
     }
     if ("conditional".equals(covered)) {
-      return new CoverageDecision(REVIEW_CODE_A4, "Pending", true);
+      return buildPendedDecision(coverageInfoExt);
     }
     String docNeeded = CoverageInfoUtil.subExtensionCode(coverageInfoExt, "doc-needed");
     if ("auth-needed".equals(paNeeded)) {
       if ("no-doc".equals(docNeeded)) {
         return new CoverageDecision(REVIEW_CODE_A1, "Certified in total", false);
       }
-      return new CoverageDecision(REVIEW_CODE_A4, "Pending", true);
+      return buildPendedDecision(coverageInfoExt);
     }
     // no-auth or no pa-needed value
     return new CoverageDecision(REVIEW_CODE_A3, "Not Required", false);
+  }
+
+  /**
+   * Builds a pended (A4) decision, extracting doc-needed and questionnaire URLs
+   * from the coverage-information extension so the provider can launch DTR.
+   */
+  private CoverageDecision buildPendedDecision(Extension coverageInfoExt) {
+    String docNeeded = CoverageInfoUtil.subExtensionCode(coverageInfoExt, "doc-needed");
+    List<String> questionnaireUrls = new ArrayList<>();
+    for (Extension qExt : coverageInfoExt.getExtensionsByUrl("questionnaire")) {
+      if (qExt.getValue() instanceof CanonicalType ct && ct.hasValue()) {
+        questionnaireUrls.add(ct.getValue());
+      }
+    }
+    return new CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null, docNeeded, questionnaireUrls);
   }
 
 }
