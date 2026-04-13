@@ -363,6 +363,7 @@ public abstract class CdsServiceBase {
     addResourcesToBundle(bundle, seenIds, context.getTasks());
     addResourcesToBundle(bundle, seenIds, context.getConditions());
     addResourcesToBundle(bundle, seenIds, context.getProcedures());
+    addResourcesToBundle(bundle, seenIds, context.getQuestionnaireResponses());
     addResourceToBundle(bundle, seenIds, contextResource);
 
     return bundle;

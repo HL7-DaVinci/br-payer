@@ -26,6 +26,7 @@ import org.hl7.fhir.r4.model.Practitioner;
 import org.hl7.fhir.r4.model.PractitionerRole;
 import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Task;
@@ -302,6 +303,13 @@ public final class CdsResourceExtractor {
     Object conditionsPrefetch = getPrefetchFlexible(request, "conditions");
     if (conditionsPrefetch instanceof Bundle conditionsBundle) {
       context.setConditions(BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(),conditionsBundle, Condition.class));
+    }
+
+    // Questionnaire responses (completed DTR forms used to satisfy doc-needed)
+    Object questionnaireResponsesPrefetch = getPrefetchFlexible(request, "questionnaireResponses");
+    if (questionnaireResponsesPrefetch instanceof Bundle questionnaireResponsesBundle) {
+      context.setQuestionnaireResponses(
+          BundleUtil.toListOfResourcesOfType(FhirContext.forR4Cached(), questionnaireResponsesBundle, QuestionnaireResponse.class));
     }
   }
 

@@ -18,6 +18,7 @@ import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Practitioner;
 import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.PractitionerRole;
+import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.Task;
@@ -46,6 +47,7 @@ public class ResolvedResources {
   private List<ServiceRequest> serviceRequests = new ArrayList<>();
   private List<Condition> conditions = new ArrayList<>();
   private List<Task> tasks = new ArrayList<>();
+  private List<QuestionnaireResponse> questionnaireResponses = new ArrayList<>();
   private List<String> selections = new ArrayList<>();
 
   public Patient getPatient() {
@@ -258,6 +260,18 @@ public class ResolvedResources {
 
   public void addCondition(Condition condition) {
     this.conditions.add(condition);
+  }
+
+  public List<QuestionnaireResponse> getQuestionnaireResponses() {
+    return questionnaireResponses;
+  }
+
+  public void setQuestionnaireResponses(List<QuestionnaireResponse> questionnaireResponses) {
+    this.questionnaireResponses = questionnaireResponses;
+  }
+
+  public void addQuestionnaireResponse(QuestionnaireResponse questionnaireResponse) {
+    this.questionnaireResponses.add(questionnaireResponse);
   }
 
   public List<String> getSelections() {

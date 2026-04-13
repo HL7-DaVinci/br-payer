@@ -11,6 +11,7 @@ context Patient
 // ============================================================
 
 define "Assertion Prefix": 'cardio-consult'
+define "Questionnaire Canonical": 'http://example.org/fhir/Questionnaire/CardiologyConsultation'
 
 // ============================================================
 // CONTEXT RESOURCES
@@ -38,12 +39,24 @@ define "Has Existing Referral":
 define "Referral Missing": not "Has Existing Referral"
 
 // ============================================================
+// COMPLETED DTR DETECTION
+// ============================================================
+
+// A completed QuestionnaireResponse for this rule's questionnaire
+// satisfies the documentation requirement (DTR workflow already
+// captured the needed clinical information).
+define "Documentation Satisfied":
+  exists([QuestionnaireResponse] QR
+    where QR.status.value = 'completed'
+      and QR.questionnaire.value = "Questionnaire Canonical")
+
+// ============================================================
 // COVERAGE DETERMINATION LOGIC
 // ============================================================
 
 define "Requires Coverage Determination": "Coverage" is not null
 define "Prior Authorization Required": false
-define "Documentation Required": "Referral Missing"
+define "Documentation Required": "Referral Missing" and not "Documentation Satisfied"
 define "Covered": 'covered'
 
 // ============================================================
@@ -55,31 +68,37 @@ define "Service Code Display":
 
 define "Get Summary":
   case
-    when "Referral Missing" then 'Referral recommended for coverage review'
+    when "Documentation Required" then 'Referral recommended for coverage review'
+    when "Referral Missing" and "Documentation Satisfied" then 'Documentation on file - coverage satisfied'
     else 'Covered - no additional requirements'
   end
 
 define "Get Detail":
   'Cardiology consultation (' + "Service Code Display" + '): ' +
   case
-    when "Referral Missing" then
+    when "Documentation Required" then
       'A referral may support coverage review. Patient age: ' +
       Coalesce(ToString(AgeInYears()), 'unknown') + ' years.'
+    when "Referral Missing" and "Documentation Satisfied" then
+      'Required documentation has already been submitted. No further action needed.'
     else
       'No additional documentation required.'
   end
 
 define "Info Summary":
   case
-    when "Referral Missing" then 'Add or verify cardiology referral details'
+    when "Documentation Required" then 'Add or verify cardiology referral details'
+    when "Referral Missing" and "Documentation Satisfied" then 'Documentation previously submitted'
     else 'Confirm consultation reason and supporting history'
   end
 
 define "Info Detail":
   'Cardiology consultation (' + "Service Code Display" + '): ' +
   case
-    when "Referral Missing" then
+    when "Documentation Required" then
       'Ensure the referring provider, reason for referral, and relevant cardiac history are documented.'
+    when "Referral Missing" and "Documentation Satisfied" then
+      'A completed CardiologyConsultation questionnaire was found on file and satisfies the documentation requirement.'
     else
       'Confirm the appointment reason and attach relevant history or recent results to support the consult.'
   end
@@ -93,7 +112,7 @@ define "Doc Purpose":
 
 define "Questionnaire URLs":
   CRD."Questionnaire URLs Value"("Documentation Required",
-    { 'http://example.org/fhir/Questionnaire/CardiologyConsultation' })
+    { "Questionnaire Canonical" })
 
 // ============================================================
 // FINAL COVERAGE EXTENSION

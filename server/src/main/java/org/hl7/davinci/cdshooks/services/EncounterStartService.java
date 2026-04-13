@@ -40,7 +40,8 @@ public class EncounterStartService extends CdsServiceBase {
       @CdsServicePrefetch(value = "encounter", query = "Encounter/{{context.encounterId}}"),
       @CdsServicePrefetch(value = "user", query = "{{context.userId}}", failureMode = CdsPrefetchFailureMode.OMIT),
       @CdsServicePrefetch(value = "practitionerRoles", query = "PractitionerRole?practitioner={{context.userId}}", failureMode = CdsPrefetchFailureMode.OMIT),
-      @CdsServicePrefetch(value = "conditions", query = "Condition?patient={{context.patientId}}&clinical-status=active", failureMode = CdsPrefetchFailureMode.OMIT)
+      @CdsServicePrefetch(value = "conditions", query = "Condition?patient={{context.patientId}}&clinical-status=active", failureMode = CdsPrefetchFailureMode.OMIT),
+      @CdsServicePrefetch(value = "questionnaireResponses", query = "QuestionnaireResponse?patient={{context.patientId}}&status=completed", failureMode = CdsPrefetchFailureMode.OMIT)
     }
   )
   public CdsServiceResponseJson handleRequest(CdsServiceRequestJson request) {

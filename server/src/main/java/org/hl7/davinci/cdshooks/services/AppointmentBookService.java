@@ -38,7 +38,8 @@ public class AppointmentBookService extends CdsServiceBase {
       @CdsServicePrefetch(value = "practitioner", query = "{{context.userId}}", failureMode = CdsPrefetchFailureMode.OMIT),
       @CdsServicePrefetch(value = "practitionerRoles", query = "PractitionerRole?practitioner={{context.userId}}", failureMode = CdsPrefetchFailureMode.OMIT),
       @CdsServicePrefetch(value = "procedures", query = "Procedure?patient={{context.patientId}}&status=completed", failureMode = CdsPrefetchFailureMode.OMIT),
-      @CdsServicePrefetch(value = "serviceRequests", query = "ServiceRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT)
+      @CdsServicePrefetch(value = "serviceRequests", query = "ServiceRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT),
+      @CdsServicePrefetch(value = "questionnaireResponses", query = "QuestionnaireResponse?patient={{context.patientId}}&status=completed", failureMode = CdsPrefetchFailureMode.OMIT)
     }
   )
   public CdsServiceResponseJson handleRequest(CdsServiceRequestJson request) {

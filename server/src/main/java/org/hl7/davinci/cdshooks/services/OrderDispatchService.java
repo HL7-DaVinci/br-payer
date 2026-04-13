@@ -37,7 +37,8 @@ public class OrderDispatchService extends CdsServiceBase {
       @CdsServicePrefetch(value = "encounter", query = "Encounter/{{context.encounterId}}", failureMode = CdsPrefetchFailureMode.OMIT),
       @CdsServicePrefetch(value = "deviceHistory", query = "DeviceRequest?patient={{context.patientId}}&status=active,on-hold,completed", failureMode = CdsPrefetchFailureMode.OMIT),
       @CdsServicePrefetch(value = "medicationHistory", query = "MedicationRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT),
-      @CdsServicePrefetch(value = "serviceHistory", query = "ServiceRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT)
+      @CdsServicePrefetch(value = "serviceHistory", query = "ServiceRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT),
+      @CdsServicePrefetch(value = "questionnaireResponses", query = "QuestionnaireResponse?patient={{context.patientId}}&status=completed", failureMode = CdsPrefetchFailureMode.OMIT)
     }
   )
   public CdsServiceResponseJson handleRequest(CdsServiceRequestJson request) {

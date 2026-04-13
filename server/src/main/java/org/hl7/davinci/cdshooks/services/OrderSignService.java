@@ -36,7 +36,8 @@ public class OrderSignService extends CdsServiceBase {
         // Historical orders for duplicate therapy detection, step therapy, and frequency limits
         @CdsServicePrefetch(value = "deviceHistory", query = "DeviceRequest?patient={{context.patientId}}&status=active,on-hold,completed", failureMode = CdsPrefetchFailureMode.OMIT),
         @CdsServicePrefetch(value = "medicationHistory", query = "MedicationRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT),
-        @CdsServicePrefetch(value = "serviceHistory", query = "ServiceRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT)
+        @CdsServicePrefetch(value = "serviceHistory", query = "ServiceRequest?patient={{context.patientId}}&status=active,completed", failureMode = CdsPrefetchFailureMode.OMIT),
+        @CdsServicePrefetch(value = "questionnaireResponses", query = "QuestionnaireResponse?patient={{context.patientId}}&status=completed", failureMode = CdsPrefetchFailureMode.OMIT)
       }
   )
   public CdsServiceResponseJson handleRequest(CdsServiceRequestJson request) {
