@@ -28,8 +28,7 @@ public final class BundleResourceUtil {
 
     String identity = identity(resource, unqualified);
     if (identity == null || identity.isBlank()) {
-      bundle.addEntry().setResource(resource);
-      return true;
+      identity = resource.fhirType() + "@" + System.identityHashCode(resource);
     }
     if (seen == null || seen.add(identity)) {
       bundle.addEntry().setResource(resource);
