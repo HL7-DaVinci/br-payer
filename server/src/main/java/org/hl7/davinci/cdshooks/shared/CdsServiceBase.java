@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestContextJson;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 import ca.uhn.hapi.fhir.cdshooks.api.json.CdsServiceResponseCardJson;
@@ -58,6 +59,9 @@ public abstract class CdsServiceBase {
 
   @Autowired
   protected CardConverter cardConverter;
+
+  @Autowired
+  protected DaoRegistry daoRegistry;
 
   /**
    * Returns the hook name for this service ("order-sign", "appointment-book").
@@ -197,7 +201,7 @@ public abstract class CdsServiceBase {
     validateRequestInput(request);
 
     // Extract all resources upfront
-    ResolvedResources context = CdsResourceExtractor.extractAllResources(request);
+    ResolvedResources context = CdsResourceExtractor.extractAllResources(request, daoRegistry);
 
     // Validate required FHIR resources are present
     validateExtractedResources(context);

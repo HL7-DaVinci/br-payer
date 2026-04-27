@@ -2,6 +2,7 @@ package org.hl7.davinci.common;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -34,6 +35,22 @@ public class ResourceResolver {
   private static final FhirContext R4_CTX = FhirContext.forR4Cached();
 
   /**
+   * Resource types the payer is authoritative for and that are safe to fall back
+   * to the local DAO when prefetch and the EHR's FHIR server fail to resolve a
+   * reference. Restricted to payer-owned and definitional resources to avoid
+   * silently substituting EHR-owned clinical data (Patient, Encounter, etc.) on
+   * an ID collision.
+   */
+  private static final Set<String> PAYER_OWNED_TYPES = Set.of(
+      "Organization",
+      "PlanDefinition",
+      "Library",
+      "Questionnaire",
+      "ValueSet",
+      "CodeSystem",
+      "StructureDefinition");
+
+  /**
    * Resolves a resource reference using all available strategies in this order:
    * - Contained resources
    * - Prefetch resources (direct or in bundles)
@@ -41,6 +58,18 @@ public class ResourceResolver {
    */
   public static <T extends IBaseResource> T resolveReference(Reference ref, Class<T> resourceType,
       DomainResource parentResource, CdsServiceRequestJson request) {
+    return resolveReference(ref, resourceType, parentResource, request, null);
+  }
+
+  /**
+   * Resolves a resource reference with an optional local-DAO fallback. The DAO is
+   * only consulted as a last resort and only for {@link #PAYER_OWNED_TYPES} —
+   * resource types the payer is authoritative for. Clinical resource types
+   * deliberately do not fall back to the local DAO to avoid silently substituting
+   * EHR-owned data on an ID collision.
+   */
+  public static <T extends IBaseResource> T resolveReference(Reference ref, Class<T> resourceType,
+      DomainResource parentResource, CdsServiceRequestJson request, DaoRegistry daoRegistry) {
 
     if (ref == null || !ref.hasReference()) {
       return null;
@@ -66,6 +95,17 @@ public class ResourceResolver {
     resource = resolveFromServer(ref.getReferenceElement().getIdPart(), resourceType, request);
     if (resource != null) {
       return resource;
+    }
+
+    // Local DAO fallback (allowlisted types only)
+    if (daoRegistry != null && Resource.class.isAssignableFrom(resourceType)
+        && PAYER_OWNED_TYPES.contains(resourceType.getSimpleName())) {
+      @SuppressWarnings("unchecked")
+      Class<? extends Resource> domainType = (Class<? extends Resource>) resourceType;
+      Resource fromDao = resolveTypedReferenceFromDao(ref, domainType, parentResource, daoRegistry);
+      if (resourceType.isInstance(fromDao)) {
+        return resourceType.cast(fromDao);
+      }
     }
 
     logger.warn("Could not resolve {} reference: {}", resourceType.getSimpleName(), reference);

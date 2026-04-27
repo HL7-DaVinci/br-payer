@@ -34,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestJson;
 
 /**
@@ -50,10 +51,18 @@ public final class CdsResourceExtractor {
    * Extracts all resources from CDS Hook context and prefetch into a ResolvedResources container.
    */
   public static ResolvedResources extractAllResources(CdsServiceRequestJson request) {
+    return extractAllResources(request, null);
+  }
+
+  /**
+   * Extracts all resources, with a local DAO fallback used when prefetch and the
+   * EHR's FHIR server fail to resolve a reference.
+   */
+  public static ResolvedResources extractAllResources(CdsServiceRequestJson request, DaoRegistry daoRegistry) {
     ResolvedResources context = new ResolvedResources();
 
     extractPatient(request, context);
-    extractCoverage(request, context);
+    extractCoverage(request, context, daoRegistry);
     extractEncounter(request, context);
     extractUser(request, context);
     extractOrders(request, context);
@@ -77,7 +86,8 @@ public final class CdsResourceExtractor {
     context.setPatient(patient);
   }
 
-  private static void extractCoverage(CdsServiceRequestJson request, ResolvedResources context) {
+  private static void extractCoverage(CdsServiceRequestJson request, ResolvedResources context,
+      DaoRegistry daoRegistry) {
     // Per CRD IG: clients SHALL send only the primary coverage in prefetch
     Object coveragePrefetch = getPrefetchFlexible(request, "coverage");
     if (coveragePrefetch instanceof Bundle coverageBundle) {
@@ -87,23 +97,21 @@ public final class CdsResourceExtractor {
       if (!coverages.isEmpty()) {
         Coverage coverage = coverages.get(0);
         context.setCoverage(coverage);
-
-        for (Reference payorRef : coverage.getPayor()) {
-          Organization org = ResourceResolver.resolveReference(payorRef, Organization.class, coverage, request);
-          if (org != null) {
-            context.addOrganization(org);
-          }
-        }
+        resolvePayorOrganizations(coverage, request, daoRegistry, context);
       }
     } else if (coveragePrefetch instanceof Coverage coverage) {
       context.setCoverageCount(1);
       context.setCoverage(coverage);
+      resolvePayorOrganizations(coverage, request, daoRegistry, context);
+    }
+  }
 
-      for (Reference payorRef : coverage.getPayor()) {
-        Organization org = ResourceResolver.resolveReference(payorRef, Organization.class, coverage, request);
-        if (org != null) {
-          context.addOrganization(org);
-        }
+  private static void resolvePayorOrganizations(Coverage coverage, CdsServiceRequestJson request,
+      DaoRegistry daoRegistry, ResolvedResources context) {
+    for (Reference payorRef : coverage.getPayor()) {
+      Organization org = ResourceResolver.resolveReference(payorRef, Organization.class, coverage, request, daoRegistry);
+      if (org != null) {
+        context.addOrganization(org);
       }
     }
   }
