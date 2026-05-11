@@ -3,11 +3,12 @@ package org.hl7.davinci.dtr;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.hl7.davinci.common.FhirUtil;
+import org.hl7.davinci.common.MemberResolver;
 import org.hl7.davinci.common.ResourceResolver;
-import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
@@ -18,6 +19,7 @@ import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
@@ -25,9 +27,11 @@ import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemAnsw
 import org.hl7.fhir.r4.model.QuestionnaireResponse.QuestionnaireResponseItemComponent;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.UrlType;
 import org.opencds.cqf.fhir.cr.hapi.common.IQuestionnaireProcessorFactory;
 import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
+import org.opencds.cqf.fhir.utility.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -40,7 +44,6 @@ import static org.hl7.davinci.dtr.DtrConstants.*;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
-import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 /**
  * Builds QuestionnaireResponse resources with required DTR extensions
@@ -56,20 +59,22 @@ public class DtrResponseBuilder {
 
   private static final String DEFAULT_NEXT_QUESTION_URL = "http://localhost:8081/fhir/Questionnaire/$next-question";
 
+  static final String UNRESOLVED_MEMBER_SUBJECT = "Patient/__unresolved-member";
+
   private final IQuestionnaireProcessorFactory questionnaireProcessorFactory;
-  private final DaoRegistry daoRegistry;
   private final DtrAdaptiveProperties adaptiveProperties;
   private final AppProperties appProperties;
+  private final DaoRegistry daoRegistry;
 
   public DtrResponseBuilder(
       IQuestionnaireProcessorFactory questionnaireProcessorFactory,
-      DaoRegistry daoRegistry,
       DtrAdaptiveProperties adaptiveProperties,
-      AppProperties appProperties) {
+      AppProperties appProperties,
+      DaoRegistry daoRegistry) {
     this.questionnaireProcessorFactory = questionnaireProcessorFactory;
-    this.daoRegistry = daoRegistry;
     this.adaptiveProperties = adaptiveProperties;
     this.appProperties = appProperties;
+    this.daoRegistry = daoRegistry;
   }
 
   public record PrepopulationResult(QuestionnaireResponse response, List<String> warnings) {
@@ -112,7 +117,7 @@ public class DtrResponseBuilder {
 
     // Attempt CQL pre-population
     try {
-      qr = executePopulate(questionnaire, coverage, allOrders);
+      qr = executePopulate(questionnaire, coverage, allOrders, warnings);
       if (qr != null) {
         extractPopulateWarnings(qr, warnings);
       }
@@ -226,7 +231,7 @@ public class DtrResponseBuilder {
         for (Questionnaire.QuestionnaireItemComponent item : initialItems) {
           scopedQ.addItem(item);
         }
-        QuestionnaireResponse populated = executePopulate(scopedQ, coverage, allOrders);
+        QuestionnaireResponse populated = executePopulate(scopedQ, coverage, allOrders, warnings);
         if (populated != null) {
           extractPopulateWarnings(populated, warnings);
           clearItemText(populated.getItem());
@@ -266,26 +271,126 @@ public class DtrResponseBuilder {
   private QuestionnaireResponse executePopulate(
       Questionnaire questionnaire,
       Coverage coverage,
-      List<Resource> allOrders) {
+      List<Resource> allOrders,
+      List<String> warnings) {
 
     QuestionnaireProcessor processor = questionnaireProcessorFactory.create(new SystemRequestDetails());
 
-    String subjectId = extractPatientId(coverage);
-    Bundle dataBundle = buildDataBundle(coverage, allOrders, subjectId);
+    Optional<Patient> resolved = MemberResolver.resolveMember(coverage, daoRegistry);
+    String subjectId;
+    Patient stubPatient;
+    if (resolved.isPresent()) {
+      subjectId = "Patient/" + resolved.get().getIdElement().getIdPart();
+      stubPatient = null;
+    } else {
+      warnings.add("Patient demographic pre-population skipped: no Patient in this payer's records matched "
+          + "Coverage.beneficiary.identifier or Coverage.subscriberId (sender-supplied reference '"
+          + extractPatientId(coverage) + "' is not trusted as a lookup key to avoid PHI leakage on id collision). "
+          + "Supply Coverage.subscriberId or Coverage.beneficiary.identifier matching a payer member identifier.");
+      subjectId = UNRESOLVED_MEMBER_SUBJECT;
+      stubPatient = new Patient();
+      stubPatient.setId(new IdType(subjectId).getIdPart());
+    }
 
-    // populate() evaluates CQL initialExpression/calculatedExpression on
-    // questionnaire items.
-    // Order resources in the data bundle are available to CQL retrieve operations
-    // (e.g. [DeviceRequest]).
-    // CQL parameter declarations (e.g. "parameter device_request DeviceRequest")
-    // require launchContext extensions on the Questionnaire which is not yet implemented.
-    var result = processor.populate(questionnaire, subjectId, List.of(), null, dataBundle, null);
+    Bundle dataBundle = buildDataBundle(coverage, allOrders, stubPatient);
+
+    List<Parameters.ParametersParameterComponent> launchContextParams =
+        buildLaunchContextParams(questionnaire, dataBundle, subjectId, warnings);
+
+    var result = processor.populate(questionnaire, subjectId, launchContextParams, null, dataBundle, null);
 
     if (result instanceof QuestionnaireResponse populated) {
       return populated;
     }
 
     return null;
+  }
+
+  /**
+   * Binds each sdc-questionnaire-launchContext declared on the questionnaire to a
+   * resource from the data bundle, returning SDC context parameter parts.
+   * Adds plain-text warnings for unbindable contexts and "ERROR:" prefixed entries
+   * for ambiguous singular bindings (multiple matches).
+   */
+  List<Parameters.ParametersParameterComponent> buildLaunchContextParams(
+      Questionnaire questionnaire, Bundle dataBundle, String subjectId, List<String> warnings) {
+    List<Parameters.ParametersParameterComponent> params = new ArrayList<>();
+    if (questionnaire == null) return params;
+
+    for (Extension ext : questionnaire.getExtensionsByUrl(Constants.SDC_QUESTIONNAIRE_LAUNCH_CONTEXT)) {
+      String name = readLaunchContextName(ext);
+      String type = readLaunchContextType(ext);
+      if (name == null || type == null) continue;
+
+      List<Resource> matches = findAllByType(dataBundle, type);
+      if (matches.isEmpty()) {
+        if ("patient".equals(name) && subjectId != null && !subjectId.isBlank()) {
+          params.add(buildPatientContextEntry(subjectId));
+          continue;
+        }
+        warnings.add(String.format(
+            "launchContext '%s' (type %s) declared on questionnaire %s could not be bound from the data bundle",
+            name, type, questionnaire.getUrl()));
+        continue;
+      }
+      // Singular CQL parameters with multiple matches: skip the bind and emit
+      // an error-level diagnostic rather than arbitrarily choose one. Multi-binding
+      // requires a list-typed parameter declaration in the library.
+      if (matches.size() > 1) {
+        warnings.add(String.format(
+            "ERROR: launchContext '%s' matched %d %s resources but the questionnaire's CQL parameter is singular; "
+                + "skipping bind to avoid arbitrary first-match selection. Disambiguate at the package layer "
+                + "(e.g., ship a single matching order) or change the CQL parameter to a list type.",
+            name, matches.size(), type));
+        continue;
+      }
+      // SDC context entry: parameter named "context" with two parts: a
+      // "name" part holding the launchContext code, and a "content" part
+      // holding the bound resource.
+      Parameters.ParametersParameterComponent contextEntry =
+          new Parameters.ParametersParameterComponent().setName("context");
+      contextEntry.addPart()
+          .setName("name")
+          .setValue(new StringType(name));
+      contextEntry.addPart()
+          .setName("content")
+          .setResource(matches.get(0));
+      params.add(contextEntry);
+    }
+
+    return params;
+  }
+
+  private Parameters.ParametersParameterComponent buildPatientContextEntry(String subjectId) {
+    Parameters.ParametersParameterComponent patientEntry =
+        new Parameters.ParametersParameterComponent().setName("context");
+    patientEntry.addPart()
+        .setName("name")
+        .setValue(new StringType("patient"));
+    patientEntry.addPart()
+        .setName("content")
+        .setValue(new Reference(subjectId));
+    return patientEntry;
+  }
+
+  private String readLaunchContextName(Extension ext) {
+    Extension nameExt = ext.getExtensionByUrl("name");
+    if (nameExt == null || !(nameExt.getValue() instanceof Coding c)) return null;
+    return c.getCode();
+  }
+
+  private String readLaunchContextType(Extension ext) {
+    Extension typeExt = ext.getExtensionByUrl("type");
+    if (typeExt == null || !(typeExt.getValue() instanceof CodeType c)) return null;
+    return c.getValue();
+  }
+
+  private List<Resource> findAllByType(Bundle bundle, String type) {
+    if (bundle == null) return List.of();
+    return bundle.getEntry().stream()
+        .map(Bundle.BundleEntryComponent::getResource)
+        .filter(r -> r != null && type.equals(r.fhirType()))
+        .toList();
   }
 
   /**
@@ -342,28 +447,12 @@ public class DtrResponseBuilder {
     return ResourceResolver.toVersionlessTypedReference(coverage.getBeneficiary(), "Patient");
   }
 
-  private Bundle buildDataBundle(Coverage coverage, List<Resource> allOrders, String patientId) {
+  private Bundle buildDataBundle(Coverage coverage, List<Resource> allOrders, Patient stubPatient) {
     Bundle bundle = new Bundle();
     bundle.setType(Bundle.BundleType.COLLECTION);
 
-    // Patient context is established via the subjectId parameter to populate().
-    // For relative local references, add a stub only if the patient does not exist
-    // in the repository. For absolute references, always include a stub to avoid
-    // resolving to a same-id local patient on this server.
-    if (patientId != null) {
-      IIdType patientRef = new Reference(patientId).getReferenceElement();
-      String patientIdPart = patientRef.getIdPart();
-      if (patientIdPart != null && !patientIdPart.isBlank()) {
-        String baseUrl = patientRef.getBaseUrl();
-        boolean isAbsolute = baseUrl != null && !baseUrl.isBlank();
-        if (isAbsolute || !patientExistsInRepository(patientIdPart)) {
-          Patient stub = new Patient();
-          // Keep absolute subject IDs to avoid accidentally resolving a same-ID local
-          // patient.
-          stub.setId(isAbsolute ? patientRef.toVersionless().getValue() : patientIdPart);
-          bundle.addEntry().setResource(stub);
-        }
-      }
+    if (stubPatient != null) {
+      bundle.addEntry().setResource(stubPatient);
     }
 
     bundle.addEntry().setResource(coverage);
@@ -375,16 +464,6 @@ public class DtrResponseBuilder {
     }
 
     return bundle;
-  }
-
-  private boolean patientExistsInRepository(String patientIdPart) {
-    try {
-      daoRegistry.getResourceDao(Patient.class)
-          .read(new IdType("Patient", patientIdPart), new SystemRequestDetails());
-      return true;
-    } catch (ResourceNotFoundException e) {
-      return false;
-    }
   }
 
   /**

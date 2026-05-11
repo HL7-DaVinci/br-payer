@@ -26,20 +26,22 @@ import org.hl7.fhir.r4.model.ServiceRequest;
 import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.UrlType;
+import java.util.Optional;
 import org.hl7.davinci.common.CrdConstants;
+import org.hl7.davinci.common.MemberResolver;
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.opencds.cqf.fhir.cr.hapi.common.IQuestionnaireProcessorFactory;
 import org.opencds.cqf.fhir.cr.questionnaire.QuestionnaireProcessor;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
-import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.starter.AppProperties;
-import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 class DtrResponseBuilderTest {
 
@@ -54,14 +56,14 @@ class DtrResponseBuilderTest {
   private IQuestionnaireProcessorFactory mockFactory;
   private QuestionnaireProcessor mockProcessor;
   private DaoRegistry mockDaoRegistry;
-  @SuppressWarnings("rawtypes")
-  private IFhirResourceDao mockPatientDao;
   private AppProperties mockAppProperties;
   private DtrResponseBuilder builder;
   private Questionnaire testQ;
   private Coverage testCoverage;
 
-  @SuppressWarnings("unchecked")
+  /** Stubs the static MemberResolver.resolveMember; default returns empty (unresolved). */
+  private MockedStatic<MemberResolver> staticResolver;
+
   @BeforeEach
   void setUp() {
     mockFactory = mock(IQuestionnaireProcessorFactory.class);
@@ -69,16 +71,16 @@ class DtrResponseBuilderTest {
     when(mockFactory.create(any())).thenReturn(mockProcessor);
 
     mockDaoRegistry = mock(DaoRegistry.class);
-    mockPatientDao = mock(IFhirResourceDao.class);
-    when(mockDaoRegistry.getResourceDao(Patient.class)).thenReturn(mockPatientDao);
-    when(mockPatientDao.read(any(), any())).thenThrow(new ResourceNotFoundException("Not found"));
+
+    staticResolver = mockStatic(MemberResolver.class);
+    staticResolver.when(() -> MemberResolver.resolveMember(any(), any())).thenReturn(Optional.empty());
 
     mockAppProperties = mock(AppProperties.class);
     when(mockAppProperties.getServer_address()).thenReturn("http://localhost:8080/fhir");
 
-    builder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
+    builder = new DtrResponseBuilder(mockFactory,
         new DtrAdaptiveProperties("http://payer.example/fhir/Questionnaire/$next-question"),
-        mockAppProperties);
+        mockAppProperties, mockDaoRegistry);
 
     testQ = new Questionnaire();
     testQ.setId("q-1");
@@ -88,6 +90,11 @@ class DtrResponseBuilderTest {
     testCoverage = new Coverage();
     testCoverage.setId("cov-1");
     testCoverage.setBeneficiary(new Reference("Patient/pat-1"));
+  }
+
+  @AfterEach
+  void tearDown() {
+    staticResolver.close();
   }
 
   private DtrQuestionnaireResolver.ResolvedQuestionnaire questionnaireProvenance() {
@@ -342,65 +349,15 @@ class DtrResponseBuilderTest {
     }
 
     @Test
-    @DisplayName("Patient in repository: no Patient in data bundle (avoids duplicate with repository)")
-    void populateSuccess_patientInRepo_notInBundle() {
-      Patient realPatient = new Patient();
-      realPatient.setId("pat-1");
-      realPatient.addName().setFamily("Smith").addGiven("John");
-      doReturn(realPatient).when(mockPatientDao).read(any(), any());
+    @DisplayName("Resolved member: subject is the locally matched Patient, no stub in bundle")
+    void populate_resolvedMember_usesLocalPatientAsSubject() {
+      Patient localPatient = new Patient();
+      localPatient.setId("local-pat-42");
+      localPatient.addName().setFamily("Smith").addGiven("John");
+      staticResolver.when(() -> MemberResolver.resolveMember(any(), any()))
+          .thenReturn(Optional.of(localPatient));
 
-      QuestionnaireResponse populatedQr = buildPopulatedQr();
-      stubPopulateReturns(populatedQr);
-
-      builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
-
-      ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
-      verify(mockProcessor).populate(any(IBaseResource.class), any(),
-          any(), any(), bundleCaptor.capture(), any());
-
-      Bundle dataBundle = bundleCaptor.getValue();
-      boolean hasPatient = dataBundle.getEntry().stream()
-          .map(Bundle.BundleEntryComponent::getResource)
-          .anyMatch(Patient.class::isInstance);
-
-      assertFalse(hasPatient,
-          "Data bundle should NOT contain Patient when it exists in the repository");
-    }
-
-    @Test
-    @DisplayName("Patient not in repository: stub Patient in data bundle for CQL context")
-    void populateSuccess_patientNotInRepo_stubInBundle() {
-      QuestionnaireResponse populatedQr = buildPopulatedQr();
-      stubPopulateReturns(populatedQr);
-
-      builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
-
-      ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
-      verify(mockProcessor).populate(any(IBaseResource.class), any(),
-          any(), any(), bundleCaptor.capture(), any());
-
-      Bundle dataBundle = bundleCaptor.getValue();
-      Patient bundlePatient = dataBundle.getEntry().stream()
-          .map(Bundle.BundleEntryComponent::getResource)
-          .filter(Patient.class::isInstance)
-          .map(Patient.class::cast)
-          .findFirst().orElse(null);
-
-      assertNotNull(bundlePatient, "Data bundle should contain a Patient stub");
-      assertEquals("pat-1", bundlePatient.getIdElement().getIdPart());
-      assertFalse(bundlePatient.hasName(), "Stub Patient should not have name");
-    }
-
-    @Test
-    @DisplayName("Absolute beneficiary reference keeps base URL for populate subject and avoids local collision")
-    void populateSuccess_absoluteBeneficiaryReference() {
-      Patient localCollision = new Patient();
-      localCollision.setId("pat-abs");
-      doReturn(localCollision).when(mockPatientDao).read(any(), any());
-
-      testCoverage.setBeneficiary(new Reference("https://payer.example/fhir/Patient/pat-abs"));
-      QuestionnaireResponse populatedQr = buildPopulatedQr();
-      stubPopulateReturns(populatedQr);
+      stubPopulateReturns(buildPopulatedQr());
 
       builder.buildResponse(testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
 
@@ -409,17 +366,44 @@ class DtrResponseBuilderTest {
       verify(mockProcessor).populate(any(IBaseResource.class), subjectCaptor.capture(),
           any(), any(), bundleCaptor.capture(), any());
 
-      assertEquals("https://payer.example/fhir/Patient/pat-abs", subjectCaptor.getValue());
-      verify(mockPatientDao, never()).read(any(), any());
+      assertEquals("Patient/local-pat-42", subjectCaptor.getValue(),
+          "Subject SHALL be the resolved local Patient id, not the sender's reference");
+      boolean hasPatient = bundleCaptor.getValue().getEntry().stream()
+          .map(Bundle.BundleEntryComponent::getResource)
+          .anyMatch(Patient.class::isInstance);
+      assertFalse(hasPatient,
+          "No Patient stub in bundle; engine resolves the resolved Patient from the repository");
+    }
+
+    @Test
+    @DisplayName("Unresolved member: sentinel subject + stub Patient + warning, no PHI lookup")
+    void populate_unresolvedMember_safeFailure() {
+      // Default static stub already returns Optional.empty() — represents unresolved.
+
+      stubPopulateReturns(buildPopulatedQr());
+
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(
+          testQ, testCoverage, questionnaireProvenance(), List.of(), List.of());
+
+      ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+      verify(mockProcessor).populate(any(IBaseResource.class), subjectCaptor.capture(),
+          any(), any(), bundleCaptor.capture(), any());
+
+      assertNotEquals("Patient/" + testCoverage.getBeneficiary().getReferenceElement().getIdPart(),
+          subjectCaptor.getValue(),
+          "Sender-supplied id MUST NOT be used as CQL subject when resolution failed");
 
       Patient bundlePatient = bundleCaptor.getValue().getEntry().stream()
           .map(Bundle.BundleEntryComponent::getResource)
           .filter(Patient.class::isInstance)
           .map(Patient.class::cast)
           .findFirst().orElse(null);
-      assertNotNull(bundlePatient, "Data bundle should contain Patient from absolute beneficiary reference");
-      assertEquals("https://payer.example/fhir/Patient/pat-abs",
-          bundlePatient.getIdElement().toVersionless().getValue());
+      assertNotNull(bundlePatient, "Stub Patient SHALL be present so retrieves return the stub, not a colliding repo Patient");
+      assertFalse(bundlePatient.hasName(), "Stub MUST NOT carry demographics");
+
+      assertTrue(result.warnings().stream().anyMatch(w -> w.contains("Patient demographic pre-population skipped")),
+          "Caller SHALL receive a warning explaining the resolution failure");
     }
 
     @Test
@@ -463,7 +447,7 @@ class DtrResponseBuilderTest {
       assertTrue(qr.getMeta().hasProfile(QR_PROFILE));
       assertTrue(qr.getItem().isEmpty());
       assertFalse(result.warnings().isEmpty(), "Should have a warning about the failure");
-      assertTrue(result.warnings().get(0).contains("CQL engine error"));
+      assertTrue(result.warnings().stream().anyMatch(w -> w.contains("CQL engine error")));
     }
 
     @Test
@@ -665,8 +649,8 @@ class DtrResponseBuilderTest {
     void adaptiveExtensionWithBlankExplicitUrl() {
       AppProperties fallbackProps = mock(AppProperties.class);
       when(fallbackProps.getServer_address()).thenReturn("http://localhost:8080/fhir");
-      DtrResponseBuilder fallbackBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
-          new DtrAdaptiveProperties(""), fallbackProps);
+      DtrResponseBuilder fallbackBuilder = new DtrResponseBuilder(mockFactory,
+          new DtrAdaptiveProperties(""), fallbackProps, mockDaoRegistry);
 
       DtrResponseBuilder.PrepopulationResult result = fallbackBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
           adaptiveProvenance(), List.of(), List.of());
@@ -685,8 +669,8 @@ class DtrResponseBuilderTest {
     void adaptiveExtensionWithTrailingSlashServerAddress() {
       AppProperties slashProps = mock(AppProperties.class);
       when(slashProps.getServer_address()).thenReturn("http://localhost:8080/fhir/");
-      DtrResponseBuilder slashBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
-          new DtrAdaptiveProperties(""), slashProps);
+      DtrResponseBuilder slashBuilder = new DtrResponseBuilder(mockFactory,
+          new DtrAdaptiveProperties(""), slashProps, mockDaoRegistry);
 
       DtrResponseBuilder.PrepopulationResult result = slashBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
           adaptiveProvenance(), List.of(), List.of());
@@ -714,8 +698,8 @@ class DtrResponseBuilderTest {
     void missingBothUrlsStillAddsAdaptiveExtension() {
       AppProperties emptyProps = mock(AppProperties.class);
       when(emptyProps.getServer_address()).thenReturn("");
-      DtrResponseBuilder noUrlBuilder = new DtrResponseBuilder(mockFactory, mockDaoRegistry,
-          new DtrAdaptiveProperties(""), emptyProps);
+      DtrResponseBuilder noUrlBuilder = new DtrResponseBuilder(mockFactory,
+          new DtrAdaptiveProperties(""), emptyProps, mockDaoRegistry);
 
       DtrResponseBuilder.PrepopulationResult result = noUrlBuilder.buildAdaptiveResponse(adaptiveQ, testCoverage,
           adaptiveProvenance(), List.of(), List.of());

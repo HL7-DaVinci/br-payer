@@ -8,7 +8,6 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Extension;
-import org.hl7.fhir.r4.model.Expression;
 import org.hl7.fhir.r4.model.InstantType;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -179,11 +178,6 @@ public class DtrPackageService {
 
     warnings.addAll(qrWarnings);
 
-    // Keep expression references for pre-population execution, then strip before
-    // packaging to avoid unresolved canonical reference errors in standalone
-    // bundle validation.
-    stripExpressionReferences(questionnaire.getItem());
-
     // Dual-mode adaptive packaging: include initial items when available,
     // otherwise use item-less adapt-search profile.
     Questionnaire bundleQuestionnaire = questionnaire;
@@ -243,10 +237,11 @@ public class DtrPackageService {
     if (!warnings.isEmpty()) {
       OperationOutcome outcome = new OperationOutcome();
       for (String warning : warnings) {
+        boolean isError = warning.startsWith("ERROR:");
         outcome.addIssue()
-            .setSeverity(IssueSeverity.WARNING)
+            .setSeverity(isError ? IssueSeverity.ERROR : IssueSeverity.WARNING)
             .setCode(IssueType.INFORMATIONAL)
-            .setDiagnostics(warning);
+            .setDiagnostics(isError ? warning.substring("ERROR:".length()).trim() : warning);
       }
       params.addParameter().setName("outcome").setResource(outcome);
     } else if (packageBundles.isEmpty()) {
@@ -343,23 +338,6 @@ public class DtrPackageService {
     shell.getMeta().getProfile().clear();
     shell.getMeta().addProfile(Q_ADAPT_PROFILE);
     return shell;
-  }
-
-  private void stripExpressionReferences(List<QuestionnaireItemComponent> items) {
-    if (items == null) {
-      return;
-    }
-    for (QuestionnaireItemComponent item : items) {
-      for (Extension ext : item.getExtension()) {
-        if (!CQL_EXPRESSION_EXT_URLS.contains(ext.getUrl()) || !(ext.getValue() instanceof Expression expression)) {
-          continue;
-        }
-        if (expression.hasReference()) {
-          expression.setReference(null);
-        }
-      }
-      stripExpressionReferences(item.getItem());
-    }
   }
 
 }

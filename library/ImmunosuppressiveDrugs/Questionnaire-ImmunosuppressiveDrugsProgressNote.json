@@ -7,6 +7,7 @@
     ]
   },
   "url": "http://example.org/fhir/Questionnaire/ImmunosuppressiveDrugsProgressNote",
+  "version": "1.0.0",
   "name": "ImmunosuppressiveDrugsProgressNote",
   "title": "Immunosuppressive Drugs Progress Note",
   "status": "active",
@@ -33,7 +34,41 @@
     },
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
-      "valueCanonical": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation"
+      "valueCanonical": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation|1.0.0"
+    },
+    {
+      "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-launchContext",
+      "extension": [
+        {
+          "url": "name",
+          "valueCoding": {
+            "system": "http://hl7.org/fhir/uv/sdc/CodeSystem/launchContext",
+            "code": "patient"
+          }
+        },
+        { "url": "type", "valueCode": "Patient" },
+        {
+          "url": "description",
+          "valueString": "The Patient who is the subject of the QuestionnaireResponse; establishes the CQL Patient context."
+        }
+      ]
+    },
+    {
+      "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-launchContext",
+      "extension": [
+        {
+          "url": "name",
+          "valueCoding": {
+            "system": "http://hl7.org/fhir/uv/sdc/CodeSystem/launchContext",
+            "code": "clinical"
+          }
+        },
+        { "url": "type", "valueCode": "MedicationRequest" },
+        {
+          "url": "description",
+          "valueString": "The MedicationRequest being authorized; bound to the clinical CQL parameter at populate time."
+        }
+      ]
     },
     {
       "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
@@ -57,7 +92,7 @@
       "extension": [
         {
           "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
-          "valueCanonical": "http://example.org/fhir/Questionnaire/PatientInfo"
+          "valueCanonical": "http://example.org/fhir/Questionnaire/PatientInfo|1.0.0"
         }
       ]
     },
@@ -75,9 +110,9 @@
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
-                "language": "text/cql",
+                "language": "text/cql-identifier",
                 "expression": "MedicationDescription",
-                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation",
+                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation|1.0.0",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -100,9 +135,9 @@
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
-                "language": "text/cql",
+                "language": "text/cql-identifier",
                 "expression": "CurrentDosage",
-                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation",
+                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation|1.0.0",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -119,15 +154,15 @@
         {
           "linkId": "2.3",
           "text": "Therapy start date",
-          "type": "date",
+          "type": "dateTime",
           "required": false,
           "extension": [
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
-                "language": "text/cql",
+                "language": "text/cql-identifier",
                 "expression": "TherapyStartDate",
-                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation",
+                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation|1.0.0",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -157,9 +192,9 @@
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
-                "language": "text/cql",
+                "language": "text/cql-identifier",
                 "expression": "BaselineCreatinine",
-                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation",
+                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation|1.0.0",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -182,9 +217,9 @@
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
-                "language": "text/cql",
+                "language": "text/cql-identifier",
                 "expression": "BaselineLiverFunction",
-                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation",
+                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation|1.0.0",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -207,9 +242,9 @@
             {
               "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
               "valueExpression": {
-                "language": "text/cql",
+                "language": "text/cql-identifier",
                 "expression": "LabTestDate",
-                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation",
+                "reference": "http://example.org/fhir/Library/ImmunosuppressiveDrugsPrepopulation|1.0.0",
                 "extension": [
                   {
                     "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",

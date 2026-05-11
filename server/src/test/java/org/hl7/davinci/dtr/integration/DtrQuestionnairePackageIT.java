@@ -128,9 +128,14 @@ class DtrQuestionnairePackageIT {
         });
     log.info("CDS services registered. Setting up DTR integration test data...");
 
-    // Create Patient with demographics for pre-population testing
+    // Create Patient with demographics + identifier so MemberResolver can match
+    // by Coverage.subscriberId. The local FHIR id is intentionally arbitrary —
+    // production code never uses it as a lookup key.
     testPatient = new Patient();
     testPatient.setId("dtr-test-patient");
+    testPatient.addIdentifier()
+        .setSystem("http://hl7.org/fhir/sid/us-medicare")
+        .setValue("DTR-TEST-MBI-001");
     testPatient.addName().setFamily("Smith").addGiven("John");
     testPatient.setBirthDateElement(new DateType("1960-03-15"));
     testPatient = (Patient) daoRegistry.getResourceDao(Patient.class)
@@ -149,10 +154,12 @@ class DtrQuestionnairePackageIT {
     testOrganization = (Organization) daoRegistry.getResourceDao(Organization.class)
         .update(testOrganization, new SystemRequestDetails()).getResource();
 
-    // Create Coverage linking patient and organization
+    // Create Coverage linking patient and organization. subscriberId matches the
+    // testPatient's identifier value so MemberResolver can resolve the member.
     testCoverage = new Coverage();
     testCoverage.setId("dtr-test-coverage");
     testCoverage.setStatus(Coverage.CoverageStatus.ACTIVE);
+    testCoverage.setSubscriberId("DTR-TEST-MBI-001");
     testCoverage.setBeneficiary(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
     testCoverage.addPayor(new Reference("Organization/" + testOrganization.getIdElement().getIdPart()));
     testCoverage = (Coverage) daoRegistry.getResourceDao(Coverage.class)
@@ -356,6 +363,85 @@ class DtrQuestionnairePackageIT {
         assertNotNull(sourceExt, "information-origin should have source sub-extension");
         assertEquals("auto-server", ((CodeType) sourceExt.getValue()).getValue());
       }
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("ID collision: sender's Patient/X ref maps to a different person locally; no demographics leak")
+    void idCollision_doesNotLeakOtherPatientDemographics() {
+      // Pre-load a different person at a local id that the sender will reference.
+      // No identifier match exists between this collider and the sender's coverage.
+      Patient collider = new Patient();
+      collider.setId("ehr-side-id-collision");
+      collider.addIdentifier()
+          .setSystem("http://payer.example/member")
+          .setValue("UNRELATED-MEMBER-9999");
+      collider.addName().setFamily("CollisionVictim").addGiven("Vlad");
+      collider.setBirthDateElement(new DateType("1956-12-01"));
+      daoRegistry.getResourceDao(Patient.class).update(collider, new SystemRequestDetails());
+
+      // Sender constructs a Coverage that points at the collider's local id but
+      // whose subscriberId does not match the collider's identifier.
+      Coverage spoofedCoverage = new Coverage();
+      spoofedCoverage.setStatus(Coverage.CoverageStatus.ACTIVE);
+      spoofedCoverage.setSubscriberId("SENDER-MEMBER-NEVER-PROVISIONED");
+      spoofedCoverage.setBeneficiary(new Reference("Patient/" + collider.getIdElement().getIdPart()));
+      spoofedCoverage.addPayor(new Reference("Organization/" + testOrganization.getIdElement().getIdPart()));
+
+      Parameters result = dtrPackageService.generatePackages(
+          spoofedCoverage, List.of(),
+          List.of(new CanonicalType(Q_CANONICAL)), null, null);
+      Bundle pkg = extractPackageBundle(result);
+      assertNotNull(pkg, "Should still produce a package bundle. Warnings: " + extractWarnings(result));
+
+      QuestionnaireResponse qr = pkg.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElseThrow();
+
+      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.2");
+      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.3");
+
+      assertTrue(lastName == null || lastName.getAnswer().isEmpty(),
+          "MUST NOT leak the colliding Patient's family name");
+      assertTrue(firstName == null || firstName.getAnswer().isEmpty(),
+          "MUST NOT leak the colliding Patient's given name");
+      assertTrue(dob == null || dob.getAnswer().isEmpty(),
+          "MUST NOT leak the colliding Patient's birthDate");
+
+      assertTrue(extractWarnings(result).contains("Patient demographic pre-population skipped"),
+          "Caller SHALL receive a diagnostic explaining the resolution failure. Got: "
+              + extractWarnings(result));
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Unknown member: no Patient at all matches identifier; demographics blank with warning")
+    void unknownMember_demographicsBlank() {
+      Coverage unknownCoverage = new Coverage();
+      unknownCoverage.setStatus(Coverage.CoverageStatus.ACTIVE);
+      unknownCoverage.setSubscriberId("THIS-MEMBER-DOES-NOT-EXIST");
+      unknownCoverage.setBeneficiary(new Reference("Patient/totally-fake-id"));
+      unknownCoverage.addPayor(new Reference("Organization/" + testOrganization.getIdElement().getIdPart()));
+
+      Parameters result = dtrPackageService.generatePackages(
+          unknownCoverage, List.of(),
+          List.of(new CanonicalType(Q_CANONICAL)), null, null);
+      Bundle pkg = extractPackageBundle(result);
+      assertNotNull(pkg, "Should still produce a package bundle. Warnings: " + extractWarnings(result));
+
+      QuestionnaireResponse qr = pkg.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElseThrow();
+
+      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.1");
+      assertTrue(lastName == null || lastName.getAnswer().isEmpty(),
+          "Unknown member: Last Name should not be pre-populated");
+      assertTrue(extractWarnings(result).contains("Patient demographic pre-population skipped"));
     }
   }
 
@@ -641,6 +727,171 @@ class DtrQuestionnairePackageIT {
           .count();
       assertTrue(bundleCount >= 2,
           "Order should resolve both questionnaires. Warnings: " + extractWarnings(result));
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("MedicationDescription populates from clinical launchContext (auto-server)")
+    void launchContextBinding_producesAutoServerAnswer() {
+      MedicationRequest mr = new MedicationRequest();
+      mr.setId("immuno-tac-mr");
+      mr.setStatus(MedicationRequest.MedicationRequestStatus.ACTIVE);
+      mr.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
+      mr.setMedication(new CodeableConcept().addCoding(
+          new Coding()
+              .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
+              .setCode("105585")
+              .setDisplay("Tacrolimus 1mg oral capsule")));
+      mr.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(mr),
+          List.of(new CanonicalType(IMMUNO_CANONICAL)), null, null);
+      Bundle pkg = extractPackageBundle(result);
+      assertNotNull(pkg, "Should produce package. Warnings: " + extractWarnings(result));
+
+      QuestionnaireResponse qr = pkg.getEntry().stream()
+          .filter(e -> e.getResource() instanceof QuestionnaireResponse)
+          .map(e -> (QuestionnaireResponse) e.getResource())
+          .findFirst().orElseThrow();
+
+      QuestionnaireResponseItemComponent medItem = findItemByLinkId(qr.getItem(), "3.1");
+      assertNotNull(medItem,
+          "Q1 item 3.1 (MedicationDescription) should exist. Warnings: " + extractWarnings(result));
+      assertFalse(medItem.getAnswer().isEmpty(),
+          "MedicationDescription should be populated from the clinical launchContext. "
+              + "Warnings: " + extractWarnings(result));
+      assertTrue(
+          medItem.getAnswerFirstRep().getValue().toString().contains("Tacrolimus"),
+          "MedicationDescription should reflect the bound MedicationRequest's display, got: "
+              + medItem.getAnswerFirstRep().getValue());
+
+      Extension origin = medItem.getAnswerFirstRep().getExtensionByUrl(
+          "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/information-origin");
+      assertNotNull(origin, "Populated answer SHALL carry information-origin extension");
+      Extension source = origin.getExtensionByUrl("source");
+      assertNotNull(source, "information-origin SHALL have a source sub-extension");
+      assertEquals("auto-server",
+          ((CodeType) source.getValue()).getValue(),
+          "Phase 1 populate SHALL stamp source = auto-server (DTR origin.source rule)");
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Patient demographics populate when questionnaire declares non-Patient launchContext")
+    void patientDemographics_populateAlongsideClinicalLaunchContext() {
+      MedicationRequest mr = new MedicationRequest();
+      mr.setId("immuno-demographics-mr");
+      mr.setStatus(MedicationRequest.MedicationRequestStatus.ACTIVE);
+      mr.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
+      mr.setMedication(new CodeableConcept().addCoding(
+          new Coding()
+              .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
+              .setCode("105585")
+              .setDisplay("Tacrolimus 1mg oral capsule")));
+      mr.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
+
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(mr),
+          List.of(new CanonicalType(IMMUNO_CANONICAL)), null, null);
+      Bundle pkg = extractPackageBundle(result);
+      assertNotNull(pkg, "Should produce package. Warnings: " + extractWarnings(result));
+
+      QuestionnaireResponse qr = pkg.getEntry().stream()
+          .filter(e -> e.getResource() instanceof QuestionnaireResponse)
+          .map(e -> (QuestionnaireResponse) e.getResource())
+          .findFirst().orElseThrow();
+
+      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.2");
+      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.3");
+      assertNotNull(lastName, "Should have Last Name item (1.PBI.1)");
+      assertNotNull(firstName, "Should have First Name item (1.PBI.2)");
+      assertNotNull(dob, "Should have Date of Birth item (1.PBI.3)");
+
+      assertFalse(lastName.getAnswer().isEmpty(),
+          "Last Name should be populated from BasicPatientInfoPrepopulation. "
+              + "Warnings: " + extractWarnings(result));
+      assertEquals("Smith",
+          ((StringType) lastName.getAnswerFirstRep().getValue()).getValue());
+
+      assertFalse(firstName.getAnswer().isEmpty(),
+          "First Name should be populated from BasicPatientInfoPrepopulation. "
+              + "Warnings: " + extractWarnings(result));
+      assertEquals("John",
+          ((StringType) firstName.getAnswerFirstRep().getValue()).getValue());
+
+      assertFalse(dob.getAnswer().isEmpty(),
+          "Date of Birth should be populated from BasicPatientInfoPrepopulation. "
+              + "Warnings: " + extractWarnings(result));
+      assertTrue(dob.getAnswerFirstRep().getValue() instanceof DateType);
+      assertTrue(((DateType) dob.getAnswerFirstRep().getValue())
+          .getValueAsString().startsWith("1960-03-15"));
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("Packaged Questionnaire's canonical references are version-pinned")
+    void packagedReferences_areVersionSpecific() {
+      Parameters result = dtrPackageService.generatePackages(
+          testCoverage, List.of(),
+          List.of(new CanonicalType(IMMUNO_CANONICAL)), null, null);
+      Bundle pkg = extractPackageBundle(result);
+      assertNotNull(pkg, "Should produce package. Warnings: " + extractWarnings(result));
+
+      Questionnaire q = pkg.getEntry().stream()
+          .filter(e -> e.getResource() instanceof Questionnaire)
+          .map(e -> (Questionnaire) e.getResource())
+          .findFirst().orElseThrow();
+
+      // cqf-library SHALL be canonical|version (DTR pre-pop EHR rule + version-specific references)
+      for (Extension ext : q.getExtensionsByUrl(
+          "http://hl7.org/fhir/StructureDefinition/cqf-library")) {
+        String cv = ext.getValueAsPrimitive().getValueAsString();
+        assertTrue(cv != null && cv.matches(".+\\|[^|]+"),
+            "cqf-library SHALL include |version: " + cv);
+      }
+
+      // QR.questionnaire SHALL be canonical|version
+      QuestionnaireResponse qr = pkg.getEntry().stream()
+          .filter(e -> e.getResource() instanceof QuestionnaireResponse)
+          .map(e -> (QuestionnaireResponse) e.getResource())
+          .findFirst().orElseThrow();
+      assertTrue(qr.getQuestionnaire() != null && qr.getQuestionnaire().matches(".+\\|[^|]+"),
+          "QR.questionnaire SHALL be |version-pinned: " + qr.getQuestionnaire());
+
+      // sub-questionnaire references SHALL be canonical|version
+      walkQuestionnaireItems(q.getItem(), item -> {
+        for (Extension ext : item.getExtensionsByUrl(
+            "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire")) {
+          String cv = ext.getValueAsPrimitive().getValueAsString();
+          assertTrue(cv != null && cv.matches(".+\\|[^|]+"),
+              "sub-questionnaire SHALL include |version: " + cv);
+        }
+        // initialExpression / calculatedExpression valueExpression.reference must be pinned
+        for (String exprUrl : List.of(
+            "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
+            "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression")) {
+          for (Extension ext : item.getExtensionsByUrl(exprUrl)) {
+            if (ext.getValue() instanceof org.hl7.fhir.r4.model.Expression expr
+                && expr.hasReference()) {
+              assertTrue(expr.getReference().matches(".+\\|[^|]+"),
+                  "Expression.reference at item " + item.getLinkId()
+                      + " SHALL be |version-pinned: " + expr.getReference());
+            }
+          }
+        }
+      });
+    }
+  }
+
+  private static void walkQuestionnaireItems(
+      List<Questionnaire.QuestionnaireItemComponent> items,
+      java.util.function.Consumer<Questionnaire.QuestionnaireItemComponent> visitor) {
+    if (items == null) return;
+    for (Questionnaire.QuestionnaireItemComponent item : items) {
+      visitor.accept(item);
+      walkQuestionnaireItems(item.getItem(), visitor);
     }
   }
 

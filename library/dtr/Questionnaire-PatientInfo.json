@@ -18,7 +18,24 @@
     },
     {
       "url": "http://hl7.org/fhir/StructureDefinition/cqf-library",
-      "valueCanonical": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation"
+      "valueCanonical": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation|1.0.0"
+    },
+    {
+      "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-launchContext",
+      "extension": [
+        {
+          "url": "name",
+          "valueCoding": {
+            "system": "http://hl7.org/fhir/uv/sdc/CodeSystem/launchContext",
+            "code": "patient"
+          }
+        },
+        { "url": "type", "valueCode": "Patient" },
+        {
+          "url": "description",
+          "valueString": "The Patient who is the subject of the QuestionnaireResponse; establishes the CQL Patient context used by BasicPatientInfoPrepopulation."
+        }
+      ]
     }
   ],
   "item": [
@@ -31,9 +48,9 @@
         {
           "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
           "valueExpression": {
-            "language": "text/cql",
+            "language": "text/cql-identifier",
             "expression": "LastName",
-            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation",
+            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation|1.0.0",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -56,9 +73,9 @@
         {
           "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
           "valueExpression": {
-            "language": "text/cql",
+            "language": "text/cql-identifier",
             "expression": "FirstName",
-            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation",
+            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation|1.0.0",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",
@@ -81,9 +98,9 @@
         {
           "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",
           "valueExpression": {
-            "language": "text/cql",
+            "language": "text/cql-identifier",
             "expression": "DateOfBirth",
-            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation",
+            "reference": "http://example.org/fhir/Library/BasicPatientInfoPrepopulation|1.0.0",
             "extension": [
               {
                 "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/alternativeExpression",

@@ -19,7 +19,7 @@ valueset "ImmunosuppressiveDrugsCodes2": 'http://cts.nlm.nih.gov/fhir/ValueSet/2
 code "Creatinine": '2160-0' from "LOINC"
 code "ALT": '1742-6' from "LOINC"
 
-parameter medication_request MedicationRequest
+parameter Clinical MedicationRequest
 
 context Patient
 
@@ -53,7 +53,7 @@ define "TransplantProcedureDisplay":
 // MEDICATION DETAILS
 // ============================================================
 
-define "MedicationCoding": DTR.MedicationRequestCoding(medication_request)
+define "MedicationCoding": DTR.MedicationRequestCoding(Clinical)
 
 define "MedicationDescription":
   if "MedicationCoding" is not null then
@@ -61,37 +61,37 @@ define "MedicationDescription":
   else null
 
 define "CurrentDosage":
-  if medication_request is not null and exists(medication_request.dosageInstruction) then
-    First(medication_request.dosageInstruction).text.value
+  if Clinical is not null and exists(Clinical.dosageInstruction) then
+    First(Clinical.dosageInstruction).text.value
   else null
 
 define "MedicationRoute":
-  if medication_request is not null and exists(medication_request.dosageInstruction) then
-    First(First(medication_request.dosageInstruction).route.coding).display.value
+  if Clinical is not null and exists(Clinical.dosageInstruction) then
+    First(First(Clinical.dosageInstruction).route.coding).display.value
   else null
 
 define "MedicationFrequency":
-  if medication_request is not null and exists(medication_request.dosageInstruction) then
-    if First(medication_request.dosageInstruction).timing is not null
-      and First(medication_request.dosageInstruction).timing.repeat is not null then
-        ToString(First(medication_request.dosageInstruction).timing.repeat.frequency.value)
+  if Clinical is not null and exists(Clinical.dosageInstruction) then
+    if First(Clinical.dosageInstruction).timing is not null
+      and First(Clinical.dosageInstruction).timing.repeat is not null then
+        ToString(First(Clinical.dosageInstruction).timing.repeat.frequency.value)
           + ' per '
-          + ToString(First(medication_request.dosageInstruction).timing.repeat.period.value)
+          + ToString(First(Clinical.dosageInstruction).timing.repeat.period.value)
           + ' '
-          + First(medication_request.dosageInstruction).timing.repeat.periodUnit.value
+          + First(Clinical.dosageInstruction).timing.repeat.periodUnit.value
       else null
   else null
 
 define "MedicationQuantity":
-  if medication_request is not null and medication_request.dispenseRequest is not null
-    and medication_request.dispenseRequest.quantity is not null then
-    ToString(medication_request.dispenseRequest.quantity.value.value) + ' ' +
-      Coalesce(medication_request.dispenseRequest.quantity.unit.value, '')
+  if Clinical is not null and Clinical.dispenseRequest is not null
+    and Clinical.dispenseRequest.quantity is not null then
+    ToString(Clinical.dispenseRequest.quantity.value.value) + ' ' +
+      Coalesce(Clinical.dispenseRequest.quantity.unit.value, '')
   else null
 
 define "RefillsAuthorized":
-  if medication_request is not null and medication_request.dispenseRequest is not null then
-    medication_request.dispenseRequest.numberOfRepeatsAllowed.value
+  if Clinical is not null and Clinical.dispenseRequest is not null then
+    Clinical.dispenseRequest.numberOfRepeatsAllowed.value
   else null
 
 // ============================================================
@@ -132,7 +132,7 @@ define "LabTestDate":
 
 define "TherapyStartDate":
   Coalesce(
-    medication_request.authoredOn.value,
+    Clinical.authoredOn.value,
     First(
       "CurrentMedications" M
         sort by Coalesce(

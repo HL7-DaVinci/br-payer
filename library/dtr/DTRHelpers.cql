@@ -176,6 +176,28 @@ define function ActiveMedicationStatements(MedList List<MedicationStatement>):
   MedList M where M.status.value in { 'active', 'intended' }
 
 define function MedicationRequestCoding(MedReq MedicationRequest):
-  if MedReq is not null and MedReq.medication is FHIR.CodeableConcept then
+  if MedReq is null then null
+  else if MedReq.medication is FHIR.CodeableConcept then
     (MedReq.medication as FHIR.CodeableConcept).coding
+  else if MedReq.medication is FHIR.Reference then
+    ResolveMedication(MedReq, (MedReq.medication as FHIR.Reference).reference.value).code.coding
   else null
+
+define function ResolveMedication(MedReq MedicationRequest, RefValue String):
+  if RefValue is null then null
+  else if StartsWith(RefValue, '#') then
+    First(
+      MedReq.contained C where C.id.value = Substring(RefValue, 1)
+    ) as FHIR.Medication
+  else
+    First(
+      [Medication] M where M.id.value = ExtractIdPart(RefValue)
+    )
+
+define function ExtractIdPart(Ref String):
+  Last(Split(
+    if PositionOf('/_history/', Ref) > -1
+      then Substring(Ref, 0, PositionOf('/_history/', Ref))
+      else Ref,
+    '/'
+  ))
