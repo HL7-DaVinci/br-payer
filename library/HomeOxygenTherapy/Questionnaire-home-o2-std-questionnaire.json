@@ -88,7 +88,7 @@
         },
         {
           "linkId": "1.2",
-          "text": "Fist Name",
+          "text": "First Name",
           "type": "string",
           "required": true
         },
