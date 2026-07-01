@@ -47,7 +47,8 @@ public class PasCoverageEvaluator {
       CodeableConcept modifiedProductOrService,
       SimpleQuantity modifiedQuantity,
       String docNeeded,
-      List<String> questionnaireUrls) {
+      List<String> questionnaireUrls,
+      List<String> requestedAttachmentCodes) {
 
     public CoverageDecision(String reviewActionCode, String reviewActionDisplay, boolean isPended) {
       this(reviewActionCode, reviewActionDisplay, isPended, null, null, null, List.of());
@@ -58,12 +59,19 @@ public class PasCoverageEvaluator {
       this(reviewActionCode, reviewActionDisplay, isPended, modifiedProductOrService, modifiedQuantity, null, List.of());
     }
 
+    public CoverageDecision(String reviewActionCode, String reviewActionDisplay, boolean isPended,
+        CodeableConcept modifiedProductOrService, SimpleQuantity modifiedQuantity, String docNeeded,
+        List<String> questionnaireUrls) {
+      this(reviewActionCode, reviewActionDisplay, isPended, modifiedProductOrService, modifiedQuantity,
+          docNeeded, questionnaireUrls, List.of());
+    }
+
     public boolean hasModification() {
       return modifiedProductOrService != null || modifiedQuantity != null;
     }
 
     public boolean hasAdditionalDocumentationInfo() {
-      return docNeeded != null && !questionnaireUrls.isEmpty();
+      return docNeeded != null && (!questionnaireUrls.isEmpty() || !requestedAttachmentCodes.isEmpty());
     }
   }
 

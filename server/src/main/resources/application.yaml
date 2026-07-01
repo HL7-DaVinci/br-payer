@@ -210,6 +210,10 @@ hapi:
         name: hl7.fhir.us.davinci-pas
         version: 2.2.1
         installMode: STORE_AND_INSTALL
+      hl7fhirusdavincicdex:
+        name: hl7.fhir.us.davinci-cdex
+        version: 2.1.0
+        installMode: STORE_AND_INSTALL
     #   swiss:
     #     name: swiss.mednet.fhir
     #     version: 0.8.0

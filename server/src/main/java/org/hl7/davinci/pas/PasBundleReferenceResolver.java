@@ -6,11 +6,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.hl7.davinci.common.ResourceResolver;
+import org.hl7.fhir.instance.model.api.IAnyResource;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
@@ -21,6 +23,8 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.param.TokenParam;
+import ca.uhn.fhir.rest.server.exceptions.ResourceGoneException;
+import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 /**
  * Resolves Patient/Organization/Coverage references from PAS request bundles.
@@ -72,7 +76,7 @@ public class PasBundleReferenceResolver {
         refMap.put(patientRef, resolved);
       }
     } else if (refMap != null) {
-      daoRegistry.getResourceDao(Patient.class).update(bundlePatient, new SystemRequestDetails());
+      storeIfAbsent(Patient.class, bundlePatient);
     }
   }
 
@@ -100,7 +104,7 @@ public class PasBundleReferenceResolver {
         refMap.put(originalRef, resolved);
       }
     } else if (refMap != null) {
-      daoRegistry.getResourceDao(Organization.class).update(bundleOrg, new SystemRequestDetails());
+      storeIfAbsent(Organization.class, bundleOrg);
     }
   }
 
@@ -127,7 +131,7 @@ public class PasBundleReferenceResolver {
 
     if (refMap != null) {
       rewriteCoverageReferences(bundleCoverage, refMap);
-      daoRegistry.getResourceDao(Coverage.class).update(bundleCoverage, new SystemRequestDetails());
+      storeIfAbsent(Coverage.class, bundleCoverage);
     }
   }
 
@@ -195,6 +199,29 @@ public class PasBundleReferenceResolver {
         .stream()
         .findFirst()
         .orElse(null);
+  }
+
+  /**
+   * Stores a bundle resource only when the payer does not already hold one at the same logical
+   * id; an existing copy is reused as-is (the payer's own record wins).
+   */
+  private <T extends IAnyResource> void storeIfAbsent(Class<T> type, T bundleResource) {
+    String logicalId = bundleResource.getIdElement().getIdPart();
+    if (logicalId != null && existsById(type, logicalId)) {
+      return;
+    }
+    bundleResource.getMeta().setVersionId(null);
+    daoRegistry.getResourceDao(type).update(bundleResource, new SystemRequestDetails());
+  }
+
+  private boolean existsById(Class<? extends IBaseResource> type, String logicalId) {
+    try {
+      daoRegistry.getResourceDao(type)
+          .read(new IdType(type.getSimpleName(), logicalId), new SystemRequestDetails());
+      return true;
+    } catch (ResourceNotFoundException | ResourceGoneException e) {
+      return false;
+    }
   }
 
   private void rewriteCoverageReferences(Coverage coverage, Map<String, String> refMap) {

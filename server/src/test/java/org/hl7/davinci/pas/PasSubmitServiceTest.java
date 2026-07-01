@@ -622,6 +622,32 @@ class PasSubmitServiceTest {
   }
 
   @Test
+  void submit_pendedInitialAwaitingDocumentation_doesNotScheduleResolution() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A4, "Pended", true));
+
+    ClaimResponse pendedCr = new ClaimResponse();
+    pendedCr.addCommunicationRequest(new Reference("urn:uuid:doc-request"));
+    Bundle responseBundle = new Bundle();
+    responseBundle.setType(Bundle.BundleType.COLLECTION);
+    responseBundle.addEntry().setResource(pendedCr);
+    when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
+
+    service.submit(requestBundle);
+
+    // Tagged as pended so $submit-attachment can still resolve it, but NOT armed on the timer.
+    IFhirResourceDao<ClaimResponse> crDao =
+        (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
+    verify(crDao).create(argThat(cr2 -> cr2.getMeta().getTag(
+        PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) != null),
+        any(RequestDetails.class));
+    verify(resolutionService, never()).scheduleResolution(any());
+  }
+
+  @Test
   void submit_cancelRemovesPended_cancelsResolution() {
     Bundle requestBundle = buildCancelBundle("prior-claim-id");
     Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
@@ -655,6 +681,28 @@ class PasSubmitServiceTest {
     service.submit(requestBundle);
 
     verify(resolutionService).scheduleResolution("prior-cr-id");
+  }
+
+  @Test
+  void submit_updateStillPendedAwaitingDocumentation_doesNotScheduleResolution() {
+    Bundle requestBundle = buildUpdateBundle("prior-claim-id");
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    mockUpdatePathResponse();
+    mockStoredClaimSearch(buildStoredPriorClaim());
+
+    ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
+    pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
+        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    pendedCr.addCommunicationRequest(new Reference("urn:uuid:doc-request"));
+    mockClaimResponseSearch(pendedCr);
+
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A4, "Pending", true));
+
+    service.submit(requestBundle);
+
+    verify(resolutionService, never()).scheduleResolution(any());
   }
 
   @Test

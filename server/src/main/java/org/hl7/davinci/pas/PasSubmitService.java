@@ -136,6 +136,10 @@ public class PasSubmitService {
 
     boolean anyPended = result.itemDecisions().values().stream()
         .anyMatch(CoverageDecision::isPended);
+    // A pend that requests documentation (it carries a CommunicationRequest) is resolved when the
+    // requested attachment arrives via $submit-attachment, so it is not armed on the auto-resolution
+    // timer. Pends without a documentation request still resolve on the timer.
+    boolean awaitsDocumentation = anyPended && claimResponse.hasCommunicationRequest();
     if (anyPended) {
       claimResponse.getMeta().addTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE, "Pended Resolution");
     }
@@ -149,7 +153,7 @@ public class PasSubmitService {
     String crId = crOutcome.getId().getIdPart();
     claimResponse.setId(crId);
 
-    if (anyPended) {
+    if (anyPended && !awaitsDocumentation) {
       resolutionService.scheduleResolution(crId);
     }
 
@@ -201,7 +205,10 @@ public class PasSubmitService {
     }
 
     String crId = existingCr.getIdElement().getIdPart();
-    if (anyStillPended) {
+    // A still-pended state that requested documentation (it carries a CommunicationRequest) resolves on
+    // attachment arrival via $submit-attachment, not the timer, mirroring the create path.
+    boolean awaitsDocumentation = anyStillPended && existingCr.hasCommunicationRequest();
+    if (anyStillPended && !awaitsDocumentation) {
       resolutionService.scheduleResolution(crId);
     } else {
       resolutionService.cancelResolution(crId);

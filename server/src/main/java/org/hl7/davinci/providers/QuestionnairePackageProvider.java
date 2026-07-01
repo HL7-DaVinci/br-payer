@@ -82,16 +82,6 @@ public class QuestionnairePackageProvider extends BaseProvider {
               "At least one of 'questionnaire', 'order', or 'context' must be provided."));
     }
 
-    // Context-only: not currently supported
-    if (hasContext && !hasQuestionnaires && !hasOrders) {
-      throw new InvalidRequestException(
-          "context-only requests are not supported",
-          OperationOutcomeBuilder.createOperationOutcome(
-              IssueSeverity.ERROR, IssueType.NOTSUPPORTED,
-              "not-supported",
-              "The 'context' parameter alone is not currently supported. Provide 'questionnaire' or 'order' parameters."));
-    }
-
     // Order type validation: partition into valid/unsupported
     List<Resource> validOrders = new ArrayList<>();
     if (hasOrders) {
@@ -120,9 +110,15 @@ public class QuestionnairePackageProvider extends BaseProvider {
       }
     }
 
-    // Context alongside other params: note for informational warning
-    if (hasContext && (hasQuestionnaires || hasOrders)) {
-      warnings.add("The 'context' parameter was provided but is not yet supported; it was ignored.");
+    // A context (item trace number) names the questionnaire; discover it via DTR and skip the order
+    List<CanonicalType> questionnaires = theQuestionnaires;
+    if (hasContext && !hasQuestionnaires) {
+      Questionnaire contextQuestionnaire = dtrPackageService.resolveContext(theContext.getValue());
+      questionnaires = List.of(new CanonicalType(contextQuestionnaire.getUrl()));
+      validOrders = new ArrayList<>();
+    }
+    if (hasContext && hasQuestionnaires) {
+      warnings.add("Both 'context' and 'questionnaire' provided; the explicit questionnaire was used.");
     }
 
     // Extract adaptive mode header for dual-mode adaptive questionnaire packaging
@@ -132,7 +128,7 @@ public class QuestionnairePackageProvider extends BaseProvider {
 
     // Delegate to service
     Parameters result = dtrPackageService.generatePackages(
-        theCoverage, validOrders, theQuestionnaires, theChangedsince, adaptiveMode);
+        theCoverage, validOrders, questionnaires, theChangedsince, adaptiveMode);
 
     // Merge provider-level warnings into result outcome
     if (!warnings.isEmpty()) {

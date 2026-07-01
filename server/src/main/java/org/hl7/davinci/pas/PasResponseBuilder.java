@@ -21,15 +21,16 @@ import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.Type;
 import org.springframework.stereotype.Component;
 
@@ -49,9 +50,11 @@ public class PasResponseBuilder {
   private final AtomicLong authCounter = new AtomicLong(0);
   private final AtomicLong pendCounter = new AtomicLong(0);
   private final String serverBase;
+  private final DaoRegistry daoRegistry;
 
-  public PasResponseBuilder(AppProperties appProperties) {
+  public PasResponseBuilder(AppProperties appProperties, DaoRegistry daoRegistry) {
     this.serverBase = FhirUtil.normalizeServerBase(appProperties.getServer_address());
+    this.daoRegistry = daoRegistry;
   }
 
   /**
@@ -69,9 +72,9 @@ public class PasResponseBuilder {
     ClaimResponse claimResponse = buildClaimResponse(requestClaim, requestBundle, itemDecisions, authNumberPrefix);
     Bundle responseBundle = wrapInResponseBundle(claimResponse, requestBundle);
 
-    // Per PAS IG, include a Task resource for pended items that need additional documentation.
-    // Task.code = "attachment-request-questionnaire" directs providers to complete DTR questionnaires.
-    addDocumentationRequestTasks(responseBundle, requestClaim, claimResponse, itemDecisions);
+    // Per PAS IG, pended items needing documentation get a CommunicationRequest referenced
+    // from ClaimResponse.communicationRequest; the provider builds the Task locally.
+    addCommunicationRequests(responseBundle, requestClaim, claimResponse, itemDecisions);
 
     return responseBundle;
   }
@@ -331,9 +334,18 @@ public class PasResponseBuilder {
       ClaimResponse.ItemComponent responseItem = cr.addItem();
       responseItem.setItemSequence(seq);
 
-      // Echo itemTraceNumber from request
-      for (Identifier traceId : PasExtensions.extractItemTraceNumbers(requestItem)) {
-        responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(traceId));
+      // A questionnaire-pended item's trace number is the DTR context id; others echo the request trace(s)
+      String questionnaireKey =
+          REVIEW_CODE_A4.equals(decision.reviewActionCode()) && !decision.questionnaireUrls().isEmpty()
+              ? resolveQuestionnaireKey(decision.questionnaireUrls().get(0))
+              : null;
+      if (questionnaireKey != null) {
+        responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(new Identifier()
+            .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(questionnaireKey)));
+      } else {
+        for (Identifier traceId : PasExtensions.extractItemTraceNumbers(requestItem)) {
+          responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(traceId));
+        }
       }
 
       // Adjudication with reviewAction extension
@@ -538,28 +550,45 @@ public class PasResponseBuilder {
   }
 
   /**
-   * Per the PAS IG, when a payer pends a request and needs additional documentation,
-   * a Task resource with code "attachment-request-questionnaire" is included in the
-   * response bundle. This directs the provider to complete DTR questionnaires.
+   * Per the PAS IG, when a payer pends a request and needs additional documentation, the
+   * response bundle carries a CommunicationRequest per pended item, referenced from
+   * ClaimResponse.communicationRequest. The provider builds its own Task from these.
+   *
+   * @see <a href="https://hl7.org/fhir/us/davinci-pas/2.2.1/en/additionalinfo.html">
+   *   PAS IG: Request for Additional Information</a>
    */
-  private void addDocumentationRequestTasks(Bundle responseBundle, Claim requestClaim,
+  private void addCommunicationRequests(Bundle responseBundle, Claim requestClaim,
       ClaimResponse claimResponse, Map<Integer, CoverageDecision> itemDecisions) {
-    String claimRef = "Claim/" + extractClaimResponseIdPart(claimResponse);
     String patientRef = requestClaim.hasPatient() ? requestClaim.getPatient().getReference() : null;
-    String insurerRef = requestClaim.hasInsurer() ? requestClaim.getInsurer().getReference() : null;
 
     for (Map.Entry<Integer, CoverageDecision> entry : itemDecisions.entrySet()) {
       CoverageDecision decision = entry.getValue();
       if (!REVIEW_CODE_A4.equals(decision.reviewActionCode())) continue;
       if (!decision.hasAdditionalDocumentationInfo()) continue;
 
-      Task task = PasExtensions.buildDocumentationRequestTask(
-          claimRef, patientRef, insurerRef,
-          decision.questionnaireUrls(), serverBase);
-
-      responseBundle.addEntry()
-          .setFullUrl("urn:uuid:" + task.getId())
-          .setResource(task);
+      int lineNumber = entry.getKey();
+      // payload is 0..1: emit one CommunicationRequest per request type
+      if (!decision.questionnaireUrls().isEmpty()) {
+        addCommunicationRequest(responseBundle, claimResponse,
+            PasCommunicationRequestBuilder.buildQuestionnaireRequest(lineNumber, patientRef));
+      }
+      for (String code : decision.requestedAttachmentCodes()) {
+        addCommunicationRequest(responseBundle, claimResponse,
+            PasCommunicationRequestBuilder.buildAttachmentCodeRequest(lineNumber, code, patientRef));
+      }
     }
+  }
+
+  private void addCommunicationRequest(Bundle responseBundle, ClaimResponse claimResponse,
+      CommunicationRequest communicationRequest) {
+    String fullUrl = "urn:uuid:" + communicationRequest.getId();
+    responseBundle.addEntry().setFullUrl(fullUrl).setResource(communicationRequest);
+    claimResponse.addCommunicationRequest(new Reference(fullUrl));
+  }
+
+  /** Maps a questionnaire canonical to its logical id via the catalog. */
+  private String resolveQuestionnaireKey(String canonical) {
+    Questionnaire questionnaire = FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonical);
+    return questionnaire != null ? questionnaire.getIdElement().getIdPart() : null;
   }
 }

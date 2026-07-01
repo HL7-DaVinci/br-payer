@@ -2,6 +2,7 @@ package org.hl7.davinci.dtr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -48,6 +49,8 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
+import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
+import ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException;
 
 @ExtendWith(MockitoExtension.class)
 class DtrQuestionnaireResolverTest {
@@ -90,6 +93,27 @@ class DtrQuestionnaireResolverTest {
     lenient().when(daoRegistry.getResourceDao("Library")).thenReturn(libraryDao);
     lenient().when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
         .thenReturn(new Patient().setId("Patient/pat-1"));
+  }
+
+  @Test
+  @DisplayName("resolveContext returns the questionnaire named by the context id")
+  void resolveContext_known_returnsQuestionnaire() {
+    Questionnaire q = questionnaire("home-o2-std-questionnaire",
+        "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire", "2.2.0");
+    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(q);
+
+    Questionnaire resolved = resolver.resolveContext("home-o2-std-questionnaire");
+
+    assertEquals("http://example.org/fhir/Questionnaire/home-o2-std-questionnaire", resolved.getUrl());
+  }
+
+  @Test
+  @DisplayName("resolveContext throws 422 for an unknown context id")
+  void resolveContext_unknown_throws422() {
+    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+        .thenThrow(new ResourceNotFoundException("not found"));
+
+    assertThrows(UnprocessableEntityException.class, () -> resolver.resolveContext("missing"));
   }
 
   @Test

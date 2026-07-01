@@ -80,6 +80,16 @@ public class PasPendedResolutionService {
   }
 
   /**
+   * Resolves a pended ClaimResponse immediately, cancelling any scheduled auto-resolution.
+   * Returns true if the authorization was resolved by this call, or false if it was already
+   * resolved or no longer exists.
+   */
+  public boolean resolveNow(String crId) {
+    cancelResolution(crId);
+    return executeResolution(crId);
+  }
+
+  /**
    * Runs once on startup to recover any pended ClaimResponses left behind by a prior shutdown.
    */
   @EventListener(ApplicationReadyEvent.class)
@@ -100,6 +110,11 @@ public class PasPendedResolutionService {
     for (ClaimResponse cr : resources) {
       String crId = cr.getIdElement().getIdPart();
       if (crId == null || crId.isBlank()) {
+        continue;
+      }
+
+      // A pend that requested documentation resolves on attachment arrival, not the timer; leave it pended.
+      if (cr.hasCommunicationRequest()) {
         continue;
       }
 
@@ -131,29 +146,32 @@ public class PasPendedResolutionService {
    * Executes resolution for a specific ClaimResponse. Reads the CR from the database,
    * guards against already-resolved state, then delegates to {@link #resolveAuthorization}.
    */
-  void executeResolution(String crId) {
+  boolean executeResolution(String crId) {
     try {
       ClaimResponse cr = daoRegistry.getResourceDao(ClaimResponse.class)
           .read(new org.hl7.fhir.r4.model.IdType("ClaimResponse/" + crId),
               new SystemRequestDetails());
 
-      // Guard: skip if pended tag was already removed (e.g., by an update/cancel)
+      // Guard: skip if pended tag was already removed (e.g., by an update/cancel or a prior resolution)
       if (cr.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM,
           PasSubmitService.PENDED_TAG_CODE) == null) {
         scheduledTasks.remove(crId);
         log.debug("ClaimResponse/{} no longer pended, skipping resolution", crId);
-        return;
+        return false;
       }
 
       resolveAuthorization(cr);
       scheduledTasks.remove(crId);
+      return true;
     } catch (ResourceNotFoundException e) {
       scheduledTasks.remove(crId);
       log.debug("ClaimResponse/{} no longer exists, skipping resolution", crId);
+      return false;
     } catch (RuntimeException e) {
       log.warn("Pended resolution failed for ClaimResponse/{}, retrying in {}s",
           crId, pasProperties.pendedResolutionDelaySeconds(), e);
       scheduleResolution(crId);
+      return false;
     }
   }
 

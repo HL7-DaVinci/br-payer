@@ -80,5 +80,21 @@ public final class PasConstants {
   public static final String PROFILE_PAS_PRACTITIONER_ROLE = PAS_BASE + "profile-practitionerrole";
   public static final String PROFILE_PAS_PRACTITIONER = PAS_BASE + "profile-practitioner";
   public static final String PROFILE_PAS_SERVICE_REQUEST = PAS_BASE + "profile-servicerequest";
+  public static final String PROFILE_PAS_COMMUNICATION_REQUEST = PAS_BASE + "profile-communicationrequest";
+
+  public static final String EXT_SERVICE_LINE_NUMBER = PAS_BASE + "extension-serviceLineNumber";
+  public static final String EXT_CONTENT_MODIFIER = PAS_BASE + "extension-contentModifier";
+  public static final String EXT_COMMUNICATED_DIAGNOSIS = PAS_BASE + "extension-communicatedDiagnosis";
+
+  public static final String X12_REQUEST_CATEGORY_SYSTEM = "https://codesystem.x12.org/005010/755";
+
+  // Additional-information request codes (CommunicationRequest.payload.content required binding)
+  public static final String LOINC_SYSTEM = "http://loinc.org";
+  public static final String LOINC_QUESTIONNAIRE_REQUEST = "102089-0";
+
+  // Item trace number namespace identifying the DTR context for a questionnaire request. PAS
+  // PASIdentifier recommends a scheme of urn:trnorg:<TRN03>; the value carried is the DTR context id
+  // (the requested questionnaire's logical id).
+  public static final String QUESTIONNAIRE_TRACE_NUMBER_SYSTEM = "urn:trnorg:PASPAYER";
 
 }

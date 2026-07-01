@@ -2,6 +2,9 @@ package org.hl7.davinci.pas;
 
 import static org.hl7.davinci.common.FhirConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Date;
 import java.util.List;
@@ -12,6 +15,7 @@ import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
@@ -19,24 +23,29 @@ import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.SimpleQuantity;
 import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 
 class PasResponseBuilderTest {
 
   private static final String SERVER_BASE = "http://localhost:8080/fhir";
   private PasResponseBuilder builder;
+  private DaoRegistry daoRegistry;
 
   @BeforeEach
   void setUp() {
     AppProperties appProperties = new AppProperties();
     appProperties.setServer_address(SERVER_BASE);
-    builder = new PasResponseBuilder(appProperties);
+    daoRegistry = mock(DaoRegistry.class);
+    builder = new PasResponseBuilder(appProperties, daoRegistry);
   }
 
   @Test
@@ -745,6 +754,89 @@ class PasResponseBuilderTest {
     String authNumber = PasExtensions.extractAuthorizationNumber(cr.getItem().get(0));
     assertNotNull(authNumber, "A6 decisions must include an authorization number");
     assertTrue(authNumber.startsWith("AUTH-"));
+  }
+
+  @Test
+  void buildSubmitResponse_pendedWithQuestionnaire_emitsCommunicationRequestNotTask() {
+    Questionnaire questionnaire = new Questionnaire();
+    questionnaire.setId("q1");
+    questionnaire.setUrl("http://example.org/Questionnaire/q1");
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    IFhirResourceDao qDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(qDao);
+    when(qDao.searchForResources(any(), any())).thenReturn(List.of(questionnaire));
+
+    Claim claim = buildClaim();
+    claim.getItemFirstRep().addExtension(PasExtensions.buildItemTraceNumberExtension(
+        new Identifier().setSystem("http://example.org/ITEM_TRACE_NUMBER").setValue("provider-trace")));
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null,
+            "clinical", List.of("http://example.org/Questionnaire/q1")));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+
+    assertTrue(response.getEntry().stream()
+        .noneMatch(e -> e.getResource() instanceof org.hl7.fhir.r4.model.Task),
+        "response bundle must not contain a Task");
+
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+    assertFalse(cr.getCommunicationRequest().isEmpty(),
+        "ClaimResponse.communicationRequest must reference the request");
+
+    CommunicationRequest commReq = firstCommunicationRequest(response);
+    assertNotNull(commReq, "response bundle must contain a CommunicationRequest");
+    assertEquals(PasConstants.PROFILE_PAS_COMMUNICATION_REQUEST,
+        commReq.getMeta().getProfile().get(0).getValue());
+    assertEquals("urn:uuid:" + commReq.getId(), cr.getCommunicationRequestFirstRep().getReference());
+    assertNotNull(commReq.getExtensionByUrl(PasConstants.EXT_SERVICE_LINE_NUMBER));
+    // questionnaire request is the LOINC 102089-0 marker, not the questionnaire URL
+    assertTrue(commReq.getPayload().stream().anyMatch(p -> p.getContent() instanceof StringType
+        && "102089-0".equals(((StringType) p.getContent()).getValue())),
+        "questionnaire request conveys the 102089-0 LOINC marker");
+    // the questionnaire item carries only the DTR context trace number, not the echoed request trace
+    List<Extension> trns =
+        cr.getItem().get(0).getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER);
+    assertEquals(1, trns.size());
+    Identifier trn = (Identifier) trns.get(0).getValue();
+    assertEquals(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM, trn.getSystem());
+    assertEquals("q1", trn.getValue());
+  }
+
+  @Test
+  void buildSubmitResponse_pendedWithAttachmentCode_emitsContentStringPayload() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null,
+            "clinical", List.of(), List.of("18776-5")));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+
+    CommunicationRequest commReq = firstCommunicationRequest(response);
+    assertNotNull(commReq);
+    assertTrue(commReq.getPayload().stream().anyMatch(p -> p.getContent() instanceof StringType
+        && "18776-5".equals(((StringType) p.getContent()).getValue())),
+        "attachment code is conveyed as payload.contentString");
+  }
+
+  @Test
+  void buildSubmitResponse_pendedWithoutDocInfo_noCommunicationRequest() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+    assertTrue(cr.getCommunicationRequest().isEmpty());
+    assertNull(firstCommunicationRequest(response));
+  }
+
+  private static CommunicationRequest firstCommunicationRequest(Bundle bundle) {
+    return bundle.getEntry().stream()
+        .map(Bundle.BundleEntryComponent::getResource)
+        .filter(CommunicationRequest.class::isInstance)
+        .map(CommunicationRequest.class::cast)
+        .findFirst().orElse(null);
   }
 
   // ===== Helpers =====

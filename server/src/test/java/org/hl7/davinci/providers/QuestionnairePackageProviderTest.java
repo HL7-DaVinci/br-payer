@@ -128,6 +128,20 @@ class QuestionnairePackageProviderTest {
       verify(mockPackageService).generatePackages(
           eq(testCoverage), anyList(), eq(questionnaires), any(InstantType.class), isNull());
     }
+
+    @Test
+    @DisplayName("Context-only decodes the questionnaire and returns 200")
+    void contextOnly_decodesAndReturns200() {
+      Questionnaire q = new Questionnaire();
+      q.setUrl("http://example.org/Questionnaire/from-context");
+      when(mockPackageService.resolveContext("some-context")).thenReturn(q);
+
+      Parameters result = provider.questionnairePackage(
+          testCoverage, null, null, new StringType("some-context"), null);
+
+      assertNotNull(result);
+      verify(mockPackageService).resolveContext("some-context");
+    }
   }
 
   @Nested
@@ -154,16 +168,6 @@ class QuestionnairePackageProviderTest {
           () -> provider.questionnairePackage(testCoverage, null, null, null, null));
 
       assertTrue(ex.getMessage().contains("oper-6"));
-    }
-
-    @Test
-    @DisplayName("Context-only throws 400 not-supported")
-    void contextOnly_throws400() {
-      InvalidRequestException ex = assertThrows(InvalidRequestException.class,
-          () -> provider.questionnairePackage(
-              testCoverage, null, null, new StringType("some-context"), null));
-
-      assertTrue(ex.getMessage().contains("not supported"));
     }
 
     @Test

@@ -62,6 +62,11 @@ public class DtrPackageService {
     this.responseBuilder = responseBuilder;
   }
 
+  /** Resolves a questionnaire context id (item trace number) to its Questionnaire. */
+  public Questionnaire resolveContext(String context) {
+    return questionnaireResolver.resolveContext(context);
+  }
+
   /**
    * Generate questionnaire packages.
    *

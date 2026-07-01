@@ -79,6 +79,13 @@
             "language": "text/cql-identifier",
             "expression": "Get Detail"
           }
+        },
+        {
+          "path": "extension",
+          "expression": {
+            "language": "text/cql-identifier",
+            "expression": "Coverage Info Extension"
+          }
         }
       ]
     }

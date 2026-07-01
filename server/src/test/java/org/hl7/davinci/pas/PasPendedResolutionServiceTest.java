@@ -12,6 +12,7 @@ import java.util.concurrent.ScheduledFuture;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -113,6 +114,40 @@ class PasPendedResolutionServiceTest {
                   && PasSubmitService.PENDED_TAG_CODE.equals(t.getCode()));
         }), any(RequestDetails.class));
     verify(notificationService).dispatchResolvedClaimResponse("cr-1");
+  }
+
+  @Test
+  void resolveNow_returnsTrueWhenAuthorizationResolved() {
+    ClaimResponse pended = buildPendedClaimResponse("cr-true");
+    when(crDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(pended);
+
+    assertTrue(service.resolveNow("cr-true"));
+  }
+
+  @Test
+  void resolveNow_returnsFalseWhenAlreadyResolved() {
+    ClaimResponse resolved = new ClaimResponse();
+    resolved.setId("cr-false");
+    when(crDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(resolved);
+
+    assertFalse(service.resolveNow("cr-false"));
+    verifyNoInteractions(responseBuilder);
+  }
+
+  @Test
+  void recoverPendingResolutionsOnStartup_skipsDocumentationRequiringPend() {
+    ClaimResponse docPend = buildPendedClaimResponse("cr-docs");
+    docPend.addCommunicationRequest(new Reference("urn:uuid:doc-request"));
+    docPend.getMeta().setLastUpdated(new Date(System.currentTimeMillis() - 60_000));
+
+    when(crDao.searchForResources(any(), any(RequestDetails.class))).thenReturn(List.of(docPend));
+
+    service.recoverPendingResolutionsOnStartup();
+
+    verifyNoInteractions(responseBuilder);
+    verifyNoInteractions(notificationService);
+    verify(crDao, never()).update(any(), any(RequestDetails.class));
+    verify(taskScheduler, never()).schedule(any(Runnable.class), any(Instant.class));
   }
 
   @Test

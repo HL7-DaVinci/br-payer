@@ -1,22 +1,18 @@
-<!-- nx configuration start-->
-<!-- Leave the start & end comments to automatically receive updates. -->
-
-# General Guidelines for working with Nx
-
-- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
-- You have access to the Nx MCP server and its tools, use them to help the user
-- When answering questions about the repository, use the `nx_workspace` tool first to gain an understanding of the workspace architecture where applicable.
-- When working in individual projects, use the `nx_project_details` mcp tool to analyze and understand the specific project structure and dependencies
-- For questions around nx configuration, best practices or if you're unsure, use the `nx_docs` tool to get relevant, up-to-date docs. Always use this instead of assuming things about nx configuration
-- If the user needs help with an Nx configuration or project graph error, use the `nx_workspace` tool to get any errors
-
-
-<!-- nx configuration end-->
-
 # Workspace Overview
 
-This is an Nx workspace designed to host a FHIR application stack.
+This is an Nx workspace designed to host a FHIR application stack. The stack provides a SPA frontend and a HAPI FHIR Java server backend. The use cases handled include implementing the Da Vinci Burden Reduction implementation guides, with a focus on payer-side functionality.
 
+## Key Constraints
+
+1. **Do NOT modify HAPI starter code** in `src/main/java/ca/uhn/fhir/` - place custom code in `org.hl7.davinci`
+2. **Payer-only scope** - This server implements payer operations; DTR app launch URLs are provider-side concerns
+3. **IG conformance** - Always refer to the Da Vinci IGs for research, decision making, and correct request/response structures. Do not suggest implementations that deviate from the IG specifications.
+4. **CodeSystem for card types** - Use `CrdConstants.CARD_TYPE_SYSTEM`, not hardcoded URLs
+5. **Coverage extension** - Always include required elements: `coverage`, `covered`, `date`, `coverage-assertion-id`
+6. **IG constants** - Place new FHIR URL constants in the correct IG constants class (see table above), not inline in consuming classes
+7. **PAS reuses CRD PlanDefinitions** - Coverage logic is shared between CRD and PAS via `PasCoverageEvaluator`
+8. **PAS submission type detection** - Structural (presence of `Claim.related`), not profile-based
+9. **H2 in-memory database** - Data is transient and reloaded each startup
 
 ## Build & Run Commands
 
@@ -181,9 +177,10 @@ This server implements the Da Vinci Burden Reduction implementation guides. Alwa
 
 | IG | Build URL | Key Sections |
 |----|-----------|--------------|
-| **CRD** (Coverage Requirements Discovery) | https://build.fhir.org/ig/HL7/davinci-crd/en/ | [Hooks](https://build.fhir.org/ig/HL7/davinci-crd/en/hooks.html), [Cards](https://build.fhir.org/ig/HL7/davinci-crd/en/cards.html), [CodeSystem](https://build.fhir.org/ig/HL7/davinci-crd/en/CodeSystem-temp.html) |
-| **DTR** (Documentation Templates and Rules) | https://build.fhir.org/ig/HL7/davinci-dtr/en/ | [Specification](https://build.fhir.org/ig/HL7/davinci-dtr/en/specification.html), [Expected Systems](https://build.fhir.org/ig/HL7/davinci-dtr/en/index.html#expected-systems) |
-| **PAS** (Prior Authorization Support) | https://build.fhir.org/ig/HL7/davinci-pas/en/ | [Specification](https://build.fhir.org/ig/HL7/davinci-pas/en/specification.html) |
+| **CRD** (Coverage Requirements Discovery) | https://hl7.org/fhir/us/davinci-crd/2.2.1/en/ | [Hooks](https://hl7.org/fhir/us/davinci-crd/2.2.1/en/hooks.html), [Cards](https://hl7.org/fhir/us/davinci-crd/2.2.1/en/cards.html), [CodeSystem](https://hl7.org/fhir/us/davinci-crd/2.2.1/en/CodeSystem-temp.html) |
+| **DTR** (Documentation Templates and Rules) | https://hl7.org/fhir/us/davinci-dtr/2.2.0/en/ | [Specification](https://hl7.org/fhir/us/davinci-dtr/2.2.0/en/specification.html), [Expected Systems](https://hl7.org/fhir/us/davinci-dtr/2.2.0/en/index.html#expected-systems) |
+| **PAS** (Prior Authorization Support) | https://hl7.org/fhir/us/davinci-pas/2.2.1/en/ | [Specification](https://hl7.org/fhir/us/davinci-pas/2.2.1/en/specification.html) |
+| **CDex** (Clinical Data Exchange) | https://hl7.org/fhir/us/davinci-cdex/STU2.1/ | [Background](https://hl7.org/fhir/us/davinci-cdex/STU2.1/background.html) |
 | **CDS Hooks** | https://cds-hooks.org/specification/current/ | [Discovery](https://cds-hooks.org/specification/current/#discovery), [HTTP Response](https://cds-hooks.org/specification/current/#http-response) |
 
 **Important**: This server is a **payer** implementation. It does NOT implement provider/EHR-side functionality like DTR SMART apps.
@@ -330,13 +327,3 @@ FHIR URL constants (profiles, extensions, code systems) are organized by impleme
 | `boot` | Yes | Spring Boot embedded Tomcat (development) |
 | `jetty` | No | Replace Tomcat with Jetty (`mvn -Pjetty spring-boot:run`) |
 
-## Key Constraints
-
-1. **Do NOT modify HAPI starter code** in `src/main/java/ca/uhn/fhir/` - place custom code in `org.hl7.davinci`
-2. **Payer-only scope** - This server implements payer operations; DTR app launch URLs are provider-side concerns
-3. **CodeSystem for card types** - Use `CrdConstants.CARD_TYPE_SYSTEM`, not hardcoded URLs
-4. **Coverage extension** - Always include required elements: `coverage`, `covered`, `date`, `coverage-assertion-id`
-5. **IG constants** - Place new FHIR URL constants in the correct IG constants class (see table above), not inline in consuming classes
-6. **PAS reuses CRD PlanDefinitions** - Coverage logic is shared between CRD and PAS via `PasCoverageEvaluator`
-7. **PAS submission type detection** - Structural (presence of `Claim.related`), not profile-based
-8. **H2 in-memory database** - Data is transient and reloaded each startup
