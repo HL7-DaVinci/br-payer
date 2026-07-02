@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -221,6 +222,107 @@ class PlanDefinitionServiceTest {
 
       assertNotNull(result);
       assertEquals("rg-1", result.getIdElement().getIdPart());
+    }
+  }
+
+  @Nested
+  @DisplayName("removeDispatchPlansLackingEvidence")
+  class RemoveDispatchPlansTests {
+
+    @Test
+    @DisplayName("Draft order removes dispatch-only plans and returns a note")
+    void draftOrder_removesDispatchOnly() {
+      DeviceRequest order = new DeviceRequest();
+      order.setId("DeviceRequest/dr-1");
+      order.setStatus(DeviceRequest.DeviceRequestStatus.DRAFT);
+
+      List<PlanDefinition> plans = new ArrayList<>(List.of(
+          createPlanDefinition("pd-sign", "order-sign"),
+          createPlanDefinition("pd-dispatch", "order-dispatch")));
+
+      List<String> notes = planDefinitionService.removeDispatchPlansLackingEvidence(plans, order);
+
+      assertEquals(1, plans.size());
+      assertEquals("pd-sign", plans.get(0).getIdElement().getIdPart());
+      assertEquals(1, notes.size());
+      assertTrue(notes.get(0).contains("pd-dispatch"));
+    }
+
+    @Test
+    @DisplayName("Active order without performer removes dispatch-only plans")
+    void activeOrderWithoutPerformer_removesDispatchOnly() {
+      DeviceRequest order = new DeviceRequest();
+      order.setId("DeviceRequest/dr-1");
+      order.setStatus(DeviceRequest.DeviceRequestStatus.ACTIVE);
+
+      List<PlanDefinition> plans = new ArrayList<>(
+          List.of(createPlanDefinition("pd-dispatch", "order-dispatch")));
+
+      planDefinitionService.removeDispatchPlansLackingEvidence(plans, order);
+
+      assertTrue(plans.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Active order with performer keeps dispatch-only plans")
+    void activeOrderWithPerformer_keepsDispatchOnly() {
+      DeviceRequest order = new DeviceRequest();
+      order.setId("DeviceRequest/dr-1");
+      order.setStatus(DeviceRequest.DeviceRequestStatus.ACTIVE);
+      order.setPerformer(new Reference("Organization/dme-supplier-1"));
+
+      List<PlanDefinition> plans = new ArrayList<>(
+          List.of(createPlanDefinition("pd-dispatch", "order-dispatch")));
+
+      List<String> notes = planDefinitionService.removeDispatchPlansLackingEvidence(plans, order);
+
+      assertEquals(1, plans.size());
+      assertTrue(notes.isEmpty());
+    }
+
+    @Test
+    @DisplayName("SupplyRequest supplier counts as a performer")
+    void supplyRequestSupplier_countsAsPerformer() {
+      SupplyRequest order = new SupplyRequest();
+      order.setId("SupplyRequest/sr-1");
+      order.setStatus(SupplyRequest.SupplyRequestStatus.ACTIVE);
+      order.addSupplier(new Reference("Organization/dme-supplier-1"));
+
+      List<PlanDefinition> plans = new ArrayList<>(
+          List.of(createPlanDefinition("pd-dispatch", "order-dispatch")));
+
+      planDefinitionService.removeDispatchPlansLackingEvidence(plans, order);
+
+      assertEquals(1, plans.size());
+    }
+
+    @Test
+    @DisplayName("Null order removes dispatch-only plans")
+    void nullOrder_removesDispatchOnly() {
+      List<PlanDefinition> plans = new ArrayList<>(
+          List.of(createPlanDefinition("pd-dispatch", "order-dispatch")));
+
+      List<String> notes = planDefinitionService.removeDispatchPlansLackingEvidence(plans, null);
+
+      assertTrue(plans.isEmpty());
+      assertEquals(1, notes.size());
+    }
+
+    @Test
+    @DisplayName("Plans with mixed or no named-event triggers are never removed")
+    void mixedTriggerPlans_areKept() {
+      PlanDefinition mixed = createPlanDefinition("pd-mixed", "order-dispatch");
+      mixed.addAction().addTrigger()
+          .setType(TriggerType.NAMEDEVENT)
+          .setName("order-sign");
+
+      List<PlanDefinition> plans = new ArrayList<>(List.of(
+          mixed,
+          createPlanDefinition("pd-no-trigger", null)));
+
+      planDefinitionService.removeDispatchPlansLackingEvidence(plans, null);
+
+      assertEquals(2, plans.size());
     }
   }
 }

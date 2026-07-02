@@ -7,17 +7,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.davinci.pas.PasCoverageEvaluator.CoverageDecision;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.RequestGroup;
@@ -157,6 +163,31 @@ class PasCoverageEvaluatorTest {
 
       assertEquals(REVIEW_CODE_A3, decision.reviewActionCode());
       assertFalse(decision.isPended());
+    }
+
+    @Test
+    void evaluate_dispatchFilterReceivesOrderFromBundle_andRemovalYieldsA3() {
+      DeviceRequest order = new DeviceRequest();
+      order.setId("DeviceRequest/dr-draft");
+      order.setStatus(DeviceRequest.DeviceRequestStatus.DRAFT);
+      order.setCode(new CodeableConcept().addCoding(orderCode));
+      Bundle bundle = new Bundle();
+      bundle.addEntry().setResource(order);
+
+      when(planDefinitionService.findPlanDefinitions(eq(orderCode), any(), isNull()))
+          .thenReturn(new ArrayList<>(List.of(new PlanDefinition())));
+      when(planDefinitionService.removeDispatchPlansLackingEvidence(any(), same(order)))
+          .thenAnswer(invocation -> {
+            Collection<?> plans = invocation.getArgument(0);
+            plans.clear();
+            return List.of("excluded pd-dispatch");
+          });
+
+      CoverageDecision decision = evaluator.evaluate(
+          orderCode, List.of(), coverage, patientId, bundle);
+
+      assertEquals(REVIEW_CODE_A3, decision.reviewActionCode());
+      verify(planDefinitionService).removeDispatchPlansLackingEvidence(any(), same(order));
     }
 
     @Test

@@ -177,8 +177,8 @@ class DtrNextQuestionIT {
       assertEquals(QuestionnaireResponseStatus.INPROGRESS, firstQr.getStatus());
 
       // Adaptive pre-population should fill patient demographics in group 1 sub-questionnaire
-      QuestionnaireResponseItemComponent firstNameItem = findItemByLinkId(firstQr.getItem(), "1.PBI.2");
-      QuestionnaireResponseItemComponent lastNameItem = findItemByLinkId(firstQr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent firstNameItem = findItemByLinkId(firstQr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent lastNameItem = findItemByLinkId(firstQr.getItem(), "1.PBI.3");
       assertNotNull(firstNameItem, "First name item should be pre-populated");
       assertNotNull(lastNameItem, "Last name item should be pre-populated");
       assertEquals("Jane", firstNameItem.getAnswerFirstRep().getValue().primitiveValue());

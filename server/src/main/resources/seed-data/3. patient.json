@@ -34,6 +34,20 @@
       },
       "system" : "http://hl7.org/fhir/sid/us-medicare",
       "value" : "0M456789001JS"
+    },
+    {
+      "use" : "official",
+      "type" : {
+        "coding" : [
+          {
+            "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code" : "MB"
+          }
+        ],
+        "text" : "Member Number"
+      },
+      "system" : "http://example.org/fhir/memberid",
+      "value" : "10C6D58ZH25"
     }
   ]
 }

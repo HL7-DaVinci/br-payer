@@ -331,14 +331,14 @@ class DtrQuestionnairePackageIT {
           .findFirst().orElse(null);
       assertNotNull(qr, "Bundle should contain a QuestionnaireResponse");
 
-      // Find pre-populated patient info items (assembled linkIds: 1.PBI.1, 1.PBI.2, 1.PBI.3)
-      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.1");
-      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.2");
-      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.3");
+      // Find pre-populated patient info items (assembled linkIds: 1.PBI.3, 1.PBI.1, 1.PBI.4)
+      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.3");
+      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.4");
 
-      assertNotNull(lastName, "Should have Last Name item (1.PBI.1)");
-      assertNotNull(firstName, "Should have First Name item (1.PBI.2)");
-      assertNotNull(dob, "Should have Date of Birth item (1.PBI.3)");
+      assertNotNull(lastName, "Should have Last Name item (1.PBI.3)");
+      assertNotNull(firstName, "Should have First Name item (1.PBI.1)");
+      assertNotNull(dob, "Should have Date of Birth item (1.PBI.4)");
 
       // Verify pre-populated values
       assertFalse(lastName.getAnswer().isEmpty(), "Last Name should have an answer");
@@ -400,9 +400,9 @@ class DtrQuestionnairePackageIT {
           .map(QuestionnaireResponse.class::cast)
           .findFirst().orElseThrow();
 
-      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.1");
-      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.2");
-      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.3");
+      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.3");
+      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.4");
 
       assertTrue(lastName == null || lastName.getAnswer().isEmpty(),
           "MUST NOT leak the colliding Patient's family name");
@@ -438,7 +438,7 @@ class DtrQuestionnairePackageIT {
           .map(QuestionnaireResponse.class::cast)
           .findFirst().orElseThrow();
 
-      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.3");
       assertTrue(lastName == null || lastName.getAnswer().isEmpty(),
           "Unknown member: Last Name should not be pre-populated");
       assertTrue(extractWarnings(result).contains("Patient demographic pre-population skipped"));
@@ -570,7 +570,7 @@ class DtrQuestionnairePackageIT {
       assertNotNull(qr);
 
       // After sub-questionnaire assembly, PatientInfo items are inlined under linkId "1"
-      assertNotNull(findItemByLinkId(qr.getItem(), "1.PBI.1"),
+      assertNotNull(findItemByLinkId(qr.getItem(), "1.PBI.3"),
           "Inlined PatientInfo Last Name item should be present");
     }
 
@@ -802,12 +802,12 @@ class DtrQuestionnairePackageIT {
           .map(e -> (QuestionnaireResponse) e.getResource())
           .findFirst().orElseThrow();
 
-      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.1");
-      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.2");
-      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.3");
-      assertNotNull(lastName, "Should have Last Name item (1.PBI.1)");
-      assertNotNull(firstName, "Should have First Name item (1.PBI.2)");
-      assertNotNull(dob, "Should have Date of Birth item (1.PBI.3)");
+      QuestionnaireResponseItemComponent lastName = findItemByLinkId(qr.getItem(), "1.PBI.3");
+      QuestionnaireResponseItemComponent firstName = findItemByLinkId(qr.getItem(), "1.PBI.1");
+      QuestionnaireResponseItemComponent dob = findItemByLinkId(qr.getItem(), "1.PBI.4");
+      assertNotNull(lastName, "Should have Last Name item (1.PBI.3)");
+      assertNotNull(firstName, "Should have First Name item (1.PBI.1)");
+      assertNotNull(dob, "Should have Date of Birth item (1.PBI.4)");
 
       assertFalse(lastName.getAnswer().isEmpty(),
           "Last Name should be populated from BasicPatientInfoPrepopulation. "

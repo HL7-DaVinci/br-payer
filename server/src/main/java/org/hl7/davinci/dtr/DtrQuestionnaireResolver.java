@@ -28,6 +28,7 @@ import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.Questionnaire;
+import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.RequestGroup;
 import org.hl7.fhir.r4.model.Resource;
@@ -233,6 +234,12 @@ public class DtrQuestionnaireResolver {
         }
       }
 
+      // Filter dispatch plans as needed
+      List<String> stageNotes = planDefinitionService.removeDispatchPlansLackingEvidence(
+          uniquePlans.values(), order);
+      stageNotes.forEach(logger::info);
+      warnings.addAll(stageNotes);
+
       if (uniquePlans.isEmpty()) {
         String warning = "No PlanDefinitions matched for order " + orderId + " (oper-9)";
         logger.warn(warning);
@@ -303,6 +310,20 @@ public class DtrQuestionnaireResolver {
                 }
 
                 String key = FhirUtil.toVersionSpecific(q.getUrl(), q.getVersion());
+
+                // A completed QuestionnaireResponse already on file for this
+                // questionnaire and order means the documentation requirement is
+                // satisfied. Explicitly requested questionnaires are
+                // still returned.
+                if (!results.containsKey(key)
+                    && hasCompletedResponseOnFile(q.getUrl(), subjectRef, orderId)) {
+                  String note = "Excluding questionnaire " + canonicalValue + " for order " + orderId
+                      + ": a completed QuestionnaireResponse is already on file";
+                  logger.info(note);
+                  warnings.add(note);
+                  continue;
+                }
+
                 List<String> orderIds = new ArrayList<>();
                 orderIds.add(orderId);
                 ResolvedQuestionnaire resolved = new ResolvedQuestionnaire(
@@ -524,6 +545,46 @@ public class DtrQuestionnaireResolver {
 
   private String toVersionlessPatientReference(Reference reference) {
     return ResourceResolver.toVersionlessTypedReference(reference, "Patient");
+  }
+
+  /**
+   * Checks whether a completed QuestionnaireResponse for the given questionnaire
+   * canonical exists whose qr-context extension references the given order.
+   * Searches by subject and compares canonicals in code because stored
+   * QuestionnaireResponse.questionnaire values are version-specific (oper-16).
+   */
+  private boolean hasCompletedResponseOnFile(String questionnaireUrl, String subjectRef, String orderId) {
+    if (subjectRef == null || subjectRef.isBlank()) {
+      return false;
+    }
+    try {
+      var searchParams = new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
+      searchParams.add("subject", new ca.uhn.fhir.rest.param.ReferenceParam(subjectRef));
+      searchParams.add("status", new ca.uhn.fhir.rest.param.TokenParam("completed"));
+      searchParams.setLoadSynchronous(true);
+      var responses = daoRegistry.getResourceDao(QuestionnaireResponse.class)
+          .searchForResources(searchParams, new SystemRequestDetails());
+
+      for (var response : responses) {
+        QuestionnaireResponse qr = (QuestionnaireResponse) response;
+        if (!qr.hasQuestionnaire()) {
+          continue;
+        }
+        String[] storedParts = FhirUtil.parseCanonical(qr.getQuestionnaire());
+        if (storedParts.length == 0 || !questionnaireUrl.equals(storedParts[0])) {
+          continue;
+        }
+        for (Extension contextExt : qr.getExtensionsByUrl(DtrConstants.QR_CONTEXT_EXT)) {
+          if (contextExt.getValue() instanceof Reference ref && ref.hasReference()
+              && orderId.equals(new IdType(ref.getReference()).toUnqualifiedVersionless().getValue())) {
+            return true;
+          }
+        }
+      }
+    } catch (Exception e) {
+      logger.debug("Could not search QuestionnaireResponses for {}: {}", questionnaireUrl, e.getMessage());
+    }
+    return false;
   }
 
   private boolean isExpired(Questionnaire q) {

@@ -2,6 +2,7 @@ package org.hl7.davinci.common;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 import org.hl7.fhir.r4.model.Appointment;
@@ -135,17 +136,34 @@ public final class FhirCodeExtractor {
     }
 
     if (normalizeSystem) {
-      codes.forEach(coding -> {
-        if (coding.hasSystem() && coding.getSystem().startsWith("https://")) {
-          String alt = FhirUtil.getAlternateProtocolUrl(coding.getSystem());
-          if (alt != null) {
-            coding.setSystem(alt);
-          }
-        }
-      });
+      codes.forEach(coding -> coding.setSystem(normalizeSystemValue(coding.getSystem())));
     }
 
     return codes;
+  }
+
+  /**
+   * True when the resource's extracted codes contain the target coding,
+   * comparing system and code after https-to-http normalization of both sides.
+   */
+  public static boolean hasMatchingCode(Resource resource, Coding target) {
+    if (target == null || !target.hasCode()) {
+      return false;
+    }
+    String targetSystem = normalizeSystemValue(target.getSystem());
+    return extractCodes(resource, true).stream()
+        .anyMatch(code -> target.getCode().equals(code.getCode())
+            && Objects.equals(targetSystem, code.getSystem()));
+  }
+
+  private static String normalizeSystemValue(String system) {
+    if (system != null && system.startsWith("https://")) {
+      String alt = FhirUtil.getAlternateProtocolUrl(system);
+      if (alt != null) {
+        return alt;
+      }
+    }
+    return system;
   }
 
   /**

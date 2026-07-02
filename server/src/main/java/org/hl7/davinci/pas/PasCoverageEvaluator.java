@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hl7.davinci.common.CoverageInfoUtil;
+import org.hl7.davinci.common.FhirCodeExtractor;
+import org.hl7.davinci.common.OrderResourceTypes;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -16,7 +18,10 @@ import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.RequestGroup;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.SimpleQuantity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -26,6 +31,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class PasCoverageEvaluator {
+
+  private static final Logger logger = LoggerFactory.getLogger(PasCoverageEvaluator.class);
 
   private final PlanDefinitionService planDefinitionService;
 
@@ -81,6 +88,8 @@ public class PasCoverageEvaluator {
    *
    * When multiple PlanDefinitions match, the most restrictive decision wins:
    * A2 (Not Certified) > A4 (Pended) > A1 (Certified) > A3 (Not Required).
+   * Plans triggered exclusively by order-dispatch are excluded unless the
+   * order in the request bundle shows dispatch-stage evidence.
    *
    * @param orderCode the service/procedure code from the Claim item
    * @param payorIdentifiers identifiers from the focal Coverage.payor
@@ -95,6 +104,11 @@ public class PasCoverageEvaluator {
 
     List<PlanDefinition> plans = planDefinitionService.findPlanDefinitions(
         orderCode, payorIdentifiers, null);
+
+    // Filter dispatch plans as needed
+    planDefinitionService
+        .removeDispatchPlansLackingEvidence(plans, findOrderResource(dataBundle, orderCode))
+        .forEach(logger::info);
 
     if (plans.isEmpty()) {
       return new CoverageDecision(REVIEW_CODE_A3, "Not Required", false);
@@ -124,6 +138,23 @@ public class PasCoverageEvaluator {
     }
 
     return best;
+  }
+
+  /**
+   * Finds the order resource in the request bundle matching the claim item's
+   * product/service code, providing the status/performer evidence for
+   * dispatch-stage gating.
+   */
+  private Resource findOrderResource(Bundle bundle, Coding orderCode) {
+    if (bundle == null) {
+      return null;
+    }
+    return bundle.getEntry().stream()
+        .map(Bundle.BundleEntryComponent::getResource)
+        .filter(OrderResourceTypes::isSupported)
+        .filter(resource -> FhirCodeExtractor.hasMatchingCode(resource, orderCode))
+        .findFirst()
+        .orElse(null);
   }
 
   /**

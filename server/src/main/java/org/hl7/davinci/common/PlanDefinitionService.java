@@ -1,6 +1,7 @@
 package org.hl7.davinci.common;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.hl7.fhir.instance.model.api.IBaseBackboneElement;
@@ -12,8 +13,10 @@ import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.PlanDefinition;
+import org.hl7.fhir.r4.model.Property;
 import org.hl7.fhir.r4.model.RequestGroup;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.TriggerDefinition;
 import org.hl7.fhir.r4.model.TriggerDefinition.TriggerType;
 import org.opencds.cqf.fhir.cr.hapi.common.IPlanDefinitionProcessorFactory;
 import org.opencds.cqf.fhir.cr.plandefinition.PlanDefinitionProcessor;
@@ -136,6 +139,74 @@ public class PlanDefinitionService {
     return !daoRegistry.getResourceDao(PlanDefinition.class)
         .searchForIds(searchParams, new SystemRequestDetails())
         .isEmpty();
+  }
+
+  /**
+   * Removes plans that apply exclusively to the order-dispatch stage unless the
+   * order shows evidence of having reached dispatch: a non-draft status and a
+   * named performer (or supplier). A null order provides no evidence, so
+   * dispatch-only plans are always removed. Returns one note per removed plan.
+   */
+  public List<String> removeDispatchPlansLackingEvidence(Collection<PlanDefinition> plans, Resource order) {
+    if (order != null && !isDraftOrder(order) && hasPerformer(order)) {
+      return List.of();
+    }
+    String orderLabel = order != null
+        ? order.getIdElement().toUnqualifiedVersionless().getValue()
+        : "(no order resource)";
+    List<String> notes = new ArrayList<>();
+    plans.removeIf(plan -> {
+      if (!isDispatchOnly(plan)) {
+        return false;
+      }
+      notes.add("Excluding PlanDefinition " + plan.getIdElement().getIdPart()
+          + " for order " + orderLabel
+          + ": no evidence the order-dispatch stage has been reached"
+          + " (order must be non-draft and name a performer)");
+      return true;
+    });
+    return notes;
+  }
+
+  private static boolean isDraftOrder(Resource order) {
+    Property status = order.getChildByName("status");
+    return status != null && !status.getValues().isEmpty()
+        && "draft".equals(status.getValues().get(0).primitiveValue());
+  }
+
+  /**
+   * True when the order names a fulfilling party: performer, or supplier for
+   * SupplyRequest. Iterates children because getChildByName throws for
+   * properties a resource type does not define.
+   */
+  private static boolean hasPerformer(Resource order) {
+    for (Property property : order.children()) {
+      String name = property.getName();
+      if (("performer".equals(name) || "supplier".equals(name))
+          && !property.getValues().isEmpty()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * True when every named-event trigger on the plan is order-dispatch.
+   * Plans without named-event triggers are not considered dispatch-only.
+   */
+  private static boolean isDispatchOnly(PlanDefinition plan) {
+    boolean sawNamedEvent = false;
+    for (PlanDefinition.PlanDefinitionActionComponent action : plan.getAction()) {
+      for (TriggerDefinition trigger : action.getTrigger()) {
+        if (trigger.hasType() && trigger.getType() == TriggerType.NAMEDEVENT) {
+          sawNamedEvent = true;
+          if (!"order-dispatch".equals(trigger.getName())) {
+            return false;
+          }
+        }
+      }
+    }
+    return sawNamedEvent;
   }
 
   /**

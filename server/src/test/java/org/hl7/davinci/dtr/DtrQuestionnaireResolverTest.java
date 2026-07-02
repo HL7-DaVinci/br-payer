@@ -34,9 +34,10 @@ import org.hl7.fhir.r4.model.SupplyRequest;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.Questionnaire;
+import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.TriggerDefinition;
 import org.hl7.fhir.r4.model.RequestGroup;
-import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -93,6 +94,10 @@ class DtrQuestionnaireResolverTest {
     lenient().when(daoRegistry.getResourceDao("Library")).thenReturn(libraryDao);
     lenient().when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
         .thenReturn(new Patient().setId("Patient/pat-1"));
+    // Dispatch-stage filtering lives in PlanDefinitionService; run the real
+    // implementation so resolver tests exercise the combined behavior
+    lenient().when(planDefinitionService.removeDispatchPlansLackingEvidence(any(), any()))
+        .thenCallRealMethod();
   }
 
   @Test
@@ -465,6 +470,150 @@ class DtrQuestionnaireResolverTest {
 
     // No resource type DAOs should be queried for clinical data
     verify(procedureDao, never()).searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class));
+  }
+
+  @Test
+  @DisplayName("Draft order excludes PlanDefinitions triggered only by order-dispatch")
+  void draftOrder_excludesDispatchOnlyPlans() {
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-draft");
+    order.setStatus(DeviceRequest.DeviceRequestStatus.DRAFT);
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition signPlan = planDefinitionWithLibrary("pd-sign", "SignRule");
+    signPlan.addAction().addTrigger()
+        .setType(TriggerDefinition.TriggerType.NAMEDEVENT)
+        .setName("order-sign");
+    PlanDefinition dispatchPlan = planDefinitionWithLibrary("pd-dispatch", "DispatchRule");
+    dispatchPlan.addAction().addTrigger()
+        .setType(TriggerDefinition.TriggerType.NAMEDEVENT)
+        .setName("order-dispatch");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(signPlan, dispatchPlan));
+    mockLibraryWithDataRequirements("SignRule");
+
+    String canonical = "http://example.org/Questionnaire/sign-check";
+    when(planDefinitionService.applyPlanDefinition(eq(signPlan), eq("pat-1"), any(Bundle.class), isNull()))
+        .thenReturn(requestGroupWithQuestionnaires(canonical));
+
+    Questionnaire questionnaire = questionnaire("q-sign", canonical, "1.0.0");
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(questionnaire));
+
+    DtrQuestionnaireResolver.ResolutionResult result = resolver.resolve(
+        null, List.of(order), coverageWithContainedPayor());
+
+    assertEquals(1, result.questionnaires().size());
+    assertEquals(canonical + "|1.0.0", result.questionnaires().get(0).canonical());
+    verify(planDefinitionService, never()).applyPlanDefinition(eq(dispatchPlan), any(), any(), any());
+    assertTrue(result.warnings().stream()
+        .anyMatch(w -> w.contains("pd-dispatch") && w.contains("order-dispatch stage")));
+  }
+
+  @Test
+  @DisplayName("Questionnaire with completed QuestionnaireResponse on file for the order is excluded")
+  @SuppressWarnings({ "rawtypes", "unchecked" })
+  void completedResponseOnFile_excludesQuestionnaire() {
+    IFhirResourceDao qrDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao(QuestionnaireResponse.class)).thenReturn(qrDao);
+
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-satisfied");
+    order.setStatus(DeviceRequest.DeviceRequestStatus.ACTIVE);
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition plan = planDefinitionWithLibrary("pd-satisfied", "SatisfiedRule");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(plan));
+    mockLibraryWithDataRequirements("SatisfiedRule");
+
+    String canonical = "http://example.org/Questionnaire/satisfied-check";
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+        .thenReturn(requestGroupWithQuestionnaires(canonical));
+
+    Questionnaire questionnaire = questionnaire("q-satisfied", canonical, "1.0.0");
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(questionnaire));
+
+    QuestionnaireResponse completedQr = new QuestionnaireResponse();
+    completedQr.setId("QuestionnaireResponse/qr-1");
+    completedQr.setStatus(QuestionnaireResponse.QuestionnaireResponseStatus.COMPLETED);
+    completedQr.setQuestionnaire(canonical + "|1.0.0");
+    completedQr.addExtension(new Extension(DtrConstants.QR_CONTEXT_EXT,
+        new Reference("DeviceRequest/dr-satisfied")));
+    when(qrDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(completedQr));
+
+    DtrQuestionnaireResolver.ResolutionResult result = resolver.resolve(
+        null, List.of(order), coverageWithContainedPayor());
+
+    assertTrue(result.questionnaires().isEmpty());
+    assertTrue(result.warnings().stream()
+        .anyMatch(w -> w.contains("already on file")));
+  }
+
+  @Test
+  @DisplayName("Active order without performer excludes dispatch-only PlanDefinitions")
+  void activeOrderWithoutPerformer_excludesDispatchOnlyPlans() {
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-active");
+    order.setStatus(DeviceRequest.DeviceRequestStatus.ACTIVE);
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition dispatchPlan = planDefinitionWithLibrary("pd-dispatch", "DispatchRule");
+    dispatchPlan.addAction().addTrigger()
+        .setType(TriggerDefinition.TriggerType.NAMEDEVENT)
+        .setName("order-dispatch");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(dispatchPlan));
+
+    DtrQuestionnaireResolver.ResolutionResult result = resolver.resolve(
+        null, List.of(order), coverageWithContainedPayor());
+
+    assertTrue(result.questionnaires().isEmpty());
+    verify(planDefinitionService, never()).applyPlanDefinition(any(), any(), any(), any());
+    assertTrue(result.warnings().stream()
+        .anyMatch(w -> w.contains("pd-dispatch") && w.contains("order-dispatch stage")));
+  }
+
+  @Test
+  @DisplayName("Active order with performer includes dispatch-only PlanDefinitions")
+  void activeOrderWithPerformer_includesDispatchOnlyPlans() {
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-dispatched");
+    order.setStatus(DeviceRequest.DeviceRequestStatus.ACTIVE);
+    order.setPerformer(new Reference("Organization/dme-supplier-1"));
+    order.setCode(new CodeableConcept().addCoding(new Coding()
+        .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
+        .setCode("E0424")));
+
+    PlanDefinition dispatchPlan = planDefinitionWithLibrary("pd-dispatch", "DispatchRule");
+    dispatchPlan.addAction().addTrigger()
+        .setType(TriggerDefinition.TriggerType.NAMEDEVENT)
+        .setName("order-dispatch");
+    when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
+        .thenReturn(List.of(dispatchPlan));
+    mockLibraryWithDataRequirements("DispatchRule");
+
+    String canonical = "http://example.org/Questionnaire/dispatch-check";
+    when(planDefinitionService.applyPlanDefinition(eq(dispatchPlan), eq("pat-1"), any(Bundle.class), isNull()))
+        .thenReturn(requestGroupWithQuestionnaires(canonical));
+
+    Questionnaire questionnaire = questionnaire("q-dispatch", canonical, "1.0.0");
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(questionnaire));
+
+    DtrQuestionnaireResolver.ResolutionResult result = resolver.resolve(
+        null, List.of(order), coverageWithContainedPayor());
+
+    assertEquals(1, result.questionnaires().size());
+    assertEquals(canonical + "|1.0.0", result.questionnaires().get(0).canonical());
   }
 
   private Coverage coverageWithContainedPayor() {

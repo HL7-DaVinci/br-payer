@@ -81,34 +81,15 @@
       "type": "group",
       "item": [
         {
-          "linkId": "1.1",
-          "text": "Last Name",
-          "type": "string",
-          "required": true
-        },
-        {
-          "linkId": "1.2",
-          "text": "Fist Name",
-          "type": "string",
-          "required": true
-        },
-        {
-          "linkId": "1.3",
-          "text": "Middle Name",
-          "type": "string",
-          "required": false
-        },
-        {
-          "linkId": "1.gender",
-          "text": "What is this person's gender?",
-          "type": "choice",
-          "required": true,
-          "answerValueSet": "http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype"
-        },
-        {
-          "linkId": "1.4",
-          "text": "Date Of Birth",
-          "type": "date"
+          "linkId": "1.demographics",
+          "text": "Patient Demographics",
+          "type": "display",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+              "valueCanonical": "http://example.org/fhir/Questionnaire/PatientInfo"
+            }
+          ]
         },
         {
           "extension": [

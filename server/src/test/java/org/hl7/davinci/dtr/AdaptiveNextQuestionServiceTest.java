@@ -225,7 +225,7 @@ class AdaptiveNextQuestionServiceTest {
           .setText("Patient Information")
           .setType(Questionnaire.QuestionnaireItemType.GROUP);
       group.addItem()
-          .setLinkId("1.PBI.2")
+          .setLinkId("1.PBI.1")
           .setText("First Name")
           .setType(Questionnaire.QuestionnaireItemType.STRING);
 
@@ -234,7 +234,7 @@ class AdaptiveNextQuestionServiceTest {
 
       QuestionnaireResponse populated = new QuestionnaireResponse();
       populated.addItem()
-          .setLinkId("1.PBI.2")
+          .setLinkId("1.PBI.1")
           .addAnswer()
           .setValue(new StringType("Jane"));
 
@@ -249,7 +249,7 @@ class AdaptiveNextQuestionServiceTest {
           .get(0).getResource();
 
       QuestionnaireResponseItemComponent firstName =
-          findItemByLinkId(outputQr.getItem(), "1.PBI.2");
+          findItemByLinkId(outputQr.getItem(), "1.PBI.1");
       assertNotNull(firstName, "Pre-populated first name should be present");
       assertTrue(firstName.hasAnswer());
       assertEquals("Jane", ((StringType) firstName.getAnswerFirstRep().getValue()).getValue());
@@ -266,20 +266,20 @@ class AdaptiveNextQuestionServiceTest {
           .setText("Patient Information")
           .setType(Questionnaire.QuestionnaireItemType.GROUP);
       group.addItem()
-          .setLinkId("1.PBI.2")
+          .setLinkId("1.PBI.1")
           .setText("First Name")
           .setType(Questionnaire.QuestionnaireItemType.STRING);
 
       QuestionnaireResponse qr = buildQrWithEmptyContainedQ();
       qr.setSubject(new Reference("Patient/example"));
       qr.addItem()
-          .setLinkId("1.PBI.2")
+          .setLinkId("1.PBI.1")
           .addAnswer()
           .setValue(new StringType("Custom"));
 
       QuestionnaireResponse populated = new QuestionnaireResponse();
       populated.addItem()
-          .setLinkId("1.PBI.2")
+          .setLinkId("1.PBI.1")
           .addAnswer()
           .setValue(new StringType("Jane"));
 
@@ -294,7 +294,7 @@ class AdaptiveNextQuestionServiceTest {
           .get(0).getResource();
 
       QuestionnaireResponseItemComponent firstName =
-          findItemByLinkId(outputQr.getItem(), "1.PBI.2");
+          findItemByLinkId(outputQr.getItem(), "1.PBI.1");
       assertNotNull(firstName);
       assertEquals("Custom", ((StringType) firstName.getAnswerFirstRep().getValue()).getValue());
     }
@@ -436,7 +436,7 @@ class AdaptiveNextQuestionServiceTest {
           .setText("Patient Information")
           .setType(Questionnaire.QuestionnaireItemType.GROUP);
       group.addItem()
-          .setLinkId("1.PBI.2")
+          .setLinkId("1.PBI.1")
           .setText("First Name")
           .setType(Questionnaire.QuestionnaireItemType.STRING);
 
@@ -448,7 +448,7 @@ class AdaptiveNextQuestionServiceTest {
           .setLinkId("1")
           .setText("Patient Information");
       populatedGroup.addItem()
-          .setLinkId("1.PBI.2")
+          .setLinkId("1.PBI.1")
           .addAnswer()
           .setValue(new StringType("Jane"));
 
@@ -469,14 +469,14 @@ class AdaptiveNextQuestionServiceTest {
       assertNotNull(rootGroup, "Parent group item should be present in the response");
 
       QuestionnaireResponseItemComponent nestedFirstName = rootGroup.getItem().stream()
-          .filter(item -> "1.PBI.2".equals(item.getLinkId()))
+          .filter(item -> "1.PBI.1".equals(item.getLinkId()))
           .findFirst()
           .orElse(null);
       assertNotNull(nestedFirstName, "Nested pre-populated item should remain under its parent");
       assertEquals("Jane", ((StringType) nestedFirstName.getAnswerFirstRep().getValue()).getValue());
 
       boolean firstNameAtRoot = outputQr.getItem().stream()
-          .anyMatch(item -> "1.PBI.2".equals(item.getLinkId()));
+          .anyMatch(item -> "1.PBI.1".equals(item.getLinkId()));
       assertFalse(firstNameAtRoot,
           "Nested pre-populated item should not be appended at the QuestionnaireResponse root");
     }

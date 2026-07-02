@@ -164,4 +164,37 @@ class FhirCodeExtractorTest {
       assertEquals("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", codes.get(0).getSystem());
     }
   }
+
+  @Nested
+  @DisplayName("hasMatchingCode")
+  class HasMatchingCodeTests {
+
+    private final DeviceRequest request =
+        CdsHooksTestUtils.createTestDeviceRequest("dr-1", "E0424", "patient-1");
+
+    @Test
+    @DisplayName("Matches on system and code, normalizing https to http on either side")
+    void matchesSystemAndCode_withNormalization() {
+      assertTrue(FhirCodeExtractor.hasMatchingCode(request,
+          new Coding("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", "E0424", null)));
+      assertTrue(FhirCodeExtractor.hasMatchingCode(request,
+          new Coding("https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", "E0424", null)));
+    }
+
+    @Test
+    @DisplayName("Rejects same code under a different system")
+    void rejectsDifferentSystem() {
+      assertFalse(FhirCodeExtractor.hasMatchingCode(request,
+          new Coding("http://other.example.org", "E0424", null)));
+    }
+
+    @Test
+    @DisplayName("Rejects different code and null/empty targets")
+    void rejectsDifferentCodeAndNullTarget() {
+      assertFalse(FhirCodeExtractor.hasMatchingCode(request,
+          new Coding("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", "E9999", null)));
+      assertFalse(FhirCodeExtractor.hasMatchingCode(request, null));
+      assertFalse(FhirCodeExtractor.hasMatchingCode(request, new Coding()));
+    }
+  }
 }
