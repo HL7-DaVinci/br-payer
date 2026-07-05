@@ -18,6 +18,7 @@ import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Parameters;
@@ -32,7 +33,9 @@ import org.junit.jupiter.api.Test;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
+import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.jpa.starter.AppProperties;
+import ca.uhn.fhir.rest.param.UriParam;
 
 class PasResponseBuilderTest {
 
@@ -120,6 +123,26 @@ class PasResponseBuilderTest {
     // Pended items do not have preAuthPeriod
     assertNull(item.getExtensionByUrl(PasConstants.ITEM_PREAUTH_PERIOD),
         "Pended items must not have itemPreAuthPeriod");
+  }
+
+  @Test
+  void buildSubmitResponse_pended_usesCompleteOutcomeWithA4ReviewAction() {
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+    assertEquals(ClaimResponse.RemittanceOutcome.COMPLETE, cr.getOutcome());
+
+    ClaimResponse.ItemComponent item = cr.getItem().get(0);
+    Extension reviewAction = item.getAdjudication().get(0).getExtensionByUrl(PasConstants.REVIEW_ACTION);
+    assertNotNull(reviewAction);
+    Extension codeExt = reviewAction.getExtensionByUrl(PasConstants.REVIEW_ACTION_CODE);
+    assertNotNull(codeExt);
+    CodeableConcept cc = (CodeableConcept) codeExt.getValue();
+    assertEquals("A4", cc.getCodingFirstRep().getCode());
   }
 
   @Test
@@ -793,13 +816,88 @@ class PasResponseBuilderTest {
     assertTrue(commReq.getPayload().stream().anyMatch(p -> p.getContent() instanceof StringType
         && "102089-0".equals(((StringType) p.getContent()).getValue())),
         "questionnaire request conveys the 102089-0 LOINC marker");
-    // the questionnaire item carries only the DTR context trace number, not the echoed request trace
+    // the provider-echoed request trace is retained; the payer questionnaire trace is appended
     List<Extension> trns =
         cr.getItem().get(0).getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER);
-    assertEquals(1, trns.size());
-    Identifier trn = (Identifier) trns.get(0).getValue();
-    assertEquals(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM, trn.getSystem());
-    assertEquals("q1", trn.getValue());
+    assertEquals(2, trns.size(), "echoed request TRN must survive alongside the payer TRN");
+    Identifier echoed = (Identifier) trns.get(0).getValue();
+    assertEquals("provider-trace", echoed.getValue(), "provider-echoed request TRN must be retained");
+    Identifier payerTrn = (Identifier) trns.get(1).getValue();
+    assertEquals(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM, payerTrn.getSystem());
+    assertEquals("q1", payerTrn.getValue(), "payer questionnaire TRN is appended, correlating to the CR identifier");
+    assertEquals("q1", commReq.getIdentifierFirstRep().getValue(),
+        "CommunicationRequest identifier equals the payer item TRN it correlates to");
+  }
+
+  @Test
+  void buildSubmitResponse_pendedWithTwoQuestionnaires_emitsTwoTrnsAndTwoCommunicationRequests() {
+    Questionnaire q1 = new Questionnaire();
+    q1.setId("q1");
+    q1.setUrl("http://example.org/Questionnaire/q1");
+    Questionnaire q2 = new Questionnaire();
+    q2.setId("q2");
+    q2.setUrl("http://example.org/Questionnaire/q2");
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    IFhirResourceDao qDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(qDao);
+    when(qDao.searchForResources(any(), any())).thenAnswer(inv -> {
+      SearchParameterMap map = inv.getArgument(0);
+      String url = ((UriParam) map.get("url").get(0).get(0)).getValue();
+      if (url.endsWith("q1")) return List.of(q1);
+      if (url.endsWith("q2")) return List.of(q2);
+      return List.of();
+    });
+
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null,
+            "clinical",
+            List.of("http://example.org/Questionnaire/q1", "http://example.org/Questionnaire/q2")));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    // Each pended questionnaire canonical becomes its own item trace-number repetition
+    List<Extension> trns = cr.getItem().get(0).getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER);
+    assertEquals(2, trns.size(), "each questionnaire canonical yields its own item TRN");
+    List<String> trnValues = trns.stream()
+        .map(e -> ((Identifier) e.getValue()).getValue()).toList();
+    assertTrue(trnValues.contains("q1") && trnValues.contains("q2"),
+        "both questionnaire logical ids are present as item TRNs");
+
+    // Each questionnaire canonical becomes its own 102089-0 CommunicationRequest
+    List<CommunicationRequest> commReqs = response.getEntry().stream()
+        .map(Bundle.BundleEntryComponent::getResource)
+        .filter(CommunicationRequest.class::isInstance)
+        .map(CommunicationRequest.class::cast).toList();
+    assertEquals(2, commReqs.size(), "two questionnaires produce two CommunicationRequests");
+    List<String> crIdentifiers = commReqs.stream()
+        .map(c -> c.getIdentifierFirstRep().getValue()).toList();
+    assertTrue(crIdentifiers.contains("q1") && crIdentifiers.contains("q2"),
+        "each CommunicationRequest identifier equals its questionnaire's item TRN");
+    assertEquals(2, cr.getCommunicationRequest().size(),
+        "ClaimResponse references both CommunicationRequests");
+  }
+
+  @Test
+  void buildSubmitResponse_pendedWithQuestionnaire_skipsCommunicationRequestWhenTrnUnresolvable() {
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    IFhirResourceDao qDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(qDao);
+    when(qDao.searchForResources(any(), any())).thenReturn(List.of());
+
+    Claim claim = buildClaim();
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null,
+            "clinical", List.of("http://example.org/Questionnaire/missing")));
+
+    Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
+
+    assertNull(firstCommunicationRequest(response),
+        "unactionable 102089-0 request must be skipped when no TRN is resolvable");
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+    assertTrue(cr.getCommunicationRequest().isEmpty(),
+        "ClaimResponse.communicationRequest must not reference a skipped request");
   }
 
   @Test
@@ -829,6 +927,27 @@ class PasResponseBuilderTest {
     ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
     assertTrue(cr.getCommunicationRequest().isEmpty());
     assertNull(firstCommunicationRequest(response));
+  }
+
+  @Test
+  void buildNotificationResponseBundle_includesReferencedCommunicationRequest() {
+    ClaimResponse cr = new ClaimResponse();
+    cr.setId("cr-1");
+    cr.setStatus(ClaimResponse.ClaimResponseStatus.ACTIVE);
+    cr.addCommunicationRequest(new Reference("CommunicationRequest/comm-1"));
+
+    CommunicationRequest commReq = new CommunicationRequest();
+    commReq.setId("comm-1");
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    IFhirResourceDao commReqDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao("CommunicationRequest")).thenReturn(commReqDao);
+    when(commReqDao.read(any(IdType.class), any())).thenReturn(commReq);
+
+    Bundle bundle = builder.buildNotificationResponseBundle(cr, daoRegistry);
+
+    assertTrue(bundle.getEntry().stream()
+        .anyMatch(e -> e.getResource() instanceof CommunicationRequest),
+        "notification bundle must include the referenced CommunicationRequest");
   }
 
   private static CommunicationRequest firstCommunicationRequest(Bundle bundle) {

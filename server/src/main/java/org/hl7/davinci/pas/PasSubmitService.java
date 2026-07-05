@@ -2,9 +2,11 @@ package org.hl7.davinci.pas;
 
 import static org.hl7.davinci.common.FhirConstants.*;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.common.PayorIdentifierUtil;
@@ -15,10 +17,16 @@ import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.PositiveIntType;
+import org.hl7.fhir.r4.model.Questionnaire;
+import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.StringType;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 
@@ -105,6 +113,9 @@ public class PasSubmitService {
       case UPDATE -> handleUpdate(claim, payorIdentifiers, coverage, patientId, requestBundle);
       case INITIAL -> evaluateAllItems(claim, payorIdentifiers, coverage, patientId, requestBundle);
     };
+    result = new SubmissionResult(
+        applyAttachedDocumentation(result.itemDecisions(), claim, requestBundle),
+        result.priorClaimResponse());
 
     String authPrefix = pasProperties.authorizationNumberPrefix();
 
@@ -118,7 +129,7 @@ public class PasSubmitService {
     String serverClaimId = claimOutcome.getId().getIdPart();
 
     if (result.priorClaimResponse() != null) {
-      return persistUpdatePath(result, authPrefix, requestBundle);
+      return persistUpdatePath(claim, result, authPrefix, requestBundle);
     }
     return persistCreatePath(claim, requestBundle, result, serverClaimId, authPrefix);
   }
@@ -136,10 +147,8 @@ public class PasSubmitService {
 
     boolean anyPended = result.itemDecisions().values().stream()
         .anyMatch(CoverageDecision::isPended);
-    // A pend that requests documentation (it carries a CommunicationRequest) is resolved when the
-    // requested attachment arrives via $submit-attachment, so it is not armed on the auto-resolution
-    // timer. Pends without a documentation request still resolve on the timer.
-    boolean awaitsDocumentation = anyPended && claimResponse.hasCommunicationRequest();
+    boolean awaitsDocumentation = persistDocumentationRequestsAndAwaits(
+        responseBundle, claimResponse, anyPended);
     if (anyPended) {
       claimResponse.getMeta().addTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE, "Pended Resolution");
     }
@@ -169,7 +178,8 @@ public class PasSubmitService {
    * Update path (update/cancel): modifies the existing ClaimResponse in-place via .update().
    * Maintains the pended scheduler tag based on post-update item state.
    */
-  private Bundle persistUpdatePath(SubmissionResult result, String authPrefix, Bundle requestBundle) {
+  private Bundle persistUpdatePath(Claim claim, SubmissionResult result, String authPrefix,
+      Bundle requestBundle) {
     ClaimResponse existingCr = result.priorClaimResponse();
     boolean hadPendedTag = existingCr.getMeta().getTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE) != null;
     boolean resolvedPendedAuthorization = false;
@@ -192,6 +202,15 @@ public class PasSubmitService {
 
     responseBuilder.applyItemDecisions(existingCr, result.itemDecisions(), authPrefix);
 
+    // A re-evaluated item that pends with a new documentation need must get the same
+    // CommunicationRequest treatment as the create path, not just the existing CR's prior state.
+    Bundle responseBundle = responseBuilder.wrapInResponseBundle(existingCr, requestBundle);
+    if (anyStillPended) {
+      responseBuilder.addCommunicationRequests(responseBundle, claim, existingCr, result.itemDecisions());
+    }
+    boolean awaitsDocumentation = persistDocumentationRequestsAndAwaits(
+        responseBundle, existingCr, anyStillPended);
+
     var crDao = daoRegistry.getResourceDao(ClaimResponse.class);
     crDao.update(existingCr, new SystemRequestDetails());
 
@@ -207,7 +226,6 @@ public class PasSubmitService {
     String crId = existingCr.getIdElement().getIdPart();
     // A still-pended state that requested documentation (it carries a CommunicationRequest) resolves on
     // attachment arrival via $submit-attachment, not the timer, mirroring the create path.
-    boolean awaitsDocumentation = anyStillPended && existingCr.hasCommunicationRequest();
     if (anyStillPended && !awaitsDocumentation) {
       resolutionService.scheduleResolution(crId);
     } else {
@@ -218,7 +236,200 @@ public class PasSubmitService {
       notificationService.dispatchResolvedClaimResponse(crId);
     }
 
-    return responseBuilder.wrapInResponseBundle(existingCr, requestBundle);
+    return responseBundle;
+  }
+
+  /**
+   * Persists any CommunicationRequests carried in the response bundle and computes whether the
+   * pended state awaits attachment-driven resolution (excluded from the auto-resolve timer) rather
+   * than the straightforward pend case. Shared by the create and update paths so a re-evaluated
+   * pend that newly needs documentation is treated the same as a freshly-pended one.
+   */
+  private boolean persistDocumentationRequestsAndAwaits(Bundle responseBundle,
+      ClaimResponse claimResponse, boolean isPended) {
+    persistCommunicationRequests(responseBundle, claimResponse);
+    return isPended && claimResponse.hasCommunicationRequest();
+  }
+
+  /**
+   * Persists each CommunicationRequest carried in the response bundle so its dangling urn:uuid
+   * reference becomes a resolvable server id. When the ClaimResponse already references an
+   * equivalent OPEN documentation request (same questionnaire TRN, or same attachment codes and
+   * service line), that request is reused instead of minting a duplicate, so repeated pended
+   * updates do not accumulate identical outstanding requests. A completed request never blocks
+   * a new one: the payer may legitimately re-request documentation after an update.
+   */
+  private void persistCommunicationRequests(Bundle responseBundle, ClaimResponse claimResponse) {
+    Map<String, String> referenceRewrites = new LinkedHashMap<>();
+    Map<String, CommunicationRequest> openExisting = loadOpenDocumentationRequestsByKey(claimResponse);
+
+    for (Bundle.BundleEntryComponent entry : responseBundle.getEntry()) {
+      if (!(entry.getResource() instanceof CommunicationRequest communicationRequest)
+          || (entry.getFullUrl() != null && !entry.getFullUrl().startsWith("urn:uuid:"))) {
+        continue;
+      }
+      String oldFullUrl = entry.getFullUrl();
+
+      String key = documentationRequestKey(communicationRequest);
+      CommunicationRequest existing = key != null ? openExisting.get(key) : null;
+      if (existing != null) {
+        entry.setResource(existing);
+        String existingId = existing.getIdElement().getIdPart();
+        if (oldFullUrl != null) {
+          referenceRewrites.put(oldFullUrl, "CommunicationRequest/" + existingId);
+        }
+        String existingUrl = FhirUtil.buildVersionlessResourceUrl(
+            serverBase, "CommunicationRequest", existingId);
+        if (existingUrl != null) {
+          entry.setFullUrl(existingUrl);
+        }
+        continue;
+      }
+
+      communicationRequest.setId((String) null);
+      DaoMethodOutcome outcome = daoRegistry.getResourceDao(CommunicationRequest.class)
+          .create(communicationRequest, new SystemRequestDetails());
+      String persistedId = outcome.getId().getIdPart();
+      communicationRequest.setId(persistedId);
+
+      if (oldFullUrl != null) {
+        referenceRewrites.put(oldFullUrl, "CommunicationRequest/" + persistedId);
+      }
+      String fullUrl = FhirUtil.buildVersionlessResourceUrl(
+          serverBase, "CommunicationRequest", persistedId);
+      if (fullUrl != null) {
+        entry.setFullUrl(fullUrl);
+      }
+    }
+
+    for (Reference ref : claimResponse.getCommunicationRequest()) {
+      String rewrite = referenceRewrites.get(ref.getReference());
+      if (rewrite != null) {
+        ref.setReference(rewrite);
+      }
+    }
+
+    Set<String> seenReferences = new HashSet<>();
+    claimResponse.getCommunicationRequest().removeIf(ref ->
+        ref.hasReference() && !seenReferences.add(ref.getReference()));
+  }
+
+  /**
+   * Loads the ClaimResponse's already-persisted, still-open documentation requests keyed for
+   * equivalence matching. Unresolvable references are skipped.
+   */
+  private Map<String, CommunicationRequest> loadOpenDocumentationRequestsByKey(ClaimResponse claimResponse) {
+    Map<String, CommunicationRequest> byKey = new LinkedHashMap<>();
+    var dao = daoRegistry.getResourceDao(CommunicationRequest.class);
+    for (Reference ref : claimResponse.getCommunicationRequest()) {
+      String reference = ref.getReference();
+      if (reference == null || !reference.startsWith("CommunicationRequest/")) {
+        continue;
+      }
+      try {
+        CommunicationRequest cr = dao.read(new IdType(reference), new SystemRequestDetails());
+        if (cr.getStatus() != CommunicationRequest.CommunicationRequestStatus.COMPLETED) {
+          String key = documentationRequestKey(cr);
+          if (key != null) {
+            byKey.putIfAbsent(key, cr);
+          }
+        }
+      } catch (RuntimeException e) {
+        // Skip references that no longer resolve; they cannot be reused.
+      }
+    }
+    return byKey;
+  }
+
+  /**
+   * Equivalence key for a documentation request: questionnaire requests are identified by their
+   * TRN identifier (stable per questionnaire), attachment-code requests by payload codes plus
+   * service line (their identifier is a random trace value).
+   */
+  private String documentationRequestKey(CommunicationRequest cr) {
+    List<String> codes = cr.getPayload().stream()
+        .map(p -> p.getContent() instanceof StringType s ? s.getValue() : null)
+        .filter(c -> c != null && !c.isBlank())
+        .sorted()
+        .toList();
+    if (codes.isEmpty()) {
+      return null;
+    }
+    Extension lineExt = cr.getExtensionByUrl(PasConstants.EXT_SERVICE_LINE_NUMBER);
+    String line = lineExt != null && lineExt.getValue() instanceof PositiveIntType p
+        ? String.valueOf(p.getValue())
+        : "";
+    if (codes.contains(PasConstants.LOINC_QUESTIONNAIRE_REQUEST)) {
+      String trn = cr.getIdentifierFirstRep().getValue();
+      return trn == null ? null : "questionnaire|" + line + "|" + trn;
+    }
+    return "code|" + line + "|" + String.join(",", codes);
+  }
+
+  // ===== Attached Documentation =====
+
+  /**
+   * Downgrades pended documentation decisions whose required questionnaires are already
+   * answered by completed QuestionnaireResponses attached via Claim.supportingInfo
+   * (DTR intendedUse=withpa). The PAS additionalInformation slice exists to satisfy
+   * documentation at submit time, so a satisfied requirement is certified instead of
+   * re-requested. Questionnaires are compared through this server's catalog so
+   * versioned and unversioned canonicals match.
+   */
+  Map<Integer, CoverageDecision> applyAttachedDocumentation(
+      Map<Integer, CoverageDecision> decisions, Claim claim, Bundle requestBundle) {
+    Set<String> attachedKeys = attachedQuestionnaireKeys(claim, requestBundle);
+    if (attachedKeys.isEmpty()) {
+      return decisions;
+    }
+    Map<Integer, CoverageDecision> adjusted = new LinkedHashMap<>();
+    for (Map.Entry<Integer, CoverageDecision> entry : decisions.entrySet()) {
+      adjusted.put(entry.getKey(),
+          satisfiedByAttachedDocumentation(entry.getValue(), attachedKeys)
+              ? new CoverageDecision(REVIEW_CODE_A1, "Certified in total", false)
+              : entry.getValue());
+    }
+    return adjusted;
+  }
+
+  private boolean satisfiedByAttachedDocumentation(CoverageDecision decision, Set<String> attachedKeys) {
+    if (!REVIEW_CODE_A4.equals(decision.reviewActionCode())
+        || !decision.hasAdditionalDocumentationInfo()) {
+      return false;
+    }
+    // Requested non-questionnaire attachment codes cannot be satisfied by a QuestionnaireResponse.
+    if (!decision.requestedAttachmentCodes().isEmpty()) {
+      return false;
+    }
+    return decision.questionnaireUrls().stream()
+        .map(this::questionnaireKey)
+        .allMatch(key -> key != null && attachedKeys.contains(key));
+  }
+
+  private Set<String> attachedQuestionnaireKeys(Claim claim, Bundle requestBundle) {
+    Set<String> keys = new HashSet<>();
+    for (Claim.SupportingInformationComponent info : claim.getSupportingInfo()) {
+      if (!(info.getValue() instanceof Reference ref) || !ref.hasReference()) {
+        continue;
+      }
+      QuestionnaireResponse qr = ResourceResolver.findInBundle(
+          ref.getReference(), QuestionnaireResponse.class, requestBundle);
+      if (qr == null
+          || qr.getStatus() != QuestionnaireResponse.QuestionnaireResponseStatus.COMPLETED
+          || !qr.hasQuestionnaire()) {
+        continue;
+      }
+      String key = questionnaireKey(qr.getQuestionnaire());
+      if (key != null) {
+        keys.add(key);
+      }
+    }
+    return keys;
+  }
+
+  private String questionnaireKey(String canonical) {
+    Questionnaire questionnaire = FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonical);
+    return questionnaire != null ? questionnaire.getIdElement().getIdPart() : null;
   }
 
   // ===== Submission Type Detection =====

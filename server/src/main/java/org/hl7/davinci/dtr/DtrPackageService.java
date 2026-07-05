@@ -2,7 +2,9 @@ package org.hl7.davinci.dtr;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -68,6 +70,58 @@ public class DtrPackageService {
   }
 
   /**
+   * Generates the package(s) for a $questionnaire-package context launch. The
+   * context names a single Questionnaire (via PAS item trace number or CRD context
+   * registry); the order and coverage it refers to are recovered and fed into the
+   * response builder so the draft QR carries a qr-context and the intendedUse that
+   * matches the launch provenance (withpa for a PAS prior authorization).
+   */
+  public Parameters generateContextPackage(
+      Coverage coverage,
+      String context,
+      List<Resource> explicitOrders,
+      List<CanonicalType> explicitQuestionnaires,
+      InstantType changedsince,
+      String adaptiveMode) {
+
+    DtrQuestionnaireResolver.ContextResolution ctx = questionnaireResolver.resolveContextLaunch(context);
+
+    // Union questionnaire canonicals from the context and the explicit questionnaire parameter;
+    // resolve() deduplicates by version-specific canonical.
+    List<CanonicalType> canonicals = new ArrayList<>(ctx.canonicals());
+    if (explicitQuestionnaires != null) {
+      canonicals.addAll(explicitQuestionnaires);
+    }
+
+    Coverage effectiveCoverage = coverage != null ? coverage : ctx.coverage();
+
+    // Explicit orders drive order-based PlanDefinition resolution and pre-population; the
+    // context-recovered orders scope qr-context/pre-population only. Both feed the response,
+    // deduplicated by resource reference.
+    List<Resource> resolutionOrders = explicitOrders != null ? explicitOrders : List.of();
+    List<Resource> responseOrders = unionOrders(ctx.orders(), resolutionOrders);
+
+    return generateInternal(effectiveCoverage, resolutionOrders, responseOrders, canonicals,
+        changedsince, adaptiveMode, ctx.provenance());
+  }
+
+  private List<Resource> unionOrders(List<Resource> recovered, List<Resource> explicit) {
+    List<Resource> result = new ArrayList<>();
+    Set<String> seen = new HashSet<>();
+    for (List<Resource> group : List.of(
+        recovered != null ? recovered : List.<Resource>of(),
+        explicit != null ? explicit : List.<Resource>of())) {
+      for (Resource r : group) {
+        String key = r.fhirType() + "/" + r.getIdElement().getIdPart();
+        if (seen.add(key)) {
+          result.add(r);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
    * Generate questionnaire packages.
    *
    * @param coverage                the Coverage resource (required)
@@ -85,11 +139,30 @@ public class DtrPackageService {
       InstantType changedsince,
       String adaptiveMode) {
 
+    return generateInternal(coverage, validOrders, validOrders, questionnaireCanonicals,
+        changedsince, adaptiveMode, null);
+  }
+
+  /**
+   * @param resolutionOrders  orders used for order-based PlanDefinition resolution
+   * @param responseOrders    orders fed to the response builder for qr-context/pre-population
+   * @param provenanceOverride when non-null, replaces the resolved launch provenance
+   *                           (used by the context path to scope intendedUse)
+   */
+  private Parameters generateInternal(
+      Coverage coverage,
+      List<Resource> resolutionOrders,
+      List<Resource> responseOrders,
+      List<CanonicalType> questionnaireCanonicals,
+      InstantType changedsince,
+      String adaptiveMode,
+      DtrQuestionnaireResolver.DtrLaunchProvenance provenanceOverride) {
+
     List<String> warnings = new ArrayList<>();
 
     // Step 1: Resolve questionnaires
     DtrQuestionnaireResolver.ResolutionResult resolution =
-        questionnaireResolver.resolve(questionnaireCanonicals, validOrders, coverage);
+        questionnaireResolver.resolve(questionnaireCanonicals, resolutionOrders, coverage);
     warnings.addAll(resolution.warnings());
 
     // Collect per-questionnaire resolution warnings
@@ -107,8 +180,12 @@ public class DtrPackageService {
         continue; // Already warned during resolution
       }
 
+      DtrQuestionnaireResolver.ResolvedQuestionnaire effectiveRq =
+          provenanceOverride != null ? rq.withProvenance(provenanceOverride) : rq;
+
       try {
-        Bundle packageBundle = processQuestionnaire(rq, coverage, validOrders, changedsince, adaptiveMode, warnings);
+        Bundle packageBundle = processQuestionnaire(
+            effectiveRq, coverage, responseOrders, changedsince, adaptiveMode, warnings);
         if (packageBundle != null) {
           packageBundles.add(packageBundle);
         }

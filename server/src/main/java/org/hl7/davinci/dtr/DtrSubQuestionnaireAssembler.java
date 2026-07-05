@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.hl7.davinci.common.FhirUtil;
+import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemComponent;
@@ -87,6 +88,10 @@ public class DtrSubQuestionnaireAssembler {
         // Merge cqf-library extensions from sub-questionnaire into parent (deduplicated)
         mergeCqfLibraryExtensions(parent, subQ);
 
+        // Merge launchContext declarations so the assembled parent can bind the
+        // context resources the inlined sub-questionnaire items reference.
+        mergeLaunchContextExtensions(parent, subQ);
+
         List<QuestionnaireItemComponent> inlinedItems = new ArrayList<>();
         for (QuestionnaireItemComponent subItem : subQ.getItem()) {
           QuestionnaireItemComponent copy = subItem.copy();
@@ -133,6 +138,36 @@ public class DtrSubQuestionnaireAssembler {
         }
       }
     }
+  }
+
+  /**
+   * Merge sdc-questionnaire-launchContext extensions from a sub-questionnaire into the
+   * parent, deduplicated by launch context code (the "name" Coding.code).
+   */
+  private void mergeLaunchContextExtensions(Questionnaire parent, Questionnaire subQ) {
+    Set<String> existingCodes = new HashSet<>();
+    for (Extension ext : parent.getExtensionsByUrl(LAUNCH_CONTEXT_EXT)) {
+      String code = launchContextCode(ext);
+      if (code != null) {
+        existingCodes.add(code);
+      }
+    }
+
+    for (Extension ext : subQ.getExtensionsByUrl(LAUNCH_CONTEXT_EXT)) {
+      String code = launchContextCode(ext);
+      if (code != null && !existingCodes.contains(code)) {
+        parent.addExtension(ext.copy());
+        existingCodes.add(code);
+      }
+    }
+  }
+
+  private String launchContextCode(Extension launchContext) {
+    Extension nameExt = launchContext.getExtensionByUrl("name");
+    if (nameExt != null && nameExt.getValue() instanceof Coding coding) {
+      return coding.getCode();
+    }
+    return null;
   }
 
   private void prefixLinkIds(QuestionnaireItemComponent item, String prefix) {

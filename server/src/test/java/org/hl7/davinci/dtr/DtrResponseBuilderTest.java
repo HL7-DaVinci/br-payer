@@ -190,7 +190,7 @@ class DtrResponseBuilderTest {
     }
 
     @Test
-    @DisplayName("intendedUse extension uses CRD temp code system with DocReason-compatible code")
+    @DisplayName("intendedUse extension uses coverage-information-codes system with DocReason-compatible code")
     void intendedUseExtension() {
       DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
           questionnaireProvenance(), List.of(), List.of());
@@ -206,6 +206,24 @@ class DtrResponseBuilderTest {
       assertFalse(coding.hasVersion());
       assertEquals("withorder", coding.getCode());
       assertEquals("Include with order", coding.getDisplay());
+    }
+
+    @Test
+    @DisplayName("intendedUse is withpa for a PAS TRN prior-authorization launch")
+    void intendedUseExtension_withPaForPasTrn() {
+      DtrQuestionnaireResolver.ResolvedQuestionnaire pasProvenance =
+          new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+              "http://example.org/Questionnaire/test|1.0", testQ,
+              DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE,
+              DtrQuestionnaireResolver.DtrLaunchProvenance.PAS_TRN, new ArrayList<>(), null);
+
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          pasProvenance, List.of(), List.of());
+      Extension intendedUse = result.response().getExtensionByUrl(INTENDED_USE_EXT);
+      CodeableConcept cc = (CodeableConcept) intendedUse.getValue();
+      Coding coding = cc.getCodingFirstRep();
+      assertEquals("withpa", coding.getCode());
+      assertEquals("Include with prior authorization", coding.getDisplay());
     }
 
     @Test

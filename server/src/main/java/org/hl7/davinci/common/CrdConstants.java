@@ -15,9 +15,8 @@ public final class CrdConstants {
 
   // ===== CRD IG Code Systems =====
 
-  // In CRD 2.2.0 this becomes:
-  // http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes
-  // However DTR 2.2.0 is currently bound to CRD 2.1.0 which still uses "temp"
+  // DTR 2.2.0's intendedUse extension requires DocReason codes (withpa/withorder/withclaim)
+  // bound to ValueSet-DocReason|2.2.1, drawn from this CRD 2.2.1 code system.
   public static final String DOC_REASON_SYSTEM =
-      "http://hl7.org/fhir/us/davinci-crd/CodeSystem/temp";
+      "http://hl7.org/fhir/us/davinci-crd/CodeSystem/coverage-information-codes";
 }

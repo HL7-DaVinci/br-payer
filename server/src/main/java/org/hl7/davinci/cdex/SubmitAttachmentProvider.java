@@ -31,7 +31,6 @@ public class SubmitAttachmentProvider extends BaseProvider {
       canonicalUrl = CdexConstants.OPERATION_SUBMIT_ATTACHMENT_URL)
   public OperationOutcome submitAttachment(
       @OperationParam(name = CdexConstants.PARAM_TRACKING_ID, min = 1, max = 1, type = Identifier.class) Identifier trackingId,
-      @OperationParam(name = CdexConstants.PARAM_ADMIN_REF_NUMBER, min = 0, max = 1, type = Identifier.class) Identifier adminRefNumber,
       @OperationParam(name = CdexConstants.PARAM_ATTACH_TO, min = 1, max = 1, type = CodeType.class) CodeType attachTo,
       @OperationParam(name = CdexConstants.PARAM_PAYER_ID, min = 0, max = 1, type = Identifier.class) Identifier payerId,
       @OperationParam(name = CdexConstants.PARAM_ORGANIZATION_ID, min = 0, max = 1, type = Identifier.class) Identifier organizationId,
@@ -42,7 +41,7 @@ public class SubmitAttachmentProvider extends BaseProvider {
       @OperationParam(name = CdexConstants.PARAM_FINAL, min = 0, max = 1, type = BooleanType.class) BooleanType isFinal) {
 
     try {
-      return service.submit(trackingId, adminRefNumber, attachTo, payerId, organizationId, providerId,
+      return service.submit(trackingId, attachTo, payerId, organizationId, providerId,
           memberId, serviceDate, attachments, isFinal);
     } catch (IllegalArgumentException e) {
       throw new InvalidRequestException(e.getMessage(),

@@ -123,7 +123,7 @@ class SubmitAttachmentIT {
 
     OperationOutcome outcome = submitService.submit(
         new Identifier().setSystem("http://example.org/acn").setValue("ACN-IT-1"),
-        null, new CodeType(CdexConstants.CLAIM_USE_PREAUTHORIZATION), null,
+        new CodeType(CdexConstants.CLAIM_USE_PREAUTHORIZATION), null,
         new Identifier().setValue("1407071236"), null,
         new Identifier().setValue("M-IT-1"), null,
         List.of(attachmentWith(documentReference())), null);
@@ -137,7 +137,7 @@ class SubmitAttachmentIT {
   void heldForFutureWhenNoMatch() {
     OperationOutcome outcome = submitService.submit(
         new Identifier().setValue("ACN-NO-MATCH"),
-        null, new CodeType(CdexConstants.CLAIM_USE_PREAUTHORIZATION), null,
+        new CodeType(CdexConstants.CLAIM_USE_PREAUTHORIZATION), null,
         new Identifier().setValue("1407071236"), null,
         new Identifier().setValue("M-IT-2"), null,
         List.of(attachmentWith(documentReference())), null);

@@ -6,7 +6,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 
 import org.hl7.fhir.r4.model.ClaimResponse;
+import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -188,9 +190,35 @@ public class PasPendedResolutionService {
     crDao.metaDeleteOperation(pendedCr.getIdElement().toUnqualifiedVersionless(),
         tagToRemove, new SystemRequestDetails());
 
+    completeCommunicationRequests(pendedCr);
+
     String claimResponseId = pendedCr.getIdElement().getIdPart();
     notificationService.dispatchResolvedClaimResponse(claimResponseId);
 
     log.info("Resolved pended authorization: ClaimResponse/{}", claimResponseId);
+  }
+
+  /** Marks the resolved ClaimResponse's documentation CommunicationRequests completed. */
+  private void completeCommunicationRequests(ClaimResponse claimResponse) {
+    if (claimResponse.getCommunicationRequest().isEmpty()) {
+      return;
+    }
+    var commReqDao = daoRegistry.getResourceDao(CommunicationRequest.class);
+    for (Reference ref : claimResponse.getCommunicationRequest()) {
+      if (!ref.hasReference()) {
+        continue;
+      }
+      try {
+        CommunicationRequest commReq = commReqDao.read(
+            new org.hl7.fhir.r4.model.IdType(ref.getReference()), new SystemRequestDetails());
+        if (commReq.getStatus() == CommunicationRequest.CommunicationRequestStatus.COMPLETED) {
+          continue;
+        }
+        commReq.setStatus(CommunicationRequest.CommunicationRequestStatus.COMPLETED);
+        commReqDao.update(commReq, new SystemRequestDetails());
+      } catch (ResourceNotFoundException e) {
+        log.debug("CommunicationRequest {} no longer exists, skipping completion", ref.getReference());
+      }
+    }
   }
 }

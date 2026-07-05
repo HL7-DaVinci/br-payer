@@ -102,8 +102,10 @@ class QuestionnairePackageProviderTest {
     }
 
     @Test
-    @DisplayName("Context alongside questionnaire is accepted with warning")
+    @DisplayName("Context alongside questionnaire unions both via the context path")
     void contextWithQuestionnaire_returns200() {
+      when(mockPackageService.generateContextPackage(any(), eq("some-context"), any(), any(), any(), any()))
+          .thenReturn(new Parameters());
       List<CanonicalType> questionnaires = List.of(
           new CanonicalType("http://example.org/Questionnaire/test"));
 
@@ -111,8 +113,10 @@ class QuestionnairePackageProviderTest {
           testCoverage, null, questionnaires, new StringType("some-context"), null);
 
       assertNotNull(result);
-      // Should have warning about context being ignored
-      assertTrue(result.hasParameter("outcome"));
+      // context + questionnaire are unioned by the context path, not routed to generatePackages
+      verify(mockPackageService).generateContextPackage(
+          eq(testCoverage), eq("some-context"), anyList(), eq(questionnaires), isNull(), isNull());
+      verify(mockPackageService, never()).generatePackages(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -130,17 +134,18 @@ class QuestionnairePackageProviderTest {
     }
 
     @Test
-    @DisplayName("Context-only decodes the questionnaire and returns 200")
+    @DisplayName("Context-only delegates to the context-package path and returns 200")
     void contextOnly_decodesAndReturns200() {
-      Questionnaire q = new Questionnaire();
-      q.setUrl("http://example.org/Questionnaire/from-context");
-      when(mockPackageService.resolveContext("some-context")).thenReturn(q);
+      when(mockPackageService.generateContextPackage(any(), eq("some-context"), any(), any(), any(), any()))
+          .thenReturn(new Parameters());
 
       Parameters result = provider.questionnairePackage(
           testCoverage, null, null, new StringType("some-context"), null);
 
       assertNotNull(result);
-      verify(mockPackageService).resolveContext("some-context");
+      verify(mockPackageService).generateContextPackage(
+          eq(testCoverage), eq("some-context"), anyList(), isNull(), isNull(), isNull());
+      verify(mockPackageService, never()).generatePackages(any(), any(), any(), any(), any());
     }
   }
 
@@ -259,12 +264,13 @@ class QuestionnairePackageProviderTest {
       when(mockPackageService.generatePackages(any(), any(), any(), any(), any()))
           .thenReturn(serviceResult);
 
-      // Trigger a provider-level warning via context parameter
+      // Trigger a provider-level warning via an unsupported order type
       List<CanonicalType> questionnaires = List.of(
           new CanonicalType("http://example.org/Questionnaire/test"));
+      List<IAnyResource> orders = List.of(new Patient());
 
       Parameters result = provider.questionnairePackage(
-          testCoverage, null, questionnaires, new StringType("some-context"), null);
+          testCoverage, orders, questionnaires, null, null);
 
       OperationOutcome outcome = (OperationOutcome) result.getParameter("outcome").getResource();
       // Should have both service-level and provider-level warnings

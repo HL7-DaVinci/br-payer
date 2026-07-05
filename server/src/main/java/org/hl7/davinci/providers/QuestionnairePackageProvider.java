@@ -110,25 +110,23 @@ public class QuestionnairePackageProvider extends BaseProvider {
       }
     }
 
-    // A context (item trace number) names the questionnaire; discover it via DTR and skip the order
-    List<CanonicalType> questionnaires = theQuestionnaires;
-    if (hasContext && !hasQuestionnaires) {
-      Questionnaire contextQuestionnaire = dtrPackageService.resolveContext(theContext.getValue());
-      questionnaires = List.of(new CanonicalType(contextQuestionnaire.getUrl()));
-      validOrders = new ArrayList<>();
-    }
-    if (hasContext && hasQuestionnaires) {
-      warnings.add("Both 'context' and 'questionnaire' provided; the explicit questionnaire was used.");
-    }
-
     // Extract adaptive mode header for dual-mode adaptive questionnaire packaging
     String adaptiveMode = servletRequest != null
         ? servletRequest.getHeader(DtrConstants.ADAPTIVE_MODE_HEADER)
         : null;
 
-    // Delegate to service
-    Parameters result = dtrPackageService.generatePackages(
-        theCoverage, validOrders, questionnaires, theChangedsince, adaptiveMode);
+    // A context (item trace number or CRD assertion id) names the questionnaire(s) and the
+    // order/coverage it refers to; the service recovers those and unions them with any
+    // explicit questionnaire and order parameters, deduplicated by canonical and reference.
+    Parameters result;
+    if (hasContext) {
+      result = dtrPackageService.generateContextPackage(
+          theCoverage, theContext.getValue(), validOrders, theQuestionnaires,
+          theChangedsince, adaptiveMode);
+    } else {
+      result = dtrPackageService.generatePackages(
+          theCoverage, validOrders, theQuestionnaires, theChangedsince, adaptiveMode);
+    }
 
     // Merge provider-level warnings into result outcome
     if (!warnings.isEmpty()) {

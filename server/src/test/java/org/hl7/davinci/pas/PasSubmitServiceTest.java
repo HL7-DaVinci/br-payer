@@ -76,6 +76,12 @@ class PasSubmitServiceTest {
     when(coverageDao.update(any(), any(RequestDetails.class))).thenReturn(coverageOutcome);
     when(daoRegistry.getResourceDao(Coverage.class)).thenReturn(coverageDao);
 
+    IFhirResourceDao<CommunicationRequest> commReqDao = mock(IFhirResourceDao.class);
+    DaoMethodOutcome commReqOutcome = new DaoMethodOutcome();
+    commReqOutcome.setId(new IdType("CommunicationRequest/server-commreq-id"));
+    when(commReqDao.create(any(), any(RequestDetails.class))).thenReturn(commReqOutcome);
+    when(daoRegistry.getResourceDao(CommunicationRequest.class)).thenReturn(commReqDao);
+
     AppProperties appProperties = mock(AppProperties.class);
     when(appProperties.getServer_address()).thenReturn(SERVER_BASE);
 
@@ -129,6 +135,44 @@ class PasSubmitServiceTest {
     verify(daoRegistry.getResourceDao(ClaimResponse.class)).create(argThat(cr2 ->
         cr2.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) != null
     ), any(RequestDetails.class));
+  }
+
+  @Test
+  void submit_pendedWithDocumentation_persistsCommunicationRequestAndResolvesReference() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+
+    String trn = "trace-abc";
+    CommunicationRequest commReq = new CommunicationRequest();
+    commReq.setId("cr-abc123");
+    commReq.addIdentifier(new Identifier()
+        .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(trn));
+
+    ClaimResponse cr = new ClaimResponse();
+    cr.setId("CR-PENDED");
+    cr.addCommunicationRequest(new Reference("urn:uuid:cr-abc123"));
+
+    Bundle responseBundle = new Bundle();
+    responseBundle.setType(Bundle.BundleType.COLLECTION);
+    responseBundle.addEntry().setResource(cr);
+    responseBundle.addEntry().setFullUrl("urn:uuid:cr-abc123").setResource(commReq);
+
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(new CoverageDecision(REVIEW_CODE_A4, "Pended", true));
+    when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
+
+    service.submit(requestBundle);
+
+    // The CommunicationRequest carrying the TRN identifier is persisted (findable by identifier)
+    IFhirResourceDao<CommunicationRequest> commReqDao =
+        (IFhirResourceDao<CommunicationRequest>) daoRegistry.getResourceDao(CommunicationRequest.class);
+    verify(commReqDao).create(argThat(persisted ->
+        trn.equals(persisted.getIdentifierFirstRep().getValue())), any(RequestDetails.class));
+
+    // The dangling urn:uuid reference is rewritten to the persisted server id
+    assertEquals("CommunicationRequest/server-commreq-id",
+        cr.getCommunicationRequestFirstRep().getReference());
   }
 
   @Test
@@ -706,6 +750,52 @@ class PasSubmitServiceTest {
   }
 
   @Test
+  void submit_updateReEvaluatedPendNeedsDocumentation_excludedFromTimerAndPersistsCommunicationRequest() {
+    // A re-evaluated item pends AND newly needs documentation on an update -- this must be routed
+    // through the same CommunicationRequest logic as the create path, not just armed on the timer.
+    Bundle requestBundle = buildUpdateBundle("prior-claim-id");
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    mockUpdatePathResponse();
+    mockStoredClaimSearch(buildStoredPriorClaim());
+    // Prior CR was fully approved -- no pended tag, no CommunicationRequest
+    mockClaimResponseSearch(buildPriorClaimResponse(REVIEW_CODE_A1, "Certified in total"));
+
+    CoverageDecision docNeededDecision = new CoverageDecision(
+        REVIEW_CODE_A4, "Pending", true, null, null, "clinical", List.of(), List.of("18776-5"));
+    when(evaluator.evaluate(any(), any(), any(), any(), any())).thenReturn(docNeededDecision);
+
+    // Simulate PasResponseBuilder attaching a CommunicationRequest for the re-evaluated item, the
+    // same way it already does on the create path via buildSubmitResponse.
+    doAnswer(invocation -> {
+      Bundle bundle = invocation.getArgument(0);
+      ClaimResponse cr = invocation.getArgument(2);
+      CommunicationRequest commReq = new CommunicationRequest();
+      commReq.setId("doc-request");
+      bundle.addEntry().setFullUrl("urn:uuid:doc-request").setResource(commReq);
+      cr.addCommunicationRequest(new Reference("urn:uuid:doc-request"));
+      return null;
+    }).when(responseBuilder).addCommunicationRequests(any(Bundle.class), any(Claim.class),
+        any(ClaimResponse.class), anyMap());
+
+    service.submit(requestBundle);
+
+    // Excluded from the auto-resolve timer -- awaits attachment-driven resolution instead
+    verify(resolutionService, never()).scheduleResolution(any());
+
+    // The CommunicationRequest is persisted and its dangling reference rewritten on the stored CR
+    IFhirResourceDao<CommunicationRequest> commReqDao =
+        (IFhirResourceDao<CommunicationRequest>) daoRegistry.getResourceDao(CommunicationRequest.class);
+    verify(commReqDao).create(any(), any(RequestDetails.class));
+
+    IFhirResourceDao<ClaimResponse> crDao =
+        (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
+    verify(crDao).update(argThat(cr -> cr.hasCommunicationRequest()
+            && "CommunicationRequest/server-commreq-id".equals(cr.getCommunicationRequestFirstRep().getReference())),
+        any(RequestDetails.class));
+  }
+
+  @Test
   void submit_updateResolvesAllPended_cancelsResolution() {
     Bundle requestBundle = buildUpdateBundle("prior-claim-id");
     Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
@@ -881,6 +971,240 @@ class PasSubmitServiceTest {
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
     verify(crDao).update(any(), any(RequestDetails.class));
     verify(crDao, never()).create(any(), any(RequestDetails.class));
+  }
+
+  // ===== Pended-update CommunicationRequest dedup =====
+
+  private static CommunicationRequest documentationRequest(String id, String trn,
+      CommunicationRequest.CommunicationRequestStatus status) {
+    CommunicationRequest cr = new CommunicationRequest();
+    cr.setId(id);
+    cr.setStatus(status);
+    cr.addIdentifier(new Identifier()
+        .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(trn));
+    cr.addExtension(PasConstants.EXT_SERVICE_LINE_NUMBER, new PositiveIntType(1));
+    cr.addPayload().setContent(new StringType(PasConstants.LOINC_QUESTIONNAIRE_REQUEST));
+    return cr;
+  }
+
+  /** Response bundle shaped as addCommunicationRequests leaves it: fresh urn:uuid CR + CR ref. */
+  private Bundle updateResponseBundleWithFreshRequest(ClaimResponse existingCr, String trn) {
+    CommunicationRequest fresh = documentationRequest("cr-fresh", trn,
+        CommunicationRequest.CommunicationRequestStatus.ACTIVE);
+    Bundle responseBundle = new Bundle();
+    responseBundle.setType(Bundle.BundleType.COLLECTION);
+    responseBundle.addEntry().setResource(existingCr);
+    responseBundle.addEntry().setFullUrl("urn:uuid:cr-fresh").setResource(fresh);
+    existingCr.addCommunicationRequest(new Reference("urn:uuid:cr-fresh"));
+    when(responseBuilder.wrapInResponseBundle(any(ClaimResponse.class), any()))
+        .thenReturn(responseBundle);
+    return responseBundle;
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void submit_updateStillPended_reusesEquivalentOpenCommunicationRequest() {
+    Bundle requestBundle = buildUpdateBundle("prior-claim-id");
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    mockStoredClaimSearch(buildStoredPriorClaim());
+
+    ClaimResponse prior = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
+    prior.addCommunicationRequest(new Reference("CommunicationRequest/cr-open-1"));
+    mockClaimResponseSearch(prior);
+    updateResponseBundleWithFreshRequest(prior, "home-o2-std-questionnaire");
+
+    IFhirResourceDao<CommunicationRequest> commReqDao =
+        (IFhirResourceDao<CommunicationRequest>) daoRegistry.getResourceDao(CommunicationRequest.class);
+    when(commReqDao.read(any(IdType.class), any(RequestDetails.class)))
+        .thenReturn(documentationRequest("cr-open-1", "home-o2-std-questionnaire",
+            CommunicationRequest.CommunicationRequestStatus.ACTIVE));
+
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(pendedQuestionnaireDecision(HOME_O2_CANONICAL));
+    mockQuestionnaireCatalog(Map.of(HOME_O2_CANONICAL, "home-o2-std-questionnaire"));
+
+    service.submit(requestBundle);
+
+    verify(commReqDao, never()).create(any(), any(RequestDetails.class));
+    List<String> refs = prior.getCommunicationRequest().stream()
+        .map(Reference::getReference).toList();
+    assertEquals(List.of("CommunicationRequest/cr-open-1"), refs,
+        "The urn:uuid duplicate must rewrite to the existing open request and dedupe");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void submit_updateStillPended_completedRequestDoesNotBlockANewOne() {
+    Bundle requestBundle = buildUpdateBundle("prior-claim-id");
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    mockStoredClaimSearch(buildStoredPriorClaim());
+
+    ClaimResponse prior = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
+    prior.addCommunicationRequest(new Reference("CommunicationRequest/cr-done-1"));
+    mockClaimResponseSearch(prior);
+    updateResponseBundleWithFreshRequest(prior, "home-o2-std-questionnaire");
+
+    IFhirResourceDao<CommunicationRequest> commReqDao =
+        (IFhirResourceDao<CommunicationRequest>) daoRegistry.getResourceDao(CommunicationRequest.class);
+    when(commReqDao.read(any(IdType.class), any(RequestDetails.class)))
+        .thenReturn(documentationRequest("cr-done-1", "home-o2-std-questionnaire",
+            CommunicationRequest.CommunicationRequestStatus.COMPLETED));
+
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(pendedQuestionnaireDecision(HOME_O2_CANONICAL));
+    mockQuestionnaireCatalog(Map.of(HOME_O2_CANONICAL, "home-o2-std-questionnaire"));
+
+    service.submit(requestBundle);
+
+    verify(commReqDao).create(any(), any(RequestDetails.class));
+    List<String> refs = prior.getCommunicationRequest().stream()
+        .map(Reference::getReference).toList();
+    assertEquals(
+        List.of("CommunicationRequest/cr-done-1", "CommunicationRequest/server-commreq-id"),
+        refs,
+        "A completed request stays in history and a new open request is minted");
+  }
+
+  // ===== Attached documentation (supportingInfo QuestionnaireResponses) =====
+
+  private static final String HOME_O2_CANONICAL =
+      "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire";
+
+  @SuppressWarnings("unchecked")
+  private void mockQuestionnaireCatalog(Map<String, String> canonicalToId) {
+    IFhirResourceDao<Questionnaire> questionnaireDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(questionnaireDao);
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(RequestDetails.class)))
+        .thenAnswer(invocation -> {
+          SearchParameterMap params = invocation.getArgument(0);
+          String url = ((ca.uhn.fhir.rest.param.UriParam) params.get("url").get(0).get(0)).getValue();
+          String id = canonicalToId.get(url);
+          if (id == null) {
+            return List.of();
+          }
+          Questionnaire q = new Questionnaire();
+          q.setId(id);
+          q.setUrl(url);
+          return List.of(q);
+        });
+  }
+
+  private static CoverageDecision pendedQuestionnaireDecision(String canonical) {
+    return new CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null,
+        "clinical", List.of(canonical));
+  }
+
+  private static void attachCompletedQr(Bundle bundle, Claim claim, String canonical,
+      QuestionnaireResponse.QuestionnaireResponseStatus status) {
+    QuestionnaireResponse qr = new QuestionnaireResponse();
+    qr.setId("qr-1");
+    qr.setStatus(status);
+    qr.setQuestionnaire(canonical);
+    bundle.addEntry().setFullUrl("QuestionnaireResponse/qr-1").setResource(qr);
+    claim.addSupportingInfo()
+        .setSequence(1)
+        .setCategory(new CodeableConcept().addCoding(
+            new Coding("http://hl7.org/fhir/us/davinci-pas/CodeSystem/PASTempCodes",
+                "additionalInformation", null)))
+        .setValue(new Reference("QuestionnaireResponse/qr-1"));
+  }
+
+  @Test
+  void submit_attachedCompletedQrSatisfiesDocumentation_certifiesInsteadOfPending() {
+    Bundle requestBundle = buildMinimalBundle();
+    Claim claim = (Claim) requestBundle.getEntryFirstRep().getResource();
+    attachCompletedQr(requestBundle, claim, HOME_O2_CANONICAL,
+        QuestionnaireResponse.QuestionnaireResponseStatus.COMPLETED);
+    mockQuestionnaireCatalog(Map.of(HOME_O2_CANONICAL, "home-o2-std-questionnaire"));
+
+    ClaimResponse cr = new ClaimResponse();
+    cr.setId("CR-SAT");
+    Bundle responseBundle = new Bundle();
+    responseBundle.setType(Bundle.BundleType.COLLECTION);
+    responseBundle.addEntry().setResource(cr);
+
+    when(validator.validateSubmitBundle(requestBundle)).thenReturn(claim);
+    when(evaluator.evaluate(any(), any(), any(), any(), any()))
+        .thenReturn(pendedQuestionnaireDecision(HOME_O2_CANONICAL));
+    when(responseBuilder.buildSubmitResponse(any(), any(), any(), any())).thenReturn(responseBundle);
+
+    service.submit(requestBundle);
+
+    ArgumentCaptor<Map<Integer, CoverageDecision>> decisionsCaptor =
+        ArgumentCaptor.forClass(Map.class);
+    verify(responseBuilder).buildSubmitResponse(any(), any(), decisionsCaptor.capture(), any());
+    CoverageDecision applied = decisionsCaptor.getValue().get(1);
+    assertEquals(REVIEW_CODE_A1, applied.reviewActionCode());
+    assertFalse(applied.isPended());
+
+    verify(resolutionService, never()).scheduleResolution(any());
+    verify(daoRegistry.getResourceDao(ClaimResponse.class)).create(argThat(stored ->
+        stored.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) == null
+    ), any(RequestDetails.class));
+  }
+
+  @Test
+  void applyAttachedDocumentation_inProgressQrDoesNotSatisfy() {
+    Bundle bundle = buildMinimalBundle();
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+    attachCompletedQr(bundle, claim, HOME_O2_CANONICAL,
+        QuestionnaireResponse.QuestionnaireResponseStatus.INPROGRESS);
+    mockQuestionnaireCatalog(Map.of(HOME_O2_CANONICAL, "home-o2-std-questionnaire"));
+
+    Map<Integer, CoverageDecision> adjusted = service.applyAttachedDocumentation(
+        Map.of(1, pendedQuestionnaireDecision(HOME_O2_CANONICAL)), claim, bundle);
+
+    assertEquals(REVIEW_CODE_A4, adjusted.get(1).reviewActionCode());
+  }
+
+  @Test
+  void applyAttachedDocumentation_differentQuestionnaireDoesNotSatisfy() {
+    String otherCanonical = "http://example.org/fhir/Questionnaire/other";
+    Bundle bundle = buildMinimalBundle();
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+    attachCompletedQr(bundle, claim, otherCanonical,
+        QuestionnaireResponse.QuestionnaireResponseStatus.COMPLETED);
+    mockQuestionnaireCatalog(Map.of(
+        HOME_O2_CANONICAL, "home-o2-std-questionnaire",
+        otherCanonical, "other-questionnaire"));
+
+    Map<Integer, CoverageDecision> adjusted = service.applyAttachedDocumentation(
+        Map.of(1, pendedQuestionnaireDecision(HOME_O2_CANONICAL)), claim, bundle);
+
+    assertEquals(REVIEW_CODE_A4, adjusted.get(1).reviewActionCode());
+  }
+
+  @Test
+  void applyAttachedDocumentation_requestedAttachmentCodesAreNotSatisfiedByQr() {
+    Bundle bundle = buildMinimalBundle();
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+    attachCompletedQr(bundle, claim, HOME_O2_CANONICAL,
+        QuestionnaireResponse.QuestionnaireResponseStatus.COMPLETED);
+    mockQuestionnaireCatalog(Map.of(HOME_O2_CANONICAL, "home-o2-std-questionnaire"));
+
+    CoverageDecision withAttachmentCodes = new CoverageDecision(REVIEW_CODE_A4, "Pending", true,
+        null, null, "clinical", List.of(HOME_O2_CANONICAL), List.of("18776-5"));
+    Map<Integer, CoverageDecision> adjusted = service.applyAttachedDocumentation(
+        Map.of(1, withAttachmentCodes), claim, bundle);
+
+    assertEquals(REVIEW_CODE_A4, adjusted.get(1).reviewActionCode());
+  }
+
+  @Test
+  void applyAttachedDocumentation_versionedCanonicalStillMatchesViaCatalog() {
+    Bundle bundle = buildMinimalBundle();
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+    attachCompletedQr(bundle, claim, HOME_O2_CANONICAL + "|2.2.0",
+        QuestionnaireResponse.QuestionnaireResponseStatus.COMPLETED);
+    mockQuestionnaireCatalog(Map.of(HOME_O2_CANONICAL, "home-o2-std-questionnaire"));
+
+    Map<Integer, CoverageDecision> adjusted = service.applyAttachedDocumentation(
+        Map.of(1, pendedQuestionnaireDecision(HOME_O2_CANONICAL)), claim, bundle);
+
+    assertEquals(REVIEW_CODE_A1, adjusted.get(1).reviewActionCode());
+    assertFalse(adjusted.get(1).isPended());
   }
 
   private Claim buildMinimalClaim() {

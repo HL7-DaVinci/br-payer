@@ -73,6 +73,20 @@ class PasBundleValidatorTest {
   }
 
   @Test
+  void validateSubmitBundle_itemMissingCategory_throws() {
+    Bundle bundle = buildMinimalBundle();
+    ((Claim) bundle.getEntryFirstRep().getResource()).getItemFirstRep().setCategory(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateSubmitBundle(bundle));
+  }
+
+  @Test
+  void validateSubmitBundle_itemMissingLocation_throws() {
+    Bundle bundle = buildMinimalBundle();
+    ((Claim) bundle.getEntryFirstRep().getResource()).getItemFirstRep().setLocation(null);
+    assertThrows(IllegalArgumentException.class, () -> validator.validateSubmitBundle(bundle));
+  }
+
+  @Test
   void validateInquiryBundle_validBundle_returnsClaim() {
     Bundle bundle = buildMinimalBundleWithMemberIdentifier();
     Claim result = validator.validateInquiryBundle(bundle);
@@ -137,7 +151,11 @@ class PasBundleValidatorTest {
     claim.addInsurance().setCoverage(new Reference("Coverage/1")).setFocal(true);
     claim.addItem().setSequence(1)
         .setProductOrService(new CodeableConcept().addCoding(
-            new Coding("http://example.com", "99213", "Office Visit")));
+            new Coding("http://example.com", "99213", "Office Visit")))
+        .setCategory(new CodeableConcept().addCoding(
+            new Coding("http://example.com", "outpatient", "Outpatient")))
+        .setLocation(new CodeableConcept().addCoding(
+            new Coding("http://example.com", "office", "Office")));
 
     Bundle bundle = new Bundle();
     bundle.setType(Bundle.BundleType.COLLECTION);

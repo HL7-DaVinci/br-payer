@@ -12,23 +12,34 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
-import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.DeviceRequest;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.MedicationRequest;
+import org.hl7.fhir.r4.model.NutritionOrder;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Practitioner;
+import org.hl7.fhir.r4.model.PractitionerRole;
+import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.ServiceRequest;
 import org.springframework.stereotype.Component;
 
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.jpa.api.model.DaoMethodOutcome;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
 import ca.uhn.fhir.rest.param.TokenParam;
-import ca.uhn.fhir.rest.server.exceptions.ResourceGoneException;
-import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 
 /**
  * Resolves Patient/Organization/Coverage references from PAS request bundles.
  * Used by both $submit and $inquire to keep reference matching behavior aligned.
+ *
+ * Logical ids in the request bundle are the provider's server-assigned ids and carry no meaning
+ * on this server. Matching is done by business identifier only; unmatched resources are stored
+ * under payer-assigned ids and every reference to them is rewritten accordingly.
  */
 @Component
 public class PasBundleReferenceResolver {
@@ -40,16 +51,46 @@ public class PasBundleReferenceResolver {
   }
 
   /**
-   * Resolves Patient/Organization/Coverage references from the bundle to server-side resources.
-   * When storeMissing is true (submit path), unresolved bundle resources are stored and
-   * cross-references are rewritten. When false (inquiry path), references are resolved without storing.
+   * Resolves Patient/Organization/Practitioner/Coverage references from the bundle to server-side
+   * resources, including Claim.careTeam providers. When storeMissing is true (submit path),
+   * unresolved bundle resources are stored under payer-assigned ids and cross-references are
+   * rewritten. When false (inquiry path), references are resolved without storing.
    */
   public void resolveReferences(Bundle requestBundle, Claim claim, boolean storeMissing) {
     Map<String, String> refMap = storeMissing ? new LinkedHashMap<>() : null;
     resolvePatient(requestBundle, claim, refMap);
     resolveOrganization(requestBundle, claim.getInsurer(), refMap);
     resolveOrganization(requestBundle, claim.getProvider(), refMap);
+    resolveCareTeamProviders(requestBundle, claim, refMap);
     resolveCoverage(requestBundle, claim, refMap);
+    resolveRequestedServiceOrders(requestBundle, claim, refMap);
+    resolveSupportingInfoQuestionnaireResponses(requestBundle, claim, refMap);
+  }
+
+  /**
+   * Stores the QuestionnaireResponses attached via Claim.supportingInfo (PAS
+   * additionalInformation) under payer-assigned ids so the stored Claim's
+   * documentation references resolve on this server.
+   */
+  private void resolveSupportingInfoQuestionnaireResponses(
+      Bundle requestBundle, Claim claim, Map<String, String> refMap) {
+    if (refMap == null || claim == null || !claim.hasSupportingInfo()) {
+      return;
+    }
+    for (Claim.SupportingInformationComponent info : claim.getSupportingInfo()) {
+      if (!(info.getValue() instanceof Reference ref) || !ref.hasReference()
+          || rewriteIfMapped(ref, refMap)) {
+        continue;
+      }
+      if (!"QuestionnaireResponse".equals(ResourceResolver.getReferenceResourceType(ref))) {
+        continue;
+      }
+      QuestionnaireResponse qr = ResourceResolver.findInBundle(
+          ref.getReference(), QuestionnaireResponse.class, requestBundle);
+      if (qr != null) {
+        ref.setReference(store(QuestionnaireResponse.class, qr, ref.getReference(), refMap));
+      }
+    }
   }
 
   private void resolvePatient(Bundle requestBundle, Claim claim, Map<String, String> refMap) {
@@ -57,31 +98,33 @@ public class PasBundleReferenceResolver {
       return;
     }
 
-    String patientRef = claim.getPatient().getReference();
-    Patient bundlePatient = ResourceResolver.findInBundle(patientRef, Patient.class, requestBundle);
+    Reference patientRef = claim.getPatient();
+    if (rewriteIfMapped(patientRef, refMap)) {
+      return;
+    }
+
+    String originalRef = patientRef.getReference();
+    Patient bundlePatient = ResourceResolver.findInBundle(originalRef, Patient.class, requestBundle);
     if (bundlePatient == null) {
       return;
     }
 
     Identifier memberIdentifier = findMemberIdentifier(bundlePatient);
-    if (memberIdentifier == null) {
-      return;
-    }
-
-    Patient serverPatient = findFirstByIdentifier(Patient.class, memberIdentifier);
+    Patient serverPatient =
+        memberIdentifier != null ? findFirstByIdentifier(Patient.class, memberIdentifier) : null;
     if (serverPatient != null) {
       String resolved = "Patient/" + serverPatient.getIdElement().getIdPart();
-      claim.setPatient(new Reference(resolved));
+      patientRef.setReference(resolved);
       if (refMap != null) {
-        refMap.put(patientRef, resolved);
+        refMap.put(originalRef, resolved);
       }
     } else if (refMap != null) {
-      storeIfAbsent(Patient.class, bundlePatient);
+      patientRef.setReference(store(Patient.class, bundlePatient, originalRef, refMap));
     }
   }
 
   private void resolveOrganization(Bundle requestBundle, Reference orgRef, Map<String, String> refMap) {
-    if (orgRef == null || !orgRef.hasReference()) {
+    if (orgRef == null || !orgRef.hasReference() || rewriteIfMapped(orgRef, refMap)) {
       return;
     }
 
@@ -91,12 +134,13 @@ public class PasBundleReferenceResolver {
       return;
     }
 
+    // profile-requestor imposes no identifier constraints; NPI is preferred for matching but a
+    // conformant requestor Organization may carry only a non-NPI identifier, or none at all.
     Identifier npiIdentifier = findNpiIdentifier(bundleOrg);
-    if (npiIdentifier == null) {
-      return;
-    }
+    Identifier matchIdentifier = npiIdentifier != null ? npiIdentifier : findFirstIdentifierWithValue(bundleOrg);
 
-    Organization serverOrg = findFirstByIdentifier(Organization.class, npiIdentifier);
+    Organization serverOrg =
+        matchIdentifier != null ? findFirstByIdentifier(Organization.class, matchIdentifier) : null;
     if (serverOrg != null) {
       String resolved = "Organization/" + serverOrg.getIdElement().getIdPart();
       orgRef.setReference(resolved);
@@ -104,7 +148,93 @@ public class PasBundleReferenceResolver {
         refMap.put(originalRef, resolved);
       }
     } else if (refMap != null) {
-      storeIfAbsent(Organization.class, bundleOrg);
+      orgRef.setReference(store(Organization.class, bundleOrg, originalRef, refMap));
+    }
+  }
+
+  private void resolveCareTeamProviders(Bundle requestBundle, Claim claim, Map<String, String> refMap) {
+    if (claim == null || !claim.hasCareTeam()) {
+      return;
+    }
+
+    for (Claim.CareTeamComponent careTeamMember : claim.getCareTeam()) {
+      resolveCareTeamProvider(requestBundle, careTeamMember, refMap);
+    }
+  }
+
+  private void resolveCareTeamProvider(
+      Bundle requestBundle, Claim.CareTeamComponent careTeamMember, Map<String, String> refMap) {
+    if (!careTeamMember.hasProvider() || !careTeamMember.getProvider().hasReference()) {
+      return;
+    }
+
+    Reference providerRef = careTeamMember.getProvider();
+    if (rewriteIfMapped(providerRef, refMap)) {
+      return;
+    }
+
+    if (findOrganizationInBundle(requestBundle, providerRef) != null) {
+      resolveOrganization(requestBundle, providerRef, refMap);
+      return;
+    }
+
+    PractitionerRole bundleRole =
+        ResourceResolver.findInBundle(providerRef.getReference(), PractitionerRole.class, requestBundle);
+    if (bundleRole != null) {
+      resolveCareTeamProviderRole(requestBundle, bundleRole, providerRef, refMap);
+      return;
+    }
+
+    resolvePractitioner(requestBundle, providerRef, refMap);
+  }
+
+  /**
+   * Resolves the PractitionerRole's internal practitioner/organization references before storing
+   * the role itself, so the stored role points at payer-side resources. PractitionerRole carries
+   * no identifier in practice, so it is stored without server-side identifier matching,
+   * consistent with the no-identifier Organization case.
+   */
+  private void resolveCareTeamProviderRole(Bundle requestBundle, PractitionerRole bundleRole,
+      Reference providerRef, Map<String, String> refMap) {
+    if (bundleRole.hasPractitioner() && bundleRole.getPractitioner().hasReference()) {
+      resolvePractitioner(requestBundle, bundleRole.getPractitioner(), refMap);
+    }
+    if (bundleRole.hasOrganization() && bundleRole.getOrganization().hasReference()) {
+      resolveOrganization(requestBundle, bundleRole.getOrganization(), refMap);
+    }
+
+    if (refMap != null) {
+      providerRef.setReference(
+          store(PractitionerRole.class, bundleRole, providerRef.getReference(), refMap));
+    }
+  }
+
+  private void resolvePractitioner(Bundle requestBundle, Reference practitionerRef, Map<String, String> refMap) {
+    if (rewriteIfMapped(practitionerRef, refMap)) {
+      return;
+    }
+
+    String originalRef = practitionerRef.getReference();
+    Practitioner bundlePractitioner =
+        ResourceResolver.findInBundle(originalRef, Practitioner.class, requestBundle);
+    if (bundlePractitioner == null) {
+      return;
+    }
+
+    Identifier npiIdentifier = findNpiIdentifier(bundlePractitioner);
+    Identifier matchIdentifier =
+        npiIdentifier != null ? npiIdentifier : findFirstIdentifierWithValue(bundlePractitioner);
+
+    Practitioner serverPractitioner =
+        matchIdentifier != null ? findFirstByIdentifier(Practitioner.class, matchIdentifier) : null;
+    if (serverPractitioner != null) {
+      String resolved = "Practitioner/" + serverPractitioner.getIdElement().getIdPart();
+      practitionerRef.setReference(resolved);
+      if (refMap != null) {
+        refMap.put(originalRef, resolved);
+      }
+    } else if (refMap != null) {
+      practitionerRef.setReference(store(Practitioner.class, bundlePractitioner, originalRef, refMap));
     }
   }
 
@@ -114,6 +244,10 @@ public class PasBundleReferenceResolver {
     }
 
     Reference claimCoverageRef = claim.getInsuranceFirstRep().getCoverage();
+    if (rewriteIfMapped(claimCoverageRef, refMap)) {
+      return;
+    }
+
     String coverageRef = claimCoverageRef.getReference();
     Coverage bundleCoverage = ResourceResolver.findInBundle(coverageRef, Coverage.class, requestBundle);
     if (bundleCoverage == null) {
@@ -124,14 +258,64 @@ public class PasBundleReferenceResolver {
       Identifier covId = bundleCoverage.getIdentifierFirstRep();
       Coverage serverCoverage = findFirstByIdentifier(Coverage.class, covId);
       if (serverCoverage != null) {
-        claimCoverageRef.setReference("Coverage/" + serverCoverage.getIdElement().getIdPart());
+        String resolved = "Coverage/" + serverCoverage.getIdElement().getIdPart();
+        claimCoverageRef.setReference(resolved);
+        if (refMap != null) {
+          refMap.put(coverageRef, resolved);
+        }
         return;
       }
     }
 
     if (refMap != null) {
-      rewriteCoverageReferences(bundleCoverage, refMap);
-      storeIfAbsent(Coverage.class, bundleCoverage);
+      claimCoverageRef.setReference(store(Coverage.class, bundleCoverage, coverageRef, refMap));
+    }
+  }
+
+  /**
+   * Stores the order resource (DeviceRequest/ServiceRequest/MedicationRequest/NutritionOrder)
+   * referenced from each Claim.item's requestedService extension under a payer-assigned id, so
+   * the stored Claim's reference resolves on this server.
+   */
+  private void resolveRequestedServiceOrders(Bundle requestBundle, Claim claim, Map<String, String> refMap) {
+    if (refMap == null || claim == null || !claim.hasItem()) {
+      return;
+    }
+
+    for (Claim.ItemComponent item : claim.getItem()) {
+      Extension requested = item.getExtensionByUrl(PasConstants.ITEM_REQUESTED_SERVICE);
+      if (requested == null || !(requested.getValue() instanceof Reference orderRef)) {
+        continue;
+      }
+      storeRequestedServiceOrder(requestBundle, orderRef, refMap);
+    }
+  }
+
+  private void storeRequestedServiceOrder(Bundle requestBundle, Reference orderRef, Map<String, String> refMap) {
+    if (!orderRef.hasReference() || rewriteIfMapped(orderRef, refMap)) {
+      return;
+    }
+
+    String resourceType = ResourceResolver.getReferenceResourceType(orderRef);
+    if (resourceType == null) {
+      return;
+    }
+
+    switch (resourceType) {
+      case "DeviceRequest" -> storeOrderFromBundle(requestBundle, orderRef, DeviceRequest.class, refMap);
+      case "ServiceRequest" -> storeOrderFromBundle(requestBundle, orderRef, ServiceRequest.class, refMap);
+      case "MedicationRequest" -> storeOrderFromBundle(requestBundle, orderRef, MedicationRequest.class, refMap);
+      case "NutritionOrder" -> storeOrderFromBundle(requestBundle, orderRef, NutritionOrder.class, refMap);
+      default -> {
+      }
+    }
+  }
+
+  private <T extends IAnyResource> void storeOrderFromBundle(
+      Bundle requestBundle, Reference orderRef, Class<T> resourceType, Map<String, String> refMap) {
+    T order = ResourceResolver.findInBundle(orderRef.getReference(), resourceType, requestBundle);
+    if (order != null) {
+      orderRef.setReference(store(resourceType, order, orderRef.getReference(), refMap));
     }
   }
 
@@ -156,6 +340,33 @@ public class PasBundleReferenceResolver {
   static Identifier findNpiIdentifier(Organization organization) {
     for (Identifier identifier : organization.getIdentifier()) {
       if (NPI_SYSTEM.equals(identifier.getSystem())) {
+        return identifier;
+      }
+    }
+    return null;
+  }
+
+  static Identifier findFirstIdentifierWithValue(Organization organization) {
+    for (Identifier identifier : organization.getIdentifier()) {
+      if (identifier.hasValue()) {
+        return identifier;
+      }
+    }
+    return null;
+  }
+
+  static Identifier findNpiIdentifier(Practitioner practitioner) {
+    for (Identifier identifier : practitioner.getIdentifier()) {
+      if (NPI_SYSTEM.equals(identifier.getSystem())) {
+        return identifier;
+      }
+    }
+    return null;
+  }
+
+  static Identifier findFirstIdentifierWithValue(Practitioner practitioner) {
+    for (Identifier identifier : practitioner.getIdentifier()) {
+      if (identifier.hasValue()) {
         return identifier;
       }
     }
@@ -202,46 +413,72 @@ public class PasBundleReferenceResolver {
   }
 
   /**
-   * Stores a bundle resource only when the payer does not already hold one at the same logical
-   * id; an existing copy is reused as-is (the payer's own record wins).
+   * Stores a bundle resource under a payer-assigned id after rewriting its internal references
+   * to already-resolved resources. The new id is stamped back onto the bundle resource so
+   * later in-bundle lookups by the rewritten reference still resolve, and the mapping is
+   * recorded so every other reference to the same bundle resource is rewritten too.
    */
-  private <T extends IAnyResource> void storeIfAbsent(Class<T> type, T bundleResource) {
-    String logicalId = bundleResource.getIdElement().getIdPart();
-    if (logicalId != null && existsById(type, logicalId)) {
-      return;
-    }
+  private <T extends IAnyResource> String store(
+      Class<T> type, T bundleResource, String originalRef, Map<String, String> refMap) {
+    rewriteMappedReferences(bundleResource, refMap);
+    clearUnresolvedRelativeReferences(bundleResource, refMap);
+
+    String bundleLocalRef = bundleResource.getIdElement().getIdPart() == null
+        ? null
+        : type.getSimpleName() + "/" + bundleResource.getIdElement().getIdPart();
+    bundleResource.setId((String) null);
     bundleResource.getMeta().setVersionId(null);
-    daoRegistry.getResourceDao(type).update(bundleResource, new SystemRequestDetails());
+
+    DaoMethodOutcome outcome = daoRegistry.getResourceDao(type)
+        .create(bundleResource, new SystemRequestDetails());
+    String resolved = type.getSimpleName() + "/" + outcome.getId().getIdPart();
+    bundleResource.setId(outcome.getId().toUnqualifiedVersionless());
+
+    refMap.put(originalRef, resolved);
+    if (bundleLocalRef != null) {
+      refMap.put(bundleLocalRef, resolved);
+    }
+    return resolved;
   }
 
-  private boolean existsById(Class<? extends IBaseResource> type, String logicalId) {
-    try {
-      daoRegistry.getResourceDao(type)
-          .read(new IdType(type.getSimpleName(), logicalId), new SystemRequestDetails());
-      return true;
-    } catch (ResourceNotFoundException | ResourceGoneException e) {
+  private void rewriteMappedReferences(IAnyResource resource, Map<String, String> refMap) {
+    if (refMap.isEmpty()) {
+      return;
+    }
+    for (Reference ref : FhirContext.forR4Cached().newTerser()
+        .getAllPopulatedChildElementsOfType(resource, Reference.class)) {
+      rewriteIfMapped(ref, refMap);
+    }
+  }
+
+  /**
+   * Clears relative references that did not resolve within the bundle. They carry
+   * provider logical ids that cannot exist on this server, so keeping them would
+   * either fail referential integrity or point at unrelated local resources.
+   * Identifier and display are preserved; absolute and contained references are
+   * left alone.
+   */
+  private void clearUnresolvedRelativeReferences(IAnyResource resource, Map<String, String> refMap) {
+    java.util.Set<String> resolved = new java.util.HashSet<>(refMap.values());
+    for (Reference ref : FhirContext.forR4Cached().newTerser()
+        .getAllPopulatedChildElementsOfType(resource, Reference.class)) {
+      String value = ref.getReference();
+      if (value == null || value.startsWith("#") || value.contains("://") || resolved.contains(value)) {
+        continue;
+      }
+      ref.setReference(null);
+    }
+  }
+
+  private boolean rewriteIfMapped(Reference ref, Map<String, String> refMap) {
+    if (refMap == null || ref == null || !ref.hasReference()) {
       return false;
-    }
-  }
-
-  private void rewriteCoverageReferences(Coverage coverage, Map<String, String> refMap) {
-    if (coverage == null || refMap == null || refMap.isEmpty()) {
-      return;
-    }
-    rewriteIfMapped(coverage.getBeneficiary(), refMap);
-    rewriteIfMapped(coverage.getSubscriber(), refMap);
-    for (Reference payorRef : coverage.getPayor()) {
-      rewriteIfMapped(payorRef, refMap);
-    }
-  }
-
-  private void rewriteIfMapped(Reference ref, Map<String, String> refMap) {
-    if (ref == null || !ref.hasReference()) {
-      return;
     }
     String resolved = refMap.get(ref.getReference());
     if (resolved != null) {
       ref.setReference(resolved);
+      return true;
     }
+    return false;
   }
 }

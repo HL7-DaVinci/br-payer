@@ -149,6 +149,49 @@ class DtrSubQuestionnaireAssemblerTest {
   }
 
   @Test
+  @DisplayName("Sub-questionnaire launchContext extensions merged into parent, deduplicated by code")
+  void subQ_launchContextExtensionsMerged() {
+    String launchCtxUrl =
+        "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-launchContext";
+
+    Questionnaire subQ = new Questionnaire();
+    subQ.setUrl("http://example.org/Questionnaire/sub-with-lc");
+    subQ.addExtension(launchContext(launchCtxUrl, "medication", "MedicationRequest"));
+    subQ.addExtension(launchContext(launchCtxUrl, "patient", "Patient"));
+    subQ.addItem().setLinkId("s1").setType(QuestionnaireItemType.STRING);
+
+    when(mockQDao.searchForResources(any(), any())).thenReturn(List.of(subQ));
+
+    Questionnaire parent = new Questionnaire();
+    parent.setUrl("http://example.org/Questionnaire/parent");
+    parent.addExtension(launchContext(launchCtxUrl, "patient", "Patient"));
+    QuestionnaireItemComponent item = parent.addItem();
+    item.setLinkId("group1");
+    item.setType(QuestionnaireItemType.DISPLAY);
+    item.addExtension(new Extension(
+        "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire",
+        new CanonicalType("http://example.org/Questionnaire/sub-with-lc")));
+
+    List<String> warnings = assembler.assemble(parent);
+
+    assertTrue(warnings.isEmpty());
+    List<String> codes = parent.getExtensionsByUrl(launchCtxUrl).stream()
+        .map(ext -> ((org.hl7.fhir.r4.model.Coding) ext.getExtensionByUrl("name").getValue()).getCode())
+        .toList();
+    assertEquals(2, codes.size(), "patient must not be duplicated; medication must be added");
+    assertTrue(codes.contains("patient"));
+    assertTrue(codes.contains("medication"));
+  }
+
+  private static Extension launchContext(String url, String code, String type) {
+    Extension ext = new Extension(url);
+    ext.addExtension("name", new org.hl7.fhir.r4.model.Coding()
+        .setSystem("http://hl7.org/fhir/uv/sdc/CodeSystem/launchContext").setCode(code));
+    ext.addExtension("type", new org.hl7.fhir.r4.model.CodeType(type));
+    return ext;
+  }
+
+  @Test
   @DisplayName("Duplicate cqf-library canonicals are not added twice")
   void subQ_cqfLibraryDeduplicated() {
     String cqfLibUrl = "http://hl7.org/fhir/StructureDefinition/cqf-library";

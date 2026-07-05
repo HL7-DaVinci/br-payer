@@ -2,6 +2,7 @@ package org.hl7.davinci.dtr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -63,6 +64,9 @@ class DtrQuestionnaireResolverTest {
   private PlanDefinitionService planDefinitionService;
 
   @Mock
+  private DtrContextRegistry contextRegistry;
+
+  @Mock
   @SuppressWarnings("rawtypes")
   private IFhirResourceDao patientDao;
 
@@ -87,8 +91,9 @@ class DtrQuestionnaireResolverTest {
   @BeforeEach
   @SuppressWarnings("unchecked")
   void setUp() {
-    resolver = new DtrQuestionnaireResolver(daoRegistry, planDefinitionService);
+    resolver = new DtrQuestionnaireResolver(daoRegistry, planDefinitionService, contextRegistry);
 
+    lenient().when(contextRegistry.lookup(any())).thenReturn(java.util.Optional.empty());
     lenient().when(daoRegistry.getResourceDao(Patient.class)).thenReturn(patientDao);
     lenient().when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(questionnaireDao);
     lenient().when(daoRegistry.getResourceDao("Library")).thenReturn(libraryDao);
@@ -122,22 +127,59 @@ class DtrQuestionnaireResolverTest {
   }
 
   @Test
-  @DisplayName("MedicationRequest with medicationReference resolves code for PlanDefinition lookup")
-  void medicationReference_isResolvedBeforeCodeLookup() {
-    when(daoRegistry.getResourceDao("Medication")).thenReturn(medicationDao);
+  @DisplayName("resolveContext resolves a CRD coverage-assertion id via the context registry")
+  void crdAssertionContextResolvesViaRegistry() {
+    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+        .thenThrow(new ResourceNotFoundException("not found"));
 
+    String canonical = "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire";
+    DeviceRequest registeredOrder = new DeviceRequest();
+    registeredOrder.setId("DeviceRequest/dr-1");
+    when(contextRegistry.lookup("CRD-abc-123")).thenReturn(java.util.Optional.of(
+        new DtrContextRegistry.DtrContext(List.of(canonical), registeredOrder, new Coverage())));
+
+    Questionnaire q = questionnaire("home-o2", canonical, "2.2.0");
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(q));
+
+    Questionnaire resolved = resolver.resolveContext("CRD-abc-123");
+
+    assertEquals(canonical, resolved.getUrl());
+  }
+
+  @Test
+  @DisplayName("resolveContext returns an oper-8 not-found OperationOutcome when nothing resolves")
+  void unresolvableContextReturnsOper8OperationOutcome() {
+    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+        .thenThrow(new ResourceNotFoundException("not found"));
+
+    UnprocessableEntityException ex = assertThrows(UnprocessableEntityException.class,
+        () -> resolver.resolveContext("unknown-ctx"));
+
+    org.hl7.fhir.r4.model.OperationOutcome oo =
+        (org.hl7.fhir.r4.model.OperationOutcome) ex.getOperationOutcome();
+    assertEquals(org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.ERROR,
+        oo.getIssueFirstRep().getSeverity());
+    assertEquals(org.hl7.fhir.r4.model.OperationOutcome.IssueType.NOTFOUND,
+        oo.getIssueFirstRep().getCode());
+    assertTrue(oo.getIssueFirstRep().getDiagnostics().contains("No questionnaires are associated"));
+  }
+
+  @Test
+  @DisplayName("MedicationRequest with contained medicationReference resolves code for PlanDefinition lookup")
+  void medicationReference_isResolvedBeforeCodeLookup() {
     Medication medication = new Medication();
-    medication.setId("Medication/med-1");
+    medication.setId("med-1");
     medication.setCode(new CodeableConcept().addCoding(new Coding()
         .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
         .setCode("197361")));
-    when(medicationDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(medication);
 
     MedicationRequest order = new MedicationRequest();
     order.setId("MedicationRequest/mr-1");
     order.setStatus(MedicationRequest.MedicationRequestStatus.DRAFT);
     order.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
-    order.setMedication(new Reference("Medication/med-1"));
+    order.addContained(medication);
+    order.setMedication(new Reference("#med-1"));
 
     PlanDefinition plan = planDefinitionWithLibrary("pd-med", "TestMedRule");
     when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
@@ -167,21 +209,19 @@ class DtrQuestionnaireResolverTest {
   }
 
   @Test
-  @DisplayName("SupplyRequest with itemReference resolves code for PlanDefinition lookup")
+  @DisplayName("SupplyRequest with contained itemReference resolves code for PlanDefinition lookup")
   void supplyRequestItemReference_isResolvedBeforeCodeLookup() {
-    when(daoRegistry.getResourceDao("Medication")).thenReturn(medicationDao);
-
     Medication medication = new Medication();
-    medication.setId("Medication/med-supply-1");
+    medication.setId("med-supply-1");
     medication.setCode(new CodeableConcept().addCoding(new Coding()
         .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
         .setCode("123456")));
-    when(medicationDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(medication);
 
     SupplyRequest order = new SupplyRequest();
     order.setId("SupplyRequest/sr-1");
     order.setStatus(SupplyRequest.SupplyRequestStatus.ACTIVE);
-    order.setItem(new Reference("Medication/med-supply-1"));
+    order.addContained(medication);
+    order.setItem(new Reference("#med-supply-1"));
 
     PlanDefinition plan = planDefinitionWithLibrary("pd-supply", "TestSupplyRule");
     when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
@@ -248,9 +288,6 @@ class DtrQuestionnaireResolverTest {
   @Test
   @DisplayName("Absolute beneficiary reference is preserved for clinical data subject search")
   void absoluteBeneficiaryReference_preservedForClinicalDataFetch() {
-    when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
-        .thenReturn(new Patient().setId("Patient/pat-abs"));
-
     when(daoRegistry.getResourceDao("Procedure")).thenReturn(procedureDao);
     when(procedureDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
         .thenReturn(List.of());
@@ -289,40 +326,26 @@ class DtrQuestionnaireResolverTest {
   }
 
     @Test
-    @DisplayName("External payor references resolve Organization identifiers via DAO")
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    void externalPayorReference_resolvesIdentifiersFromDao() {
-        IFhirResourceDao organizationDao = mock(IFhirResourceDao.class);
-        when(daoRegistry.getResourceDao(Organization.class)).thenReturn(organizationDao);
-
-        Organization payor = new Organization();
-        payor.setId("Organization/org-external");
-        payor.addIdentifier()
-                .setSystem("urn:oid:2.16.840.1.113883.6.300")
-                .setValue("00002");
-        when(organizationDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(payor);
-
+    @DisplayName("External payor references are never read from the local store by id")
+    void externalPayorReference_doesNotResolveFromLocalStore() {
         DeviceRequest order = new DeviceRequest();
         order.setId("DeviceRequest/dr-ext-payor");
         order.setCode(new CodeableConcept().addCoding(new Coding()
                 .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets")
                 .setCode("E0424")));
 
-        when(planDefinitionService.findPlanDefinitions(any(Coding.class), anyList(), isNull()))
-                .thenReturn(List.of());
-
         Coverage coverage = new Coverage();
         coverage.setId("Coverage/cov-ext-payor");
         coverage.setBeneficiary(new Reference("Patient/pat-1"));
         coverage.addPayor(new Reference("Organization/org-external"));
 
-        resolver.resolve(null, List.of(order), coverage);
+        DtrQuestionnaireResolver.ResolutionResult result =
+            resolver.resolve(null, List.of(order), coverage);
 
-        ArgumentCaptor<List<org.hl7.fhir.r4.model.Identifier>> payorCaptor = ArgumentCaptor.forClass(List.class);
-        verify(planDefinitionService).findPlanDefinitions(any(Coding.class), payorCaptor.capture(), isNull());
-
-        assertFalse(payorCaptor.getValue().isEmpty());
-        assertEquals("00002", payorCaptor.getValue().get(0).getValue());
+        verify(planDefinitionService, org.mockito.Mockito.never())
+            .findPlanDefinitions(any(Coding.class), anyList(), isNull());
+        assertTrue(result.warnings().stream()
+            .anyMatch(w -> w.contains("No payor identifiers")));
     }
 
   @Test
@@ -614,6 +637,87 @@ class DtrQuestionnaireResolverTest {
 
     assertEquals(1, result.questionnaires().size());
     assertEquals(canonical + "|1.0.0", result.questionnaires().get(0).canonical());
+  }
+
+  @Test
+  @DisplayName("resolveContextLaunch on a PAS TRN yields PAS_TRN provenance and recovers the pended order")
+  @SuppressWarnings({ "rawtypes", "unchecked" })
+  void resolveContextLaunch_pasTrn_recoversOrderAndCoverage() {
+    String context = "home-o2-std-questionnaire";
+    Questionnaire q = questionnaire(context,
+        "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire", "2.2.0");
+    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(q);
+
+    IFhirResourceDao claimResponseDao = mock(IFhirResourceDao.class);
+    IFhirResourceDao claimDao = mock(IFhirResourceDao.class);
+    IFhirResourceDao deviceRequestDao = mock(IFhirResourceDao.class);
+    IFhirResourceDao coverageDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao(org.hl7.fhir.r4.model.ClaimResponse.class)).thenReturn(claimResponseDao);
+    when(daoRegistry.getResourceDao(org.hl7.fhir.r4.model.Claim.class)).thenReturn(claimDao);
+    when(daoRegistry.getResourceDao("DeviceRequest")).thenReturn(deviceRequestDao);
+    when(daoRegistry.getResourceDao("Coverage")).thenReturn(coverageDao);
+
+    org.hl7.fhir.r4.model.ClaimResponse cr = new org.hl7.fhir.r4.model.ClaimResponse();
+    cr.setId("ClaimResponse/cr-1");
+    cr.setRequest(new Reference("Claim/claim-1"));
+    org.hl7.fhir.r4.model.ClaimResponse.ItemComponent crItem = cr.addItem();
+    crItem.setItemSequence(1);
+    crItem.addExtension(new Extension(
+        "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-itemTraceNumber",
+        new org.hl7.fhir.r4.model.Identifier()
+            .setSystem("urn:trnorg:PASPAYER").setValue(context)));
+    when(claimResponseDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(cr));
+
+    org.hl7.fhir.r4.model.Claim claim = new org.hl7.fhir.r4.model.Claim();
+    claim.setId("Claim/claim-1");
+    org.hl7.fhir.r4.model.Claim.ItemComponent claimItem = claim.addItem();
+    claimItem.setSequence(1);
+    claimItem.addExtension(new Extension(
+        "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-requestedService",
+        new Reference("DeviceRequest/dr-1")));
+    claim.addInsurance().setCoverage(new Reference("Coverage/cov-1"));
+    when(claimDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(claim);
+
+    DeviceRequest order = new DeviceRequest();
+    order.setId("DeviceRequest/dr-1");
+    when(deviceRequestDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(order);
+    Coverage coverage = new Coverage();
+    coverage.setId("Coverage/cov-1");
+    when(coverageDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(coverage);
+
+    DtrQuestionnaireResolver.ContextResolution result = resolver.resolveContextLaunch(context);
+
+    assertEquals(DtrQuestionnaireResolver.DtrLaunchProvenance.PAS_TRN, result.provenance());
+    assertEquals(1, result.orders().size());
+    assertEquals("DeviceRequest/dr-1",
+        result.orders().get(0).getIdElement().toUnqualifiedVersionless().getValue());
+    assertNotNull(result.coverage());
+  }
+
+  @Test
+  @DisplayName("resolveContextLaunch on a CRD assertion yields CRD_CONTEXT provenance and registry order")
+  @SuppressWarnings({ "rawtypes", "unchecked" })
+  void resolveContextLaunch_crdContext_recoversOrderFromRegistry() {
+    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+        .thenThrow(new ResourceNotFoundException("not found"));
+
+    String canonical = "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire";
+    DeviceRequest registeredOrder = new DeviceRequest();
+    registeredOrder.setId("DeviceRequest/dr-9");
+    when(contextRegistry.lookup("CRD-abc-123")).thenReturn(java.util.Optional.of(
+        new DtrContextRegistry.DtrContext(List.of(canonical), registeredOrder, new Coverage())));
+
+    Questionnaire q = questionnaire("home-o2", canonical, "2.2.0");
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+        .thenReturn(List.of(q));
+
+    DtrQuestionnaireResolver.ContextResolution result = resolver.resolveContextLaunch("CRD-abc-123");
+
+    assertEquals(DtrQuestionnaireResolver.DtrLaunchProvenance.CRD_CONTEXT, result.provenance());
+    assertEquals(1, result.orders().size());
+    assertEquals("DeviceRequest/dr-9",
+        result.orders().get(0).getIdElement().toUnqualifiedVersionless().getValue());
   }
 
   private Coverage coverageWithContainedPayor() {

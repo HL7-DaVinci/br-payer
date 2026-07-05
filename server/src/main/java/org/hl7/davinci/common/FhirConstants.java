@@ -21,6 +21,8 @@ public final class FhirConstants {
       "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-questionnaireAdaptive";
   public static final String SUB_QUESTIONNAIRE_EXT =
       "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-subQuestionnaire";
+  public static final String LAUNCH_CONTEXT_EXT =
+      "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-launchContext";
 
   public static final Set<String> CQL_EXPRESSION_EXT_URLS = Set.of(
       "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-initialExpression",

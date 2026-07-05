@@ -138,6 +138,29 @@ class PasOrgIdentifierFilterMatcherTest {
   }
 
   @Test
+  void match_returnsSuccessWhenReceiverCodeMatchesOneOfCommaSeparatedValues() {
+    // spec-58 explicitly shows "orgIdentifier=N123456,4543315"
+    ClaimResponse cr = buildClaimResponseWithReceiverCode("4543315");
+    CanonicalTopicSubscriptionFilter filter = buildFilter(
+        PasConstants.FILTER_ORG_IDENTIFIER, "N123456,4543315");
+
+    InMemoryMatchResult result = matcher.match(filter, cr);
+
+    assertTrue(result.matched());
+  }
+
+  @Test
+  void match_returnsNoMatchWhenReceiverCodeNotInCommaSeparatedValues() {
+    ClaimResponse cr = buildClaimResponseWithReceiverCode("9999999");
+    CanonicalTopicSubscriptionFilter filter = buildFilter(
+        PasConstants.FILTER_ORG_IDENTIFIER, "N123456,4543315");
+
+    InMemoryMatchResult result = matcher.match(filter, cr);
+
+    assertFalse(result.matched());
+  }
+
+  @Test
   void match_returnsNoMatchWhenBundleHasNoClaimResponse() {
     Bundle bundle = new Bundle();
     bundle.setType(Bundle.BundleType.COLLECTION);

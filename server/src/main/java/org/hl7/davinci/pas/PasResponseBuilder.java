@@ -32,6 +32,8 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
@@ -46,6 +48,8 @@ import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
  */
 @Component
 public class PasResponseBuilder {
+
+  private static final Logger log = LoggerFactory.getLogger(PasResponseBuilder.class);
 
   private final AtomicLong authCounter = new AtomicLong(0);
   private final AtomicLong pendCounter = new AtomicLong(0);
@@ -90,6 +94,8 @@ public class PasResponseBuilder {
       Bundle responseBundle = wrapInResponseBundle(sanitized);
       responseBundle.getMeta().getProfile().clear();
       responseBundle.getMeta().addProfile(PasConstants.PROFILE_PAS_INQUIRY_RESPONSE_BUNDLE);
+      addReferencedCommunicationRequests(responseBundle, sanitized,
+          ref -> readReferencedResource(ref, daoRegistry));
       params.addParameter().setName("responseBundle").setResource(responseBundle);
     }
     return params;
@@ -207,7 +213,9 @@ public class PasResponseBuilder {
     ClaimResponse sanitized = sanitizeForBundle(claimResponse);
     Bundle bundle = wrapInResponseBundle(sanitized);
 
-    addReferencedResources(bundle, sanitized, ref -> readReferencedResource(ref, daoRegistry));
+    Function<Reference, Resource> resolver = ref -> readReferencedResource(ref, daoRegistry);
+    addReferencedResources(bundle, sanitized, resolver);
+    addReferencedCommunicationRequests(bundle, sanitized, resolver);
 
     return bundle;
   }
@@ -287,12 +295,8 @@ public class PasResponseBuilder {
     cr.setCreated(new Date());
     cr.setInsurer(requestClaim.getInsurer().copy());
     cr.setRequestor(requestClaim.getProvider().copy());
-    // Outcome depends on whether any items are pended
-    boolean anyPended = itemDecisions.values().stream()
-        .anyMatch(CoverageDecision::isPended);
-    cr.setOutcome(anyPended
-        ? ClaimResponse.RemittanceOutcome.QUEUED
-        : ClaimResponse.RemittanceOutcome.COMPLETE);
+    // Outcome is always complete; a pend is conveyed by the item-level A4 reviewAction
+    cr.setOutcome(ClaimResponse.RemittanceOutcome.COMPLETE);
 
     // Reference back to the original Claim
     String claimId = requestClaim.getIdElement().getIdPart();
@@ -334,17 +338,18 @@ public class PasResponseBuilder {
       ClaimResponse.ItemComponent responseItem = cr.addItem();
       responseItem.setItemSequence(seq);
 
-      // A questionnaire-pended item's trace number is the DTR context id; others echo the request trace(s)
-      String questionnaireKey =
-          REVIEW_CODE_A4.equals(decision.reviewActionCode()) && !decision.questionnaireUrls().isEmpty()
-              ? resolveQuestionnaireKey(decision.questionnaireUrls().get(0))
-              : null;
-      if (questionnaireKey != null) {
-        responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(new Identifier()
-            .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(questionnaireKey)));
-      } else {
-        for (Identifier traceId : PasExtensions.extractItemTraceNumbers(requestItem)) {
-          responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(traceId));
+      // itemTraceNumber is 0..*: retain the provider-echoed request trace(s), then append one
+      // payer trace per pended questionnaire canonical (each correlates to its 102089-0 request).
+      for (Identifier traceId : PasExtensions.extractItemTraceNumbers(requestItem)) {
+        responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(traceId));
+      }
+      if (REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
+        for (String questionnaireCanonical : decision.questionnaireUrls()) {
+          String questionnaireKey = resolveQuestionnaireKey(questionnaireCanonical);
+          if (questionnaireKey != null) {
+            responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(new Identifier()
+                .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(questionnaireKey)));
+          }
         }
       }
 
@@ -458,6 +463,18 @@ public class PasResponseBuilder {
     addReferencedResource(responseBundle, cr.getRequestor(), resourceResolver, addedKeys);
   }
 
+  /**
+   * Adds the CommunicationRequests referenced by ClaimResponse.communicationRequest into the
+   * response bundle so inquiry/notification bundles satisfy spec-61's resolvable-reference rule.
+   */
+  private void addReferencedCommunicationRequests(Bundle responseBundle, ClaimResponse cr,
+      Function<Reference, Resource> resourceResolver) {
+    Set<String> addedKeys = new HashSet<>();
+    for (Reference ref : cr.getCommunicationRequest()) {
+      addReferencedResource(responseBundle, ref, resourceResolver, addedKeys);
+    }
+  }
+
   private void addReferencedResource(Bundle responseBundle, Reference ref,
       Function<Reference, Resource> resourceResolver, Set<String> addedKeys) {
     if (ref == null || !ref.hasReference()) {
@@ -557,7 +574,7 @@ public class PasResponseBuilder {
    * @see <a href="https://hl7.org/fhir/us/davinci-pas/2.2.1/en/additionalinfo.html">
    *   PAS IG: Request for Additional Information</a>
    */
-  private void addCommunicationRequests(Bundle responseBundle, Claim requestClaim,
+  void addCommunicationRequests(Bundle responseBundle, Claim requestClaim,
       ClaimResponse claimResponse, Map<Integer, CoverageDecision> itemDecisions) {
     String patientRef = requestClaim.hasPatient() ? requestClaim.getPatient().getReference() : null;
 
@@ -567,10 +584,17 @@ public class PasResponseBuilder {
       if (!decision.hasAdditionalDocumentationInfo()) continue;
 
       int lineNumber = entry.getKey();
-      // payload is 0..1: emit one CommunicationRequest per request type
-      if (!decision.questionnaireUrls().isEmpty()) {
-        addCommunicationRequest(responseBundle, claimResponse,
-            PasCommunicationRequestBuilder.buildQuestionnaireRequest(lineNumber, patientRef));
+      // payload is 0..1: emit one 102089-0 CommunicationRequest per questionnaire canonical,
+      // its identifier the same TRN appended to the item so the two correlate.
+      for (String questionnaireCanonical : decision.questionnaireUrls()) {
+        String trn = resolveQuestionnaireKey(questionnaireCanonical);
+        if (trn == null) {
+          log.warn("Skipping 102089-0 CommunicationRequest for item {}: no TRN resolvable "
+              + "for questionnaire {}", lineNumber, questionnaireCanonical);
+        } else {
+          addCommunicationRequest(responseBundle, claimResponse,
+              PasCommunicationRequestBuilder.buildQuestionnaireRequest(lineNumber, patientRef, trn));
+        }
       }
       for (String code : decision.requestedAttachmentCodes()) {
         addCommunicationRequest(responseBundle, claimResponse,

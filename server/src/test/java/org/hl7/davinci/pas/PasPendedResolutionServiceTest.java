@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.concurrent.ScheduledFuture;
 
 import org.hl7.fhir.r4.model.ClaimResponse;
+import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Reference;
@@ -297,6 +298,27 @@ class PasPendedResolutionServiceTest {
     verify(crDao).metaDeleteOperation(argThat(id -> "cr-auth".equals(id.getIdPart())),
         any(Meta.class), any(RequestDetails.class));
     verify(notificationService).dispatchResolvedClaimResponse("cr-auth");
+  }
+
+  @Test
+  void resolveNow_completesAssociatedCommunicationRequests() {
+    ClaimResponse pended = buildPendedClaimResponse("cr-docs");
+    pended.addCommunicationRequest(new Reference("CommunicationRequest/comm-1"));
+    when(crDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(pended);
+
+    CommunicationRequest commReq = new CommunicationRequest();
+    commReq.setId("comm-1");
+    commReq.setStatus(CommunicationRequest.CommunicationRequestStatus.ACTIVE);
+    @SuppressWarnings("unchecked")
+    IFhirResourceDao<CommunicationRequest> commReqDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao(CommunicationRequest.class)).thenReturn(commReqDao);
+    when(commReqDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(commReq);
+
+    service.resolveNow("cr-docs");
+
+    verify(commReqDao).update(argThat(c ->
+        c.getStatus() == CommunicationRequest.CommunicationRequestStatus.COMPLETED),
+        any(RequestDetails.class));
   }
 
   private ClaimResponse buildPendedClaimResponse(String id) {

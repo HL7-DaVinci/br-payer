@@ -1,5 +1,7 @@
 package org.hl7.davinci.pas;
 
+import java.util.Arrays;
+
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ClaimResponse;
@@ -48,11 +50,16 @@ public class PasOrgIdentifierFilterMatcher implements ISubscriptionTopicFilterMa
       return InMemoryMatchResult.noMatch();
     }
 
-    // Support FHIR token format (system|value) per PAS IG example:
+    // spec-58 permits comma-separated values, e.g. "orgIdentifier=N123456,4543315";
+    // each element may also use the FHIR token format (system|value) per PAS IG example:
     // "orgIdentifier=http://hl7.org/fhir/sid/us-npi|1234567893"
-    String compareValue = extractTokenValue(filterValue);
+    String[] subscribedValues = filterValue.split(",");
+    boolean matched = Arrays.stream(subscribedValues)
+        .map(String::trim)
+        .map(this::extractTokenValue)
+        .anyMatch(providerCode::equals);
 
-    if (providerCode.equals(compareValue)) {
+    if (matched) {
       return InMemoryMatchResult.successfulMatch();
     }
 

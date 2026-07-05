@@ -2,7 +2,6 @@ package org.hl7.davinci.pas;
 
 import static org.hl7.davinci.common.FhirConstants.X12_REVIEW_CODE_SYSTEM;
 
-import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
@@ -11,11 +10,8 @@ import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Period;
-import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.Type;
 
 import java.util.ArrayList;
@@ -234,55 +230,5 @@ public final class PasExtensions {
     if (end != null)
       period.setEnd(end);
     return new Extension(PasConstants.ITEM_PREAUTH_PERIOD, period);
-  }
-
-  /**
-   * Builds a PAS Task resource requesting additional documentation via DTR questionnaires.
-   * Per the PAS IG, Task.code = "attachment-request-questionnaire" directs providers to
-   * complete the referenced questionnaires using DTR.
-   *
-   * @param claimReference reference to the originating Claim (e.g. "Claim/123")
-   * @param patientReference reference to the patient (e.g. "Patient/456")
-   * @param insurerReference reference to the insurer organization
-   * @param questionnaireUrls canonical URLs for DTR questionnaires
-   * @param payerFhirUrl the payer's FHIR endpoint for $submit-attachment
-   */
-  public static Task buildDocumentationRequestTask(
-      String claimReference,
-      String patientReference,
-      String insurerReference,
-      List<String> questionnaireUrls,
-      String payerFhirUrl) {
-    Task task = new Task();
-    task.setId("task-" + java.util.UUID.randomUUID().toString().substring(0, 8));
-    task.setMeta(new Meta().addProfile(PasConstants.PROFILE_PAS_TASK));
-    task.setStatus(Task.TaskStatus.REQUESTED);
-    task.setIntent(Task.TaskIntent.ORDER);
-    task.setCode(new CodeableConcept().addCoding(new Coding(
-        PasConstants.TASK_CODE_SYSTEM,
-        PasConstants.TASK_CODE_QUESTIONNAIRE_REQUEST,
-        "Questionnaire Attachment Request")));
-
-    task.setFor(new Reference(patientReference));
-    task.setRequester(new Reference(insurerReference));
-    task.setReasonReference(new Reference(claimReference));
-
-    // payerUrl input -- where to submit completed documentation
-    if (payerFhirUrl != null) {
-      task.addInput()
-          .setType(new CodeableConcept().addCoding(new Coding(
-              PasConstants.TASK_CODE_SYSTEM, "payer-url", "Payer URL")))
-          .setValue(new StringType(payerFhirUrl));
-    }
-
-    // questionnairesNeeded inputs -- canonical URLs for DTR
-    for (String url : questionnaireUrls) {
-      task.addInput()
-          .setType(new CodeableConcept().addCoding(new Coding(
-              PasConstants.TASK_CODE_SYSTEM, "questionnaires-needed", "Questionnaires Needed")))
-          .setValue(new CanonicalType(url));
-    }
-
-    return task;
   }
 }

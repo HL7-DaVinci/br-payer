@@ -3,13 +3,19 @@ package org.hl7.davinci.dtr.integration;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.hl7.davinci.common.FhirUtil;
+import org.hl7.davinci.dtr.DtrConstants;
 import org.hl7.davinci.dtr.DtrPackageService;
+import org.hl7.davinci.pas.PasConstants;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.Claim;
+import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.CodeType;
@@ -18,6 +24,7 @@ import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -1176,6 +1183,156 @@ class DtrQuestionnairePackageIT {
           extractWarnings(result).contains("cannot be cast to class org.hl7.fhir.r4.model.Type"),
           "Pre-population should not return resource values for questionnaire item answers. Warnings: "
               + extractWarnings(result));
+    }
+  }
+
+  // ============================================================
+  // CONTEXT LAUNCH (PAS prior authorization)
+  // ============================================================
+
+  @Nested
+  @DisplayName("Context Launch")
+  class ContextLaunchTests {
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("PAS context launch draft QR has intendedUse=withpa and qr-context referencing the pended order")
+    void pasContextLaunch_intendedUseWithPa_andQrContext() {
+      String patientId = testPatient.getIdElement().getIdPart();
+      String orgId = testOrganization.getIdElement().getIdPart();
+      String coverageId = testCoverage.getIdElement().getIdPart();
+
+      // The context id is the pended questionnaire's logical id (the PAS item trace number).
+      Questionnaire hospitalBeds =
+          FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, Q_CANONICAL);
+      assertNotNull(hospitalBeds, "HospitalBeds questionnaire should be loaded");
+      String contextId = hospitalBeds.getIdElement().getIdPart();
+
+      // The ordered service behind the prior authorization.
+      DeviceRequest order = new DeviceRequest();
+      order.setId("ctx-pended-order");
+      order.setStatus(DeviceRequest.DeviceRequestStatus.ACTIVE);
+      order.setIntent(DeviceRequest.RequestIntent.ORDER);
+      order.setCode(new CodeableConcept().addCoding(new Coding()
+          .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets").setCode("E0250")));
+      order.setSubject(new Reference("Patient/" + patientId));
+      order = (DeviceRequest) daoRegistry.getResourceDao(DeviceRequest.class)
+          .update(order, new SystemRequestDetails()).getResource();
+      String orderId = order.getIdElement().getIdPart();
+
+      CodeableConcept claimType = new CodeableConcept().addCoding(new Coding()
+          .setSystem("http://terminology.hl7.org/CodeSystem/claim-type").setCode("professional"));
+      CodeableConcept productOrService = new CodeableConcept().addCoding(new Coding()
+          .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets").setCode("E0250"));
+
+      // Stored Claim: item 1 carries the requestedService order reference and names the coverage.
+      Claim claim = new Claim();
+      claim.setId("ctx-pended-claim");
+      claim.setStatus(Claim.ClaimStatus.ACTIVE);
+      claim.setType(claimType);
+      claim.setUse(Claim.Use.PREAUTHORIZATION);
+      claim.setPatient(new Reference("Patient/" + patientId));
+      claim.setCreated(new Date());
+      claim.setProvider(new Reference("Organization/" + orgId));
+      claim.setPriority(new CodeableConcept().addCoding(new Coding()
+          .setSystem("http://terminology.hl7.org/CodeSystem/processpriority").setCode("normal")));
+      Claim.InsuranceComponent insurance = claim.addInsurance();
+      insurance.setSequence(1);
+      insurance.setFocal(true);
+      insurance.setCoverage(new Reference("Coverage/" + coverageId));
+      Claim.ItemComponent claimItem = claim.addItem();
+      claimItem.setSequence(1);
+      claimItem.setProductOrService(productOrService);
+      claimItem.addExtension(new Extension(PasConstants.ITEM_REQUESTED_SERVICE,
+          new Reference("DeviceRequest/" + orderId)));
+      daoRegistry.getResourceDao(Claim.class).update(claim, new SystemRequestDetails());
+
+      // Stored pended ClaimResponse: item 1 trace number is the questionnaire context id.
+      ClaimResponse cr = new ClaimResponse();
+      cr.setId("ctx-pended-cr");
+      cr.setStatus(ClaimResponse.ClaimResponseStatus.ACTIVE);
+      cr.setType(claimType);
+      cr.setUse(ClaimResponse.Use.PREAUTHORIZATION);
+      cr.setPatient(new Reference("Patient/" + patientId));
+      cr.setCreated(new Date());
+      cr.setInsurer(new Reference("Organization/" + orgId));
+      cr.setOutcome(ClaimResponse.RemittanceOutcome.COMPLETE);
+      cr.setRequest(new Reference("Claim/ctx-pended-claim"));
+      ClaimResponse.ItemComponent crItem = cr.addItem();
+      crItem.setItemSequence(1);
+      crItem.addAdjudication().setCategory(new CodeableConcept().addCoding(new Coding()
+          .setSystem("http://terminology.hl7.org/CodeSystem/adjudication").setCode("submitted")));
+      crItem.addExtension(new Extension(PasConstants.ITEM_TRACE_NUMBER, new Identifier()
+          .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(contextId)));
+      daoRegistry.getResourceDao(ClaimResponse.class).update(cr, new SystemRequestDetails());
+
+      Parameters result = dtrPackageService.generateContextPackage(
+          testCoverage, contextId, null, null, null, null);
+
+      Bundle bundle = extractPackageBundle(result);
+      assertNotNull(bundle, "Context launch should produce a package. Warnings: "
+          + extractWarnings(result));
+
+      QuestionnaireResponse qr = bundle.getEntry().stream()
+          .map(e -> e.getResource())
+          .filter(QuestionnaireResponse.class::isInstance)
+          .map(QuestionnaireResponse.class::cast)
+          .findFirst().orElse(null);
+      assertNotNull(qr, "Bundle should contain a QuestionnaireResponse");
+
+      Extension intendedUse = qr.getExtensionByUrl(DtrConstants.INTENDED_USE_EXT);
+      assertNotNull(intendedUse, "Draft QR should carry intendedUse");
+      CodeableConcept intendedUseCC = (CodeableConcept) intendedUse.getValue();
+      assertEquals("withpa", intendedUseCC.getCodingFirstRep().getCode(),
+          "A PAS prior-authorization launch SHALL scope intendedUse to withpa");
+
+      boolean qrContextRefsOrder = qr.getExtensionsByUrl(DtrConstants.QR_CONTEXT_EXT).stream()
+          .filter(ext -> ext.getValue() instanceof Reference)
+          .map(ext -> ((Reference) ext.getValue()).getReference())
+          .anyMatch(ref -> ref != null && ref.contains(orderId));
+      assertTrue(qrContextRefsOrder,
+          "Draft QR SHALL carry a qr-context referencing the recovered pended order " + orderId);
+    }
+
+    @Test
+    @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    @DisplayName("$questionnaire-package with both context and order returns the union of both resolution paths")
+    void contextAndOrder_returnsUnionOfBothPaths() {
+      String patientId = testPatient.getIdElement().getIdPart();
+
+      // Context names the HospitalBeds questionnaire (PAS TRN direct-read path).
+      Questionnaire hospitalBeds =
+          FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, Q_CANONICAL);
+      assertNotNull(hospitalBeds, "HospitalBeds questionnaire should be loaded");
+      String contextId = hospitalBeds.getIdElement().getIdPart();
+
+      // Explicit order resolves to a different questionnaire (HomeOxygenDispatch) via PlanDefinition.
+      DeviceRequest order = new DeviceRequest();
+      order.setStatus(DeviceRequest.DeviceRequestStatus.DRAFT);
+      order.setIntent(DeviceRequest.RequestIntent.ORDER);
+      order.setCode(new CodeableConcept().addCoding(new Coding()
+          .setSystem("http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets").setCode("E0424")));
+      order.setSubject(new Reference("Patient/" + patientId));
+
+      Parameters result = dtrPackageService.generateContextPackage(
+          testCoverage, contextId, List.of(order), null, null, null);
+
+      List<String> questionnaireUrls = result.getParameter().stream()
+          .filter(p -> "packagebundle".equals(p.getName()))
+          .map(p -> (Bundle) p.getResource())
+          .map(b -> b.getEntry().get(0).getResource())
+          .filter(Questionnaire.class::isInstance)
+          .map(r -> ((Questionnaire) r).getUrl())
+          .toList();
+
+      assertTrue(questionnaireUrls.stream().anyMatch(u -> u.contains("HospitalBedsAndAccessories")),
+          "Union must include the context-named questionnaire. Got: " + questionnaireUrls
+              + " Warnings: " + extractWarnings(result));
+      assertTrue(questionnaireUrls.stream().anyMatch(u -> u.contains("home-o2")),
+          "Union must include the order-resolved home oxygen questionnaire. Got: " + questionnaireUrls
+              + " Warnings: " + extractWarnings(result));
+      assertTrue(questionnaireUrls.stream().distinct().count() >= 2,
+          "Union must contain both resolution paths' questionnaires. Got: " + questionnaireUrls);
     }
   }
 

@@ -13,6 +13,7 @@ import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -199,9 +200,49 @@ class PasSubmitIT {
         "fullUrl should end with the ClaimResponse ID");
   }
 
+  @Test
+  @Timeout(value = 60, unit = TimeUnit.SECONDS)
+  @DisplayName("$submit stores provider resources under payer-assigned ids, never the provider's")
+  void submitStoresResourcesUnderPayerAssignedIds() {
+    String json = loadBundleJson(REFERRAL_BUNDLE)
+        .replace("Patient/SubscriberExample", "Patient/1716")
+        .replace("\"id\":\"SubscriberExample\"", "\"id\":\"1716\"")
+        .replace("12345678901", "99912345678901")
+        .replace("\"resourceType\":\"ServiceRequest\",",
+            "\"resourceType\":\"ServiceRequest\",\"encounter\":{\"reference\":\"Encounter/1715\"},");
+    Bundle request = (Bundle) FhirContext.forR4Cached().newJsonParser().parseResource(json);
+
+    Bundle response = submitService.submit(request);
+
+    assertInstanceOf(ClaimResponse.class, response.getEntryFirstRep().getResource());
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    var params = new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
+    params.add("identifier",
+        new ca.uhn.fhir.rest.param.TokenParam("http://example.org/MIN", "99912345678901"));
+    Patient stored = daoRegistry.getResourceDao(Patient.class)
+        .searchForResources(params, new SystemRequestDetails())
+        .stream().findFirst().orElse(null);
+    assertNotNull(stored, "Patient should be stored and findable by identifier");
+    assertNotEquals("1716", stored.getIdElement().getIdPart(),
+        "Stored Patient must carry a payer-assigned id, not the provider's");
+    assertEquals("Patient/" + stored.getIdElement().getIdPart(),
+        cr.getPatient().getReference(),
+        "ClaimResponse.patient must reference the payer-side Patient");
+  }
+
   private Bundle loadBundle(String classpathPath) {
+    return (Bundle) FhirContext.forR4Cached().newJsonParser()
+        .parseResource(loadBundleJson(classpathPath));
+  }
+
+  private String loadBundleJson(String classpathPath) {
     InputStream is = getClass().getClassLoader().getResourceAsStream(classpathPath);
     assertNotNull(is, "Test fixture not found: " + classpathPath);
-    return (Bundle) FhirContext.forR4Cached().newJsonParser().parseResource(is);
+    try (is) {
+      return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    } catch (java.io.IOException e) {
+      throw new java.io.UncheckedIOException(e);
+    }
   }
 }

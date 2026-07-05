@@ -8,12 +8,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hl7.davinci.cdshooks.error.OperationOutcomeBuilder;
 import org.hl7.davinci.common.CoverageInfoUtil;
 import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.common.FhirCodeExtractor;
 import org.hl7.davinci.common.PayorIdentifierUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.davinci.common.ResourceResolver;
+import org.hl7.davinci.pas.PasConstants;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Coding;
@@ -24,6 +26,7 @@ import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Library;
+import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.PlanDefinition;
@@ -72,17 +75,38 @@ public class DtrQuestionnaireResolver {
 
   private final DaoRegistry daoRegistry;
   private final PlanDefinitionService planDefinitionService;
+  private final DtrContextRegistry contextRegistry;
 
-  public DtrQuestionnaireResolver(DaoRegistry daoRegistry, PlanDefinitionService planDefinitionService) {
+  public DtrQuestionnaireResolver(DaoRegistry daoRegistry, PlanDefinitionService planDefinitionService,
+      DtrContextRegistry contextRegistry) {
     this.daoRegistry = daoRegistry;
     this.planDefinitionService = planDefinitionService;
+    this.contextRegistry = contextRegistry;
   }
 
   public enum ResolutionPath {
     QUESTIONNAIRE, ORDER, BOTH
   }
 
+  /** How the launch that produced a package was discovered, used to scope intendedUse. */
+  public enum DtrLaunchProvenance {
+    PAS_TRN, CRD_CONTEXT, ORDER, EXPLICIT_QUESTIONNAIRE
+  }
+
   public record ResolutionResult(List<ResolvedQuestionnaire> questionnaires, List<String> warnings) {
+  }
+
+  /**
+   * Outcome of resolving a $questionnaire-package context id: the named
+   * Questionnaire, how it was discovered, and the order/coverage recovered from
+   * the pended prior authorization (PAS TRN) or the CRD context registry.
+   */
+  public record ContextResolution(
+      Questionnaire questionnaire,
+      List<CanonicalType> canonicals,
+      DtrLaunchProvenance provenance,
+      List<Resource> orders,
+      Coverage coverage) {
   }
 
   /** Provenance metadata per resolved questionnaire */
@@ -90,8 +114,20 @@ public class DtrQuestionnaireResolver {
       String canonical,
       Questionnaire resource,
       ResolutionPath path,
+      DtrLaunchProvenance provenance,
       List<String> sourceOrderIds,
       String warning) {
+    /** Convenience constructor deriving launch provenance from the resolution path. */
+    public ResolvedQuestionnaire(String canonical, Questionnaire resource, ResolutionPath path,
+        List<String> sourceOrderIds, String warning) {
+      this(canonical, resource, path, provenanceForPath(path), sourceOrderIds, warning);
+    }
+
+    private static DtrLaunchProvenance provenanceForPath(ResolutionPath path) {
+      return path == ResolutionPath.ORDER ? DtrLaunchProvenance.ORDER
+          : DtrLaunchProvenance.EXPLICIT_QUESTIONNAIRE;
+    }
+
     /** Create a copy with merged path and source order IDs */
     ResolvedQuestionnaire mergeWith(ResolvedQuestionnaire other) {
       ResolutionPath mergedPath = (this.path != other.path) ? ResolutionPath.BOTH : this.path;
@@ -104,7 +140,14 @@ public class DtrQuestionnaireResolver {
       // Prefer non-null resource and non-null warning
       Questionnaire mergedResource = this.resource != null ? this.resource : other.resource;
       String mergedWarning = this.warning != null ? this.warning : other.warning;
-      return new ResolvedQuestionnaire(this.canonical, mergedResource, mergedPath, mergedOrderIds, mergedWarning);
+      return new ResolvedQuestionnaire(this.canonical, mergedResource, mergedPath, this.provenance,
+          mergedOrderIds, mergedWarning);
+    }
+
+    /** Returns a copy with the launch provenance replaced (context-launch override). */
+    public ResolvedQuestionnaire withProvenance(DtrLaunchProvenance newProvenance) {
+      return new ResolvedQuestionnaire(this.canonical, this.resource, this.path, newProvenance,
+          this.sourceOrderIds, this.warning);
     }
   }
 
@@ -177,14 +220,196 @@ public class DtrQuestionnaireResolver {
     return new ResolutionResult(new ArrayList<>(results.values()), warnings);
   }
 
-  /** Resolves a questionnaire context id (item trace number) to its Questionnaire. */
+  /**
+   * Resolves a questionnaire context id to its Questionnaire. Retained for callers
+   * that only need the Questionnaire; delegates to {@link #resolveContextLaunch}.
+   */
   public Questionnaire resolveContext(String context) {
+    return resolveContextLaunch(context).questionnaire();
+  }
+
+  /**
+   * Resolves a $questionnaire-package context id, recovering the launch provenance
+   * and the order/coverage the context refers to. Tries, in order: the PAS
+   * item-trace-number trick (context = Questionnaire logical id), whose order and
+   * coverage are recovered from the pended ClaimResponse and its stored Claim; then
+   * the CRD coverage-assertion-id registry, whose order and coverage are read from
+   * the stored {@link DtrContextRegistry.DtrContext}. A miss produces an
+   * oper-8-conformant not-found OperationOutcome.
+   */
+  public ContextResolution resolveContextLaunch(String context) {
+    Questionnaire direct = null;
     try {
-      return daoRegistry.getResourceDao(Questionnaire.class)
+      direct = daoRegistry.getResourceDao(Questionnaire.class)
           .read(new IdType("Questionnaire", context), new SystemRequestDetails());
     } catch (ResourceNotFoundException e) {
-      throw new UnprocessableEntityException(
-          "Unresolvable questionnaire context (item trace number): " + context);
+      // Fall through to the CRD assertion-id registry.
+    }
+
+    if (direct != null) {
+      RecoveredOrder recovered = recoverOrderFromPas(context);
+      // A PAS TRN maps to exactly one questionnaire by design.
+      return new ContextResolution(direct, List.of(new CanonicalType(direct.getUrl())),
+          DtrLaunchProvenance.PAS_TRN, recovered.orders(), recovered.coverage());
+    }
+
+    ContextResolution fromRegistry = resolveViaContextRegistry(context);
+    if (fromRegistry != null) {
+      return fromRegistry;
+    }
+
+    String diagnostics = "No questionnaires are associated with context '" + context
+        + "'. If this context came from a CRD coverage-information assertion, re-invoke CRD or"
+        + " contact the payer at " + DtrConstants.PAYER_SUPPORT_CONTACT
+        + "; documentation requirements may have changed.";
+    throw new UnprocessableEntityException(diagnostics,
+        OperationOutcomeBuilder.createOperationOutcome(
+            OperationOutcome.IssueSeverity.ERROR,
+            OperationOutcome.IssueType.NOTFOUND,
+            null,
+            diagnostics));
+  }
+
+  private ContextResolution resolveViaContextRegistry(String context) {
+    var lookup = contextRegistry.lookup(context);
+    if (lookup.isEmpty()) {
+      return null;
+    }
+    DtrContextRegistry.DtrContext ctx = lookup.get();
+    List<String> canonicals = ctx.questionnaireCanonicals();
+    if (canonicals == null || canonicals.isEmpty()) {
+      return null;
+    }
+    Questionnaire q = FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonicals.get(0));
+    if (q == null) {
+      return null;
+    }
+    // A CRD context may name multiple questionnaires; carry the full list for union packaging.
+    List<CanonicalType> canonicalTypes = new ArrayList<>();
+    for (String canonical : canonicals) {
+      if (canonical != null && !canonical.isBlank()) {
+        canonicalTypes.add(new CanonicalType(canonical));
+      }
+    }
+    List<Resource> orders = new ArrayList<>();
+    if (ctx.order() != null) {
+      orders.add(ctx.order().copy());
+    }
+    Coverage coverage = ctx.coverage() != null ? ctx.coverage().copy() : null;
+    return new ContextResolution(q, canonicalTypes, DtrLaunchProvenance.CRD_CONTEXT, orders, coverage);
+  }
+
+  private record RecoveredOrder(List<Resource> orders, Coverage coverage) {
+  }
+
+  /**
+   * Recovers the ordered service and coverage behind a PAS questionnaire request.
+   * The context is the item trace number carried on a pended ClaimResponse.item;
+   * that ClaimResponse references the stored Claim, whose matching item carries the
+   * requestedService order reference and whose insurance names the coverage.
+   */
+  private RecoveredOrder recoverOrderFromPas(String context) {
+    List<Resource> orders = new ArrayList<>();
+    Coverage coverage = null;
+
+    ca.uhn.fhir.jpa.searchparam.SearchParameterMap params =
+        new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
+    params.setLoadSynchronous(true);
+    List<?> responses;
+    try {
+      responses = daoRegistry.getResourceDao(org.hl7.fhir.r4.model.ClaimResponse.class)
+          .searchForResources(params, new SystemRequestDetails());
+    } catch (Exception e) {
+      logger.debug("Could not search ClaimResponses for context {}: {}", context, e.getMessage());
+      return new RecoveredOrder(orders, null);
+    }
+
+    for (Object obj : responses) {
+      org.hl7.fhir.r4.model.ClaimResponse cr = (org.hl7.fhir.r4.model.ClaimResponse) obj;
+      Integer matchedSequence = matchItemTraceNumber(cr, context);
+      if (matchedSequence == null) {
+        continue;
+      }
+      org.hl7.fhir.r4.model.Claim claim = readClaim(cr.getRequest());
+      if (claim == null) {
+        continue;
+      }
+      Resource order = orderFromClaimItem(claim, matchedSequence);
+      if (order != null) {
+        orders.add(order);
+      }
+      coverage = coverageFromClaim(claim);
+      break;
+    }
+    return new RecoveredOrder(orders, coverage);
+  }
+
+  private Integer matchItemTraceNumber(org.hl7.fhir.r4.model.ClaimResponse cr, String context) {
+    for (org.hl7.fhir.r4.model.ClaimResponse.ItemComponent item : cr.getItem()) {
+      for (Extension ext : item.getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER)) {
+        if (ext.getValue() instanceof Identifier id && context.equals(id.getValue())) {
+          return item.getItemSequence();
+        }
+      }
+    }
+    return null;
+  }
+
+  private org.hl7.fhir.r4.model.Claim readClaim(Reference request) {
+    if (request == null || !request.hasReference()) {
+      return null;
+    }
+    try {
+      IdType id = new IdType(request.getReference());
+      return daoRegistry.getResourceDao(org.hl7.fhir.r4.model.Claim.class)
+          .read(new IdType("Claim", id.getIdPart()), new SystemRequestDetails());
+    } catch (Exception e) {
+      logger.debug("Could not read Claim {}: {}", request.getReference(), e.getMessage());
+      return null;
+    }
+  }
+
+  private Resource orderFromClaimItem(org.hl7.fhir.r4.model.Claim claim, int sequence) {
+    for (org.hl7.fhir.r4.model.Claim.ItemComponent item : claim.getItem()) {
+      if (item.getSequence() != sequence) {
+        continue;
+      }
+      Extension requested = item.getExtensionByUrl(PasConstants.ITEM_REQUESTED_SERVICE);
+      if (requested != null && requested.getValue() instanceof Reference ref) {
+        return readReference(ref);
+      }
+    }
+    return null;
+  }
+
+  private Coverage coverageFromClaim(org.hl7.fhir.r4.model.Claim claim) {
+    if (!claim.hasInsurance()) {
+      return null;
+    }
+    Reference coverageRef = claim.getInsuranceFirstRep().getCoverage();
+    return (Coverage) readReference(coverageRef);
+  }
+
+  /**
+   * Reads a reference from this server's store. Only valid for payer-local
+   * references, i.e. those taken from resources this server persisted itself
+   * (the PAS-stored Claim and its rewritten references).
+   */
+  private Resource readReference(Reference ref) {
+    if (ref == null || !ref.hasReference()) {
+      return null;
+    }
+    try {
+      IdType id = new IdType(ref.getReference());
+      String type = id.getResourceType();
+      if (type == null || type.isBlank()) {
+        return null;
+      }
+      return (Resource) daoRegistry.getResourceDao(type)
+          .read(new IdType(type, id.getIdPart()), new SystemRequestDetails());
+    } catch (Exception e) {
+      logger.debug("Could not read referenced resource {}: {}", ref.getReference(), e.getMessage());
+      return null;
     }
   }
 
@@ -192,13 +417,14 @@ public class DtrQuestionnaireResolver {
       Map<String, ResolvedQuestionnaire> results, List<String> warnings) {
 
     // Resolve Patient from coverage beneficiary
-    Patient patient = resolvePatient(coverage);
-    if (patient == null) {
+    MemberResolution member = resolvePatient(coverage);
+    if (member == null) {
       String warning = "Could not resolve patient from Coverage beneficiary; skipping order-based resolution";
       logger.warn(warning);
       warnings.add(warning);
       return;
     }
+    Patient patient = member.patient();
     String patientId = patient.getIdElement().getIdPart();
 
     // Resolve payor identifiers
@@ -212,7 +438,11 @@ public class DtrQuestionnaireResolver {
 
     // Build base data bundle (Patient, Coverage, orders -- no clinical data yet)
     Bundle dataBundle = buildDataBundle(patient, coverage, validOrders);
-    String subjectRef = resolveSubjectReference(coverage, patient);
+    // A payer-local member's own id scopes local clinical-data searches; otherwise the
+    // beneficiary reference is kept as-is.
+    String subjectRef = member.payerLocal()
+        ? patient.getIdElement().toVersionless().getValue()
+        : resolveSubjectReference(coverage, patient);
     Set<String> fetchedClinicalTypes = new HashSet<>();
     Set<String> inputOrderTypes = new HashSet<>();
     for (Resource order : validOrders) {
@@ -348,28 +578,79 @@ public class DtrQuestionnaireResolver {
     }
   }
 
-  private Patient resolvePatient(Coverage coverage) {
-    if (coverage == null || !coverage.hasBeneficiary()) {
+  private record MemberResolution(Patient patient, boolean payerLocal) {
+  }
+
+  /**
+   * Resolves the member Patient for a Coverage that arrived from the provider.
+   * The beneficiary reference carries a provider logical id that must never be
+   * read against this server's store; the member is located by inline/contained
+   * resource or by member identifier, falling back to a stub so PlanDefinition
+   * evaluation has a subject context. payerLocal marks a member found in this
+   * server's store, whose id may be used for local clinical-data searches.
+   */
+  private MemberResolution resolvePatient(Coverage coverage) {
+    if (coverage == null) {
       return null;
     }
-    String patientRef = coverage.getBeneficiary().getReference();
+
+    Reference beneficiary = coverage.hasBeneficiary() ? coverage.getBeneficiary() : null;
+    Patient supplied = beneficiary != null
+        ? ResourceResolver.resolveTypedReferenceFromDao(beneficiary, Patient.class, coverage, null)
+        : null;
+    if (supplied != null) {
+      return new MemberResolution(supplied, false);
+    }
+
+    Patient member = findPatientByMemberIdentifier(coverage);
+    if (member != null) {
+      return new MemberResolution(member, true);
+    }
+
+    String patientRef = beneficiary != null ? beneficiary.getReference() : null;
     if (patientRef == null) {
       return null;
     }
     String idPart = new org.hl7.fhir.r4.model.IdType(patientRef).getIdPart();
-    try {
-      return daoRegistry.getResourceDao(Patient.class)
-          .read(new org.hl7.fhir.r4.model.IdType("Patient", idPart),
-              new ca.uhn.fhir.rest.api.server.SystemRequestDetails());
-    } catch (Exception e) {
-      // DTR requests originate from the EHR; the patient may not exist on the payer
-      // server.
-      // Create a stub so PlanDefinition evaluation has a subject context.
-      logger.debug("Patient {} not in repository, using stub for PlanDefinition evaluation", idPart);
-      Patient stub = new Patient();
-      stub.setId(idPart);
-      return stub;
+    logger.debug("No member Patient resolvable for coverage; using stub {} for PlanDefinition evaluation",
+        idPart);
+    Patient stub = new Patient();
+    stub.setId(idPart);
+    return new MemberResolution(stub, false);
+  }
+
+  /**
+   * Searches this server's Patients by the coverage's member identifier values
+   * (Coverage.identifier and subscriberId), matching on identifier value across
+   * systems since the provider and payer may scope them differently.
+   */
+  private Patient findPatientByMemberIdentifier(Coverage coverage) {
+    List<String> candidateValues = new ArrayList<>();
+    for (Identifier identifier : coverage.getIdentifier()) {
+      if (identifier.hasValue()) {
+        candidateValues.add(identifier.getValue());
+      }
     }
+    if (coverage.hasSubscriberId() && !candidateValues.contains(coverage.getSubscriberId())) {
+      candidateValues.add(coverage.getSubscriberId());
+    }
+
+    for (String value : candidateValues) {
+      ca.uhn.fhir.jpa.searchparam.SearchParameterMap params =
+          new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
+      params.setLoadSynchronous(true);
+      params.add("identifier", new ca.uhn.fhir.rest.param.TokenParam(null, value));
+      params.setCount(1);
+      Patient match = daoRegistry.getResourceDao(Patient.class)
+          .searchForResources(params, new ca.uhn.fhir.rest.api.server.SystemRequestDetails())
+          .stream()
+          .findFirst()
+          .orElse(null);
+      if (match != null) {
+        return match;
+      }
+    }
+    return null;
   }
 
   private List<Identifier> extractPayorIdentifiers(Coverage coverage) {
@@ -377,12 +658,11 @@ public class DtrQuestionnaireResolver {
     if (coverage == null || !coverage.hasPayor()) {
       return identifiers;
     }
+    // Payor references carry provider logical ids; only inline/contained payor
+    // Organizations are usable here, never a local read by that id.
     for (Reference payorRef : coverage.getPayor()) {
-      if (!payorRef.hasReference()) {
-        continue;
-      }
       Organization org = ResourceResolver.resolveTypedReferenceFromDao(
-          payorRef, Organization.class, coverage, daoRegistry);
+          payorRef, Organization.class, coverage, null);
       if (org != null) {
         PayorIdentifierUtil.addValidIdentifiers(identifiers, org);
       }
@@ -391,9 +671,11 @@ public class DtrQuestionnaireResolver {
   }
 
   private Resource resolveItemReference(Resource order) {
+    // Orders arrive by value from the provider; their internal references only
+    // resolve inline/contained, never against this server's store by id.
     return FhirCodeExtractor.resolveReferencedItem(order, itemRef -> {
       DomainResource parent = order instanceof DomainResource domainResource ? domainResource : null;
-      return ResourceResolver.resolveReferenceFromDao(itemRef, parent, daoRegistry);
+      return ResourceResolver.resolveReferenceFromDao(itemRef, parent, null);
     });
   }
 

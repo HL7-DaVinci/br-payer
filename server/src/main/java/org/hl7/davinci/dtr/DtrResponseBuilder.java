@@ -184,7 +184,7 @@ public class DtrResponseBuilder {
 
     qr.setAuthored(new Date());
 
-    addCoverageAndIntendedUseExtensions(qr, coverage);
+    addCoverageAndIntendedUseExtensions(qr, coverage, provenance.provenance());
 
     // qr-context extensions
     addQrContextExtensions(qr, provenance, allOrders);
@@ -419,23 +419,25 @@ public class DtrResponseBuilder {
     // Authored timestamp
     qr.setAuthored(new Date());
 
-    addCoverageAndIntendedUseExtensions(qr, coverage);
+    addCoverageAndIntendedUseExtensions(qr, coverage, provenance.provenance());
 
     // qr-context extensions -- provenance-aware scoping
     addQrContextExtensions(qr, provenance, allOrders);
   }
 
-  private void addCoverageAndIntendedUseExtensions(QuestionnaireResponse qr, Coverage coverage) {
+  private void addCoverageAndIntendedUseExtensions(QuestionnaireResponse qr, Coverage coverage,
+      DtrQuestionnaireResolver.DtrLaunchProvenance provenance) {
     Extension coverageExt = new Extension(QR_COVERAGE_EXT);
     coverageExt.setValue(toRelativeTypedReference(coverage));
     qr.addExtension(coverageExt);
 
+    boolean priorAuth = provenance == DtrQuestionnaireResolver.DtrLaunchProvenance.PAS_TRN;
     Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
     CodeableConcept intendedUseCC = new CodeableConcept();
     intendedUseCC.addCoding(new Coding()
         .setSystem(DOC_REASON_SYSTEM)
-        .setCode(INTENDED_USE_WITH_ORDER)
-        .setDisplay("Include with order"));
+        .setCode(priorAuth ? INTENDED_USE_WITH_PA : INTENDED_USE_WITH_ORDER)
+        .setDisplay(priorAuth ? "Include with prior authorization" : "Include with order"));
     intendedUseExt.setValue(intendedUseCC);
     qr.addExtension(intendedUseExt);
   }

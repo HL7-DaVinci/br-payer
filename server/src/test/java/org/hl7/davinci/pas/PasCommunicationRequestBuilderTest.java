@@ -18,7 +18,7 @@ class PasCommunicationRequestBuilderTest {
   @Test
   void buildQuestionnaireRequest_emitsLoincMarkerAsString() {
     CommunicationRequest request =
-        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/pat-1");
+        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/pat-1", "trn-1");
 
     assertEquals(1, request.getPayload().size(),
         "payload is 0..1: one request per CommunicationRequest");
@@ -31,6 +31,20 @@ class PasCommunicationRequestBuilderTest {
         .getExtensionByUrl(PasConstants.EXT_SERVICE_LINE_NUMBER).getValue()).getValue().intValue());
   }
 
+  // profile-communicationrequest invariant IdentifierUnlessVO requires an identifier on every
+  // CommunicationRequest; the questionnaire request reuses the TRN minted for the item.
+  @Test
+  void buildQuestionnaireRequest_carriesIdentifierWithTrn() {
+    CommunicationRequest request =
+        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/pat-1", "ctx-1");
+
+    assertFalse(request.getIdentifier().isEmpty(),
+        "IdentifierUnlessVO invariant requires an identifier");
+    assertEquals(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM,
+        request.getIdentifierFirstRep().getSystem());
+    assertEquals("ctx-1", request.getIdentifierFirstRep().getValue());
+  }
+
   @Test
   void buildAttachmentCodeRequest_emitsTheCode() {
     CommunicationRequest request =
@@ -38,5 +52,17 @@ class PasCommunicationRequestBuilderTest {
 
     assertEquals(1, request.getPayload().size());
     assertEquals("18748-4", ((StringType) request.getPayloadFirstRep().getContent()).getValue());
+  }
+
+  @Test
+  void buildAttachmentCodeRequest_carriesFreshUuidIdentifier() {
+    CommunicationRequest request =
+        PasCommunicationRequestBuilder.buildAttachmentCodeRequest(2, "18748-4", "Patient/pat-1");
+
+    assertFalse(request.getIdentifier().isEmpty(),
+        "IdentifierUnlessVO invariant requires an identifier");
+    assertEquals(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM,
+        request.getIdentifierFirstRep().getSystem());
+    assertFalse(request.getIdentifierFirstRep().getValue().isBlank());
   }
 }

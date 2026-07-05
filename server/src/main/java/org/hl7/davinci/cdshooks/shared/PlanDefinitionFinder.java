@@ -43,6 +43,9 @@ public class PlanDefinitionFinder {
   private CoverageInfoHandler coverageInfoHandler;
 
   @Autowired
+  private org.hl7.davinci.dtr.DtrContextRegistry contextRegistry;
+
+  @Autowired
   private AppProperties appProperties;
 
   /**
@@ -74,6 +77,7 @@ public class PlanDefinitionFinder {
         requestGroup, context.getCoverage(), appProperties.getServer_address());
     if (coverageInfoExt != null) {
       logger.info("Coverage info extension found from CQL");
+      registerDtrContext(coverageInfoExt, contextResource, context);
       CdsServiceResponseSystemActionJson systemAction = coverageInfoHandler.buildCoverageInfoSystemAction(
           contextResource, coverageInfoExt);
       if (systemAction != null) {
@@ -82,5 +86,41 @@ public class PlanDefinitionFinder {
     }
 
     return planResponse;
+  }
+
+  /**
+   * Registers a mapping from the minted coverage-assertion-id to its questionnaires,
+   * order, and coverage so a later $questionnaire-package call carrying that id as
+   * context can resolve it (spec-107, oper-8). Only doc-needed assertions (those
+   * carrying questionnaire canonicals) are registered.
+   */
+  private void registerDtrContext(Extension coverageInfoExt, Resource contextResource,
+      ResolvedResources context) {
+    List<Extension> questionnaireExts = coverageInfoExt.getExtensionsByUrl("questionnaire");
+    if (questionnaireExts.isEmpty()) {
+      return;
+    }
+
+    String assertionId = CoverageInfoUtil.subExtensionCode(coverageInfoExt, "coverage-assertion-id");
+    if (assertionId == null) {
+      return;
+    }
+
+    List<String> canonicals = new java.util.ArrayList<>();
+    for (Extension qExt : questionnaireExts) {
+      if (qExt.getValue() instanceof org.hl7.fhir.r4.model.CanonicalType canonicalType
+          && canonicalType.getValue() != null) {
+        canonicals.add(canonicalType.getValue());
+      }
+    }
+    if (canonicals.isEmpty()) {
+      return;
+    }
+
+    try {
+      contextRegistry.register(assertionId, canonicals, contextResource, context.getCoverage());
+    } catch (RuntimeException e) {
+      logger.warn("Failed to register DTR context {}; $questionnaire-package context resolution will miss it", assertionId, e);
+    }
   }
 }

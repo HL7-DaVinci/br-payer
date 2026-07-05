@@ -43,10 +43,13 @@ public final class DtrConstants {
   // ===== Code Values =====
 
   public static final String INTENDED_USE_WITH_ORDER = "withorder";
+  public static final String INTENDED_USE_WITH_PA = "withpa";
 
   // ===== Custom Headers =====
 
   public static final String ADAPTIVE_MODE_HEADER = "X-DTR-Adaptive-Mode";
+
+  public static final String PAYER_SUPPORT_CONTACT = "support@payer.example (1-800-555-0100)";
 
   // ===== Canonical Prefixes =====
 
