@@ -85,6 +85,9 @@ class PasSubmitIT {
   @Autowired
   private ICdsServiceRegistry cdsServiceRegistry;
 
+  @Autowired
+  private org.hl7.davinci.scenarios.pas.PasScenarioService scenarioService;
+
   @BeforeAll
   void setUpOnce() {
     log.info("Waiting for server initialization (port {})...", port);
@@ -229,6 +232,42 @@ class PasSubmitIT {
     assertEquals("Patient/" + stored.getIdElement().getIdPart(),
         cr.getPatient().getReference(),
         "ClaimResponse.patient must reference the payer-side Patient");
+  }
+
+  @Test
+  @Timeout(value = 90, unit = TimeUnit.SECONDS)
+  @DisplayName("generated home oxygen therapy scenario pends with a questionnaire documentation request")
+  void generatedHomeOxygenTherapyScenarioPendsWithDocumentationRequest() {
+    Bundle request = scenarioService
+        .findVariantBundle("home-oxygen-therapy", "initial")
+        .orElseThrow(() -> new AssertionError("home-oxygen-therapy initial scenario not found"));
+
+    Bundle response = submitService.submit(request);
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    assertEquals(org.hl7.davinci.common.FhirConstants.REVIEW_CODE_A4,
+        org.hl7.davinci.pas.PasExtensions.extractReviewActionCode(cr.getItemFirstRep()),
+        "home oxygen therapy requires prior auth with documentation, so the item must pend");
+    assertTrue(cr.hasCommunicationRequest(),
+        "pended response must reference the questionnaire CommunicationRequest");
+  }
+
+  @Test
+  @Timeout(value = 90, unit = TimeUnit.SECONDS)
+  @DisplayName("documentation-required demo scenario always pends with a documentation request")
+  void documentationRequiredDemoScenarioAlwaysPends() {
+    Bundle request = scenarioService
+        .findVariantBundle("documentation-required", "initial")
+        .orElseThrow(() -> new AssertionError("documentation-required initial scenario not found"));
+
+    Bundle response = submitService.submit(request);
+    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
+
+    assertEquals(org.hl7.davinci.common.FhirConstants.REVIEW_CODE_A4,
+        org.hl7.davinci.pas.PasExtensions.extractReviewActionCode(cr.getItemFirstRep()),
+        "the documentation-required demo rule must always pend");
+    assertTrue(cr.hasCommunicationRequest(),
+        "pended response must reference the questionnaire CommunicationRequest");
   }
 
   private Bundle loadBundle(String classpathPath) {

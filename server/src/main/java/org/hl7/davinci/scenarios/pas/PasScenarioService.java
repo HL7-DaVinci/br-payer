@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.hl7.davinci.scenarios.pas.PasRequestBuilder.PasScenario;
 import org.hl7.davinci.scenarios.pas.PasRequestBuilder.PasVariant;
+import org.hl7.davinci.scenarios.pas.PasScenarioOutcomeClassifier.ExpectedOutcome;
 import org.hl7.davinci.scenarios.ScenarioMetadataProvider;
 import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;
@@ -27,10 +28,13 @@ public class PasScenarioService {
 
   private final ScenarioMetadataProvider metadataProvider;
   private final FhirContext fhirContext;
+  private final PasScenarioOutcomeClassifier outcomeClassifier;
 
-  public PasScenarioService(ScenarioMetadataProvider metadataProvider, FhirContext fhirContext) {
+  public PasScenarioService(ScenarioMetadataProvider metadataProvider, FhirContext fhirContext,
+      PasScenarioOutcomeClassifier outcomeClassifier) {
     this.metadataProvider = metadataProvider;
     this.fhirContext = fhirContext;
+    this.outcomeClassifier = outcomeClassifier;
   }
 
   public List<PasScenarioDto> getScenarios() {
@@ -67,9 +71,22 @@ public class PasScenarioService {
                 .encodeResourceToString(v.bundle())))
         .toList();
 
+    ExpectedOutcome outcome = classifyInitialVariant(scenario);
+
     return new PasScenarioDto(
         scenario.id(), scenario.name(), scenario.description(),
-        scenario.orderType(), variantDtos);
+        scenario.orderType(),
+        outcome == null ? null : outcome.reviewActionCode(),
+        outcome == null ? null : outcome.documentationNeeded(),
+        variantDtos);
+  }
+
+  private ExpectedOutcome classifyInitialVariant(PasScenario scenario) {
+    return scenario.variants().stream()
+        .filter(v -> "initial".equals(v.payloadType()))
+        .findFirst()
+        .map(v -> outcomeClassifier.classify(scenario.id(), v.bundle()))
+        .orElse(null);
   }
 
   // ===== DTOs =====
@@ -79,6 +96,8 @@ public class PasScenarioService {
       String name,
       String description,
       String orderType,
+      String expectedReviewAction,
+      Boolean documentationNeeded,
       List<PasVariantDto> variants) {
   }
 

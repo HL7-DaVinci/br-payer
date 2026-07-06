@@ -1,0 +1,63 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "DocumentationRequired",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/dtr-std-questionnaire"
+    ]
+  },
+  "url": "http://example.org/fhir/Questionnaire/DocumentationRequired",
+  "name": "DocumentationRequired",
+  "title": "Supporting Clinical Documentation",
+  "status": "active",
+  "publisher": "Da Vinci",
+  "subjectType": [
+    "Patient"
+  ],
+  "date": "2026-07-06",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/questionnaireAudience",
+      "valueCode": "clinical"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/estimated-completion-time",
+      "extension": [
+        {
+          "url": "clinicalTime",
+          "valueCode": "under-5min"
+        },
+        {
+          "url": "totalTime",
+          "valueCode": "under-5min"
+        }
+      ]
+    }
+  ],
+  "item": [
+    {
+      "linkId": "1",
+      "text": "What is the primary diagnosis or condition supporting this request?",
+      "type": "string",
+      "required": true
+    },
+    {
+      "linkId": "2",
+      "text": "Describe the clinical justification for the requested item or service",
+      "type": "text",
+      "required": true
+    },
+    {
+      "linkId": "3",
+      "text": "Have conservative or lower-cost alternatives been tried?",
+      "type": "boolean",
+      "required": true
+    },
+    {
+      "linkId": "4",
+      "text": "Expected duration of need (months)",
+      "type": "integer",
+      "required": false
+    }
+  ]
+}

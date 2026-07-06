@@ -1,20 +1,12 @@
 {
   "resourceType": "PlanDefinition",
-  "id": "home-oxygen-therapy",
-  "url": "http://example.org/fhir/PlanDefinition/home-oxygen-therapy",
+  "id": "DocumentationRequired",
+  "url": "http://example.org/fhir/PlanDefinition/DocumentationRequired",
   "version": "1.0.0",
-  "name": "HomeOxygenTherapy",
-  "title": "Home Oxygen Therapy",
-  "type": {
-    "coding": [
-      {
-        "system": "http://terminology.hl7.org/CodeSystem/plan-definition-type",
-        "code": "eca-rule"
-      }
-    ]
-  },
+  "name": "DocumentationRequired",
+  "title": "Documentation Required",
   "status": "active",
-  "description": "Home Oxygen Therapy devices",
+  "description": "Demonstration rule that always requires prior authorization with supporting clinical documentation, producing a pended (A4) PAS response with a questionnaire documentation request for the CDex attachments workflow",
   "useContext": [
     {
       "code": {
@@ -47,17 +39,20 @@
         "coding": [
           {
             "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
-            "code": "E0424"
+            "code": "E0466"
           }
         ]
       }
     }
   ],
   "library": [
-    "http://example.org/fhir/Library/HomeOxygenTherapyRule"
+    "http://example.org/fhir/Library/DocumentationRequiredRule"
   ],
   "action": [
     {
+      "id": "coverage-info",
+      "title": "Coverage Information",
+      "description": "Coverage determination requiring prior authorization with supporting documentation",
       "trigger": [
         {
           "type": "named-event",
@@ -69,7 +64,7 @@
           "kind": "applicability",
           "expression": {
             "language": "text/cql-identifier",
-            "expression": "Rule Applies"
+            "expression": "Requires Coverage Determination"
           }
         }
       ],

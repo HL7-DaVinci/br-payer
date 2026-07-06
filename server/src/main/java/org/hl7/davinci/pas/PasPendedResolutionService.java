@@ -98,7 +98,7 @@ public class PasPendedResolutionService {
   public void recoverPendingResolutionsOnStartup() {
     SearchParameterMap params = new SearchParameterMap();
     params.add(Constants.PARAM_TAG,
-        new TokenParam(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE));
+        new TokenParam(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE));
     params.setLoadSynchronous(true);
 
     List<ClaimResponse> resources = daoRegistry.getResourceDao(ClaimResponse.class)
@@ -155,8 +155,8 @@ public class PasPendedResolutionService {
               new SystemRequestDetails());
 
       // Guard: skip if pended tag was already removed (e.g., by an update/cancel or a prior resolution)
-      if (cr.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM,
-          PasSubmitService.PENDED_TAG_CODE) == null) {
+      if (cr.getMeta().getTag(PasConstants.PENDED_TAG_SYSTEM,
+          PasConstants.PENDED_TAG_CODE) == null) {
         scheduledTasks.remove(crId);
         log.debug("ClaimResponse/{} no longer pended, skipping resolution", crId);
         return false;
@@ -186,7 +186,7 @@ public class PasPendedResolutionService {
     // HAPI JPA treats tags as additive across versions, so the update alone
     // won't remove the pended tag. Use metaDeleteOperation to explicitly remove it.
     Meta tagToRemove = new Meta();
-    tagToRemove.addTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE, null);
+    tagToRemove.addTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE, null);
     crDao.metaDeleteOperation(pendedCr.getIdElement().toUnqualifiedVersionless(),
         tagToRemove, new SystemRequestDetails());
 

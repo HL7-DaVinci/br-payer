@@ -14,8 +14,11 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ServiceRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -287,7 +290,7 @@ class PasRequestBuilderTest {
   @Test
   void buildSubmitBundle_nonPasFocusCodeFallsBackToX12RequestedServiceCode() {
     Coding snomedFocus = new Coding("http://snomed.info/sct", "394579002", "Cardiology");
-    ScenarioMetadata meta = buildMetaWithFocus("cardio", "Cardiology", snomedFocus);
+    ScenarioMetadata meta = buildMetaWithFocus("cardio", "Cardiology", snomedFocus, "ServiceRequest");
     Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, snomedFocus, seed, "I", "Initial", "test-trace");
 
     Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
@@ -431,12 +434,73 @@ class PasRequestBuilderTest {
   private ScenarioMetadata buildMeta(String id, String name) {
     Coding focusCode = new Coding(
         "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets", "E0424", "Stationary Oxygen");
-    return buildMetaWithFocus(id, name, focusCode);
+    return buildMetaWithFocus(id, name, focusCode, "DeviceRequest");
   }
 
-  private ScenarioMetadata buildMetaWithFocus(String id, String name, Coding focusCode) {
+  private ScenarioMetadata buildMetaWithFocus(String id, String name, Coding focusCode,
+      String orderType) {
     return new ScenarioMetadata(
-        id, name, null, List.of(focusCode), List.of("order-select"), "DeviceRequest",
+        id, name, null, List.of(focusCode), List.of("order-select"), orderType,
         List.of(), false, false, false);
+  }
+
+  @Test
+  void buildSubmitBundle_deviceOrderTypeBuildsDeviceRequestOrder() {
+    ScenarioMetadata meta = buildMeta("oxygen", "Home Oxygen");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(
+        meta, meta.focusCodes().get(0), seed, "I", "Initial", "test-trace");
+
+    DeviceRequest order = bundle.getEntry().stream()
+        .filter(e -> e.getResource() instanceof DeviceRequest)
+        .map(e -> (DeviceRequest) e.getResource())
+        .findFirst()
+        .orElseThrow(() -> new AssertionError(
+            "submit bundle should carry the order as a DeviceRequest"));
+    assertEquals("E0424", order.getCodeCodeableConcept().getCodingFirstRep().getCode());
+    assertEquals(PasConstants.PROFILE_PAS_DEVICE_REQUEST,
+        order.getMeta().getProfile().get(0).getValue());
+    assertTrue(bundle.getEntry().stream().noneMatch(e -> e.getResource() instanceof ServiceRequest),
+        "device order scenarios should not also carry a ServiceRequest");
+
+    Claim claim = (Claim) bundle.getEntryFirstRep().getResource();
+    Extension requestedService = claim.getItemFirstRep()
+        .getExtensionByUrl(PasConstants.ITEM_REQUESTED_SERVICE);
+    assertEquals("DeviceRequest/oxygen-device-request",
+        ((Reference) requestedService.getValue()).getReference());
+  }
+
+  @Test
+  void buildSubmitBundle_medicationOrderTypeBuildsMedicationRequestOrder() {
+    Coding rxnormFocus = new Coding("http://www.nlm.nih.gov/research/umls/rxnorm", "197361", null);
+    ScenarioMetadata meta = buildMetaWithFocus("immuno", "Immunosuppressives", rxnormFocus,
+        "MedicationRequest");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(
+        meta, rxnormFocus, seed, "I", "Initial", "test-trace");
+
+    MedicationRequest order = bundle.getEntry().stream()
+        .filter(e -> e.getResource() instanceof MedicationRequest)
+        .map(e -> (MedicationRequest) e.getResource())
+        .findFirst()
+        .orElseThrow(() -> new AssertionError(
+            "submit bundle should carry the order as a MedicationRequest"));
+    assertEquals("197361",
+        ((CodeableConcept) order.getMedication()).getCodingFirstRep().getCode());
+    assertEquals(PasConstants.PROFILE_PAS_MEDICATION_REQUEST,
+        order.getMeta().getProfile().get(0).getValue());
+    assertEquals("Practitioner/ReferralPractitionerExample",
+        order.getRequester().getReference(),
+        "us-core-21 requires a requester when intent is order");
+    assertTrue(order.hasAuthoredOn());
+  }
+
+  @Test
+  void buildSubmitBundle_appointmentOrderTypeFallsBackToServiceRequest() {
+    Coding cptFocus = new Coding("http://www.ama-assn.org/go/cpt", "70553", null);
+    ScenarioMetadata meta = buildMetaWithFocus("imaging", "Imaging", cptFocus, "Appointment");
+    Bundle bundle = PasRequestBuilder.buildSubmitBundle(
+        meta, cptFocus, seed, "I", "Initial", "test-trace");
+
+    assertTrue(bundle.getEntry().stream().anyMatch(e -> e.getResource() instanceof ServiceRequest),
+        "order types without a PAS order profile fall back to a ServiceRequest order");
   }
 }

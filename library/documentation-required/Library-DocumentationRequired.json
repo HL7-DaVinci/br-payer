@@ -1,0 +1,23 @@
+{
+  "resourceType": "Library",
+  "id": "DocumentationRequiredRule",
+  "url": "http://example.org/fhir/Library/DocumentationRequiredRule",
+  "version": "1.0.0",
+  "name": "DocumentationRequiredRule",
+  "title": "Documentation Required CRD Rule",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/library-type",
+        "code": "logic-library"
+      }
+    ]
+  },
+  "content": [
+    {
+      "contentType": "text/cql",
+      "url": "DocumentationRequiredRule.cql"
+    }
+  ]
+}

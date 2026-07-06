@@ -1,4 +1,4 @@
-// Runtime configuration for the FHIR Browser
+// Runtime configuration for the Da Vinci BR Payer frontend
 // This file can be modified at deployment time to configure the app
 // without rebuilding the application bundle.
 //

@@ -1,6 +1,6 @@
 {
-  "short_name": "FHIR Browser",
-  "name": "FHIR Browser",
+  "short_name": "BR Payer",
+  "name": "Da Vinci BR Payer",
   "icons": [
     {
       "src": "favicon.ico",

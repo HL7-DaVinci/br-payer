@@ -74,6 +74,8 @@ public final class PasConstants {
   public static final String PROFILE_PAS_PRACTITIONER_ROLE = PAS_BASE + "profile-practitionerrole";
   public static final String PROFILE_PAS_PRACTITIONER = PAS_BASE + "profile-practitioner";
   public static final String PROFILE_PAS_SERVICE_REQUEST = PAS_BASE + "profile-servicerequest";
+  public static final String PROFILE_PAS_DEVICE_REQUEST = PAS_BASE + "profile-devicerequest";
+  public static final String PROFILE_PAS_MEDICATION_REQUEST = PAS_BASE + "profile-medicationrequest";
   public static final String PROFILE_PAS_COMMUNICATION_REQUEST = PAS_BASE + "profile-communicationrequest";
 
   public static final String EXT_SERVICE_LINE_NUMBER = PAS_BASE + "extension-serviceLineNumber";
@@ -90,5 +92,9 @@ public final class PasConstants {
   // PASIdentifier recommends a scheme of urn:trnorg:<TRN03>; the value carried is the DTR context id
   // (the requested questionnaire's logical id).
   public static final String QUESTIONNAIRE_TRACE_NUMBER_SYSTEM = "urn:trnorg:PASPAYER";
+
+  // Internal meta tag marking a ClaimResponse as awaiting pended resolution
+  public static final String PENDED_TAG_SYSTEM = "http://example.org/fhir/us/davinci-pas/internal-tags";
+  public static final String PENDED_TAG_CODE = "pended-resolution";
 
 }

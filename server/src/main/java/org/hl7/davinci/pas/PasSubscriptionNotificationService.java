@@ -55,8 +55,8 @@ public class PasSubscriptionNotificationService {
         return;
       }
 
-      if (finalCr.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM,
-          PasSubmitService.PENDED_TAG_CODE) != null) {
+      if (finalCr.getMeta().getTag(PasConstants.PENDED_TAG_SYSTEM,
+          PasConstants.PENDED_TAG_CODE) != null) {
         log.debug("ClaimResponse/{} still has the pended-resolution tag, skipping PAS subscription dispatch",
             claimResponseId);
         return;

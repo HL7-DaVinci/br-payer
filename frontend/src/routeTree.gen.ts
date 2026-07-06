@@ -14,6 +14,7 @@ import { Route as ResourcesIndexRouteImport } from './routes/resources/index'
 import { Route as PasIndexRouteImport } from './routes/pas/index'
 import { Route as HooksIndexRouteImport } from './routes/hooks/index'
 import { Route as DtrIndexRouteImport } from './routes/dtr/index'
+import { Route as CdexIndexRouteImport } from './routes/cdex/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,9 +41,15 @@ const DtrIndexRoute = DtrIndexRouteImport.update({
   path: '/dtr/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CdexIndexRoute = CdexIndexRouteImport.update({
+  id: '/cdex/',
+  path: '/cdex/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cdex/': typeof CdexIndexRoute
   '/dtr/': typeof DtrIndexRoute
   '/hooks/': typeof HooksIndexRoute
   '/pas/': typeof PasIndexRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cdex': typeof CdexIndexRoute
   '/dtr': typeof DtrIndexRoute
   '/hooks': typeof HooksIndexRoute
   '/pas': typeof PasIndexRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cdex/': typeof CdexIndexRoute
   '/dtr/': typeof DtrIndexRoute
   '/hooks/': typeof HooksIndexRoute
   '/pas/': typeof PasIndexRoute
@@ -65,14 +74,22 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dtr/' | '/hooks/' | '/pas/' | '/resources/'
+  fullPaths: '/' | '/cdex/' | '/dtr/' | '/hooks/' | '/pas/' | '/resources/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dtr' | '/hooks' | '/pas' | '/resources'
-  id: '__root__' | '/' | '/dtr/' | '/hooks/' | '/pas/' | '/resources/'
+  to: '/' | '/cdex' | '/dtr' | '/hooks' | '/pas' | '/resources'
+  id:
+    | '__root__'
+    | '/'
+    | '/cdex/'
+    | '/dtr/'
+    | '/hooks/'
+    | '/pas/'
+    | '/resources/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CdexIndexRoute: typeof CdexIndexRoute
   DtrIndexRoute: typeof DtrIndexRoute
   HooksIndexRoute: typeof HooksIndexRoute
   PasIndexRoute: typeof PasIndexRoute
@@ -116,11 +133,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DtrIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cdex/': {
+      id: '/cdex/'
+      path: '/cdex'
+      fullPath: '/cdex/'
+      preLoaderRoute: typeof CdexIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CdexIndexRoute: CdexIndexRoute,
   DtrIndexRoute: DtrIndexRoute,
   HooksIndexRoute: HooksIndexRoute,
   PasIndexRoute: PasIndexRoute,

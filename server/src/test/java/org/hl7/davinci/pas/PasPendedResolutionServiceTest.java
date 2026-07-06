@@ -111,8 +111,8 @@ class PasPendedResolutionServiceTest {
         argThat(meta -> {
           Meta m = (Meta) meta;
           return m.getTag().stream().anyMatch(t ->
-              PasSubmitService.PENDED_TAG_SYSTEM.equals(t.getSystem())
-                  && PasSubmitService.PENDED_TAG_CODE.equals(t.getCode()));
+              PasConstants.PENDED_TAG_SYSTEM.equals(t.getSystem())
+                  && PasConstants.PENDED_TAG_CODE.equals(t.getCode()));
         }), any(RequestDetails.class));
     verify(notificationService).dispatchResolvedClaimResponse("cr-1");
   }
@@ -324,8 +324,8 @@ class PasPendedResolutionServiceTest {
   private ClaimResponse buildPendedClaimResponse(String id) {
     ClaimResponse cr = new ClaimResponse();
     cr.setId(id);
-    cr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
-        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    cr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM,
+        PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     return cr;
   }
 }

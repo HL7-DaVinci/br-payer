@@ -20,15 +20,18 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.ContactPoint;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Practitioner;
 import org.hl7.fhir.r4.model.PractitionerRole;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ServiceRequest;
 
 /**
@@ -118,10 +121,10 @@ public class PasRequestBuilder {
 
   static Bundle buildSubmitBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
       String certTypeCode, String certTypeDisplay, String traceNumber) {
-    ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
-    Claim claim = buildClaim(meta, focusCode, serviceRequest, certTypeCode, certTypeDisplay, traceNumber);
+    Resource order = buildOrderResource(meta, focusCode);
+    Claim claim = buildClaim(meta, focusCode, order, certTypeCode, certTypeDisplay, traceNumber);
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM);
-    return wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
+    return wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, order);
   }
 
   static Bundle buildInquiryBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed) {
@@ -130,16 +133,16 @@ public class PasRequestBuilder {
 
   static Bundle buildInquiryBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
       String traceNumber) {
-    ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
-    Claim claim = buildClaim(meta, focusCode, serviceRequest, "I", "Initial", traceNumber);
+    Resource order = buildOrderResource(meta, focusCode);
+    Claim claim = buildClaim(meta, focusCode, order, "I", "Initial", traceNumber);
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_INQUIRY);
-    return wrapInBundle(PasConstants.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE, claim, seed, true, serviceRequest);
+    return wrapInBundle(PasConstants.PROFILE_PAS_INQUIRY_REQUEST_BUNDLE, claim, seed, true, order);
   }
 
   static Bundle buildUpdateBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
       String initialTraceNumber) {
-    ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
-    Claim claim = buildClaim(meta, focusCode, serviceRequest, "S", "Revised",
+    Resource order = buildOrderResource(meta, focusCode);
+    Claim claim = buildClaim(meta, focusCode, order, "S", "Revised",
         UUID.randomUUID().toString());
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_UPDATE);
     String priorClaimId = meta.id() + "-prior-auth-claim";
@@ -149,8 +152,8 @@ public class PasRequestBuilder {
     for (Claim.ItemComponent item : claim.getItem()) {
       item.addExtension(new Extension(PasConstants.INFO_CHANGED, new CodeType("changed")));
     }
-    Bundle bundle = wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
-    Claim priorClaim = buildClaim(meta, focusCode, serviceRequest, "I", "Initial", initialTraceNumber);
+    Bundle bundle = wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, order);
+    Claim priorClaim = buildClaim(meta, focusCode, order, "I", "Initial", initialTraceNumber);
     priorClaim.setId(priorClaimId);
     priorClaim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM);
     addEntry(bundle, "Claim/" + priorClaimId, priorClaim);
@@ -159,8 +162,8 @@ public class PasRequestBuilder {
 
   static Bundle buildCancelBundle(ScenarioMetadata meta, Coding focusCode, SeedResources seed,
       String initialTraceNumber) {
-    ServiceRequest serviceRequest = buildServiceRequest(meta, focusCode);
-    Claim claim = buildClaim(meta, focusCode, serviceRequest, "I", "Initial",
+    Resource order = buildOrderResource(meta, focusCode);
+    Claim claim = buildClaim(meta, focusCode, order, "I", "Initial",
         UUID.randomUUID().toString());
     claim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM_UPDATE);
     String priorClaimId = meta.id() + "-prior-auth-claim";
@@ -173,8 +176,8 @@ public class PasRequestBuilder {
       item.addModifierExtension(
           new Extension(PasConstants.INFO_CANCELLED, new org.hl7.fhir.r4.model.BooleanType(true)));
     }
-    Bundle bundle = wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, serviceRequest);
-    Claim priorClaim = buildClaim(meta, focusCode, serviceRequest, "I", "Initial", initialTraceNumber);
+    Bundle bundle = wrapInBundle(PasConstants.PROFILE_PAS_REQUEST_BUNDLE, claim, seed, false, order);
+    Claim priorClaim = buildClaim(meta, focusCode, order, "I", "Initial", initialTraceNumber);
     priorClaim.setId(priorClaimId);
     priorClaim.getMeta().addProfile(PasConstants.PROFILE_PAS_CLAIM);
     addEntry(bundle, "Claim/" + priorClaimId, priorClaim);
@@ -183,7 +186,8 @@ public class PasRequestBuilder {
 
   // ===== Claim construction =====
 
-  static Claim buildClaim(ScenarioMetadata meta, Coding focusCode, ServiceRequest serviceRequest,
+  static Claim buildClaim(ScenarioMetadata meta, Coding focusCode,
+      Resource order,
       String certTypeCode, String certTypeDisplay, String traceNumber) {
     Claim claim = new Claim();
     claim.setId(meta.id() + "-claim");
@@ -249,9 +253,46 @@ public class PasRequestBuilder {
 
     // requestedService reference
     item.addExtension(PasConstants.ITEM_REQUESTED_SERVICE,
-        new Reference("ServiceRequest/" + serviceRequest.getId()));
+        new Reference(orderReference(order)));
 
     return claim;
+  }
+
+  /**
+   * Builds the order resource for the scenario's order type so coverage rules
+   * that retrieve a specific request type (for example [DeviceRequest]) can see
+   * the order. Order types without a PAS order profile (such as Appointment)
+   * fall back to a ServiceRequest.
+   */
+  static Resource buildOrderResource(ScenarioMetadata meta, Coding focusCode) {
+    if ("DeviceRequest".equals(meta.orderType())) {
+      DeviceRequest dr = new DeviceRequest();
+      dr.setId(meta.id() + "-device-request");
+      dr.getMeta().addProfile(PasConstants.PROFILE_PAS_DEVICE_REQUEST);
+      dr.setStatus(DeviceRequest.DeviceRequestStatus.ACTIVE);
+      dr.setIntent(DeviceRequest.RequestIntent.ORDER);
+      dr.setCode(new CodeableConcept().addCoding(focusCode.copy().setDisplay(null)));
+      dr.setSubject(new Reference("Patient/" + PATIENT_ID));
+      return dr;
+    }
+    if ("MedicationRequest".equals(meta.orderType())) {
+      MedicationRequest mr = new MedicationRequest();
+      mr.setId(meta.id() + "-medication-request");
+      mr.getMeta().addProfile(PasConstants.PROFILE_PAS_MEDICATION_REQUEST);
+      mr.setStatus(MedicationRequest.MedicationRequestStatus.ACTIVE);
+      mr.setIntent(MedicationRequest.MedicationRequestIntent.ORDER);
+      mr.setMedication(new CodeableConcept().addCoding(focusCode.copy().setDisplay(null)));
+      mr.setSubject(new Reference("Patient/" + PATIENT_ID));
+      mr.setAuthoredOn(new Date());
+      // US Core us-core-21: requester is required when intent is order
+      mr.setRequester(new Reference("Practitioner/" + PRACTITIONER_ID));
+      return mr;
+    }
+    return buildServiceRequest(meta, focusCode);
+  }
+
+  static String orderReference(Resource order) {
+    return order.fhirType() + "/" + order.getIdElement().getIdPart();
   }
 
   static ServiceRequest buildServiceRequest(ScenarioMetadata meta, Coding focusCode) {
@@ -294,7 +335,7 @@ public class PasRequestBuilder {
   // ===== Bundle wrapping =====
 
   static Bundle wrapInBundle(String profileUrl, Claim claim, SeedResources seed,
-      boolean useInquiryPatient, ServiceRequest serviceRequest) {
+      boolean useInquiryPatient, Resource order) {
     Bundle bundle = new Bundle();
     bundle.getMeta().addProfile(profileUrl);
     bundle.setType(Bundle.BundleType.COLLECTION);
@@ -314,12 +355,12 @@ public class PasRequestBuilder {
     addEntry(bundle, "Coverage/" + COVERAGE_ID, seed.coverage());
     addEntry(bundle, "PractitionerRole/" + PRACTITIONER_ROLE_ID, seed.practitionerRole());
     addEntry(bundle, "Practitioner/" + PRACTITIONER_ID, seed.practitioner());
-    addEntry(bundle, "ServiceRequest/" + serviceRequest.getId(), serviceRequest);
+    addEntry(bundle, orderReference(order), order);
 
     return bundle;
   }
 
-  static void addEntry(Bundle bundle, String fullUrl, org.hl7.fhir.r4.model.Resource resource) {
+  static void addEntry(Bundle bundle, String fullUrl, Resource resource) {
     bundle.addEntry()
         .setFullUrl("http://example.org/fhir/" + fullUrl)
         .setResource(resource);

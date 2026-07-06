@@ -105,6 +105,10 @@ export interface PasScenario {
   name: string;
   description: string;
   orderType: string;
+  /** Review action the initial $submit is expected to produce, from a server-side dry run */
+  expectedReviewAction?: string | null;
+  /** True when the expected outcome pends with a documentation request (CDex-relevant) */
+  documentationNeeded?: boolean | null;
   variants: PasVariant[];
 }
 

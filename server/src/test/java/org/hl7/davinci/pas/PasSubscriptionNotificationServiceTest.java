@@ -87,8 +87,8 @@ class PasSubscriptionNotificationServiceTest {
   @Test
   void dispatchResolvedClaimResponse_skipsWhenPendedTagStillPresent() {
     ClaimResponse finalCr = buildClaimResponseWithReviewAction(REVIEW_CODE_A1);
-    finalCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
-        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    finalCr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM,
+        PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     when(crDao.read(any(IdType.class), any())).thenReturn(finalCr);
 
     service.dispatchResolvedClaimResponse("cr-test");

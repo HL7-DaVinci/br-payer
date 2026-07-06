@@ -49,9 +49,6 @@ import org.hl7.fhir.r4.model.Meta;
 @EnableConfigurationProperties(PasProperties.class)
 public class PasSubmitService {
 
-  static final String PENDED_TAG_SYSTEM = "http://example.org/fhir/us/davinci-pas/internal-tags";
-  static final String PENDED_TAG_CODE = "pended-resolution";
-
   enum SubmissionType { INITIAL, RENEWAL, UPDATE, CANCEL }
 
   /**
@@ -150,7 +147,7 @@ public class PasSubmitService {
     boolean awaitsDocumentation = persistDocumentationRequestsAndAwaits(
         responseBundle, claimResponse, anyPended);
     if (anyPended) {
-      claimResponse.getMeta().addTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE, "Pended Resolution");
+      claimResponse.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     }
 
     claimResponse.setRequest(new Reference("Claim/" + serverClaimId));
@@ -181,7 +178,7 @@ public class PasSubmitService {
   private Bundle persistUpdatePath(Claim claim, SubmissionResult result, String authPrefix,
       Bundle requestBundle) {
     ClaimResponse existingCr = result.priorClaimResponse();
-    boolean hadPendedTag = existingCr.getMeta().getTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE) != null;
+    boolean hadPendedTag = existingCr.getMeta().getTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE) != null;
     boolean resolvedPendedAuthorization = false;
 
     // Compute pended state from decisions + uncovered items BEFORE modifying the CR
@@ -197,7 +194,7 @@ public class PasSubmitService {
     }
 
     if (anyStillPended && !hadPendedTag) {
-      existingCr.getMeta().addTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE, "Pended Resolution");
+      existingCr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     }
 
     responseBuilder.applyItemDecisions(existingCr, result.itemDecisions(), authPrefix);
@@ -217,7 +214,7 @@ public class PasSubmitService {
     // Remove pended tag if no items are still pended
     if (!anyStillPended && hadPendedTag) {
       Meta tagToRemove = new Meta();
-      tagToRemove.addTag(PENDED_TAG_SYSTEM, PENDED_TAG_CODE, null);
+      tagToRemove.addTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE, null);
       crDao.metaDeleteOperation(existingCr.getIdElement().toUnqualifiedVersionless(),
           tagToRemove, new SystemRequestDetails());
       resolvedPendedAuthorization = true;

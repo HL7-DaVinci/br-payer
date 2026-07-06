@@ -68,6 +68,18 @@ export function RequestEditor({
     }
   }, [requestJson, extractSummary]);
 
+  const hasValidJson = useMemo(() => {
+    if (!requestJson.trim()) {
+      return false;
+    }
+    try {
+      JSON.parse(requestJson);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [requestJson]);
+
   const handleAction = (action: () => void) => {
     try {
       JSON.parse(requestJson);
@@ -178,6 +190,7 @@ export function RequestEditor({
         variant="outline"
         size="sm"
         onClick={() => handleAction(onPreview)}
+        disabled={!hasValidJson}
       >
         <Code className="h-4 w-4 mr-1" />
         Preview
@@ -185,7 +198,7 @@ export function RequestEditor({
       <Button
         size="sm"
         onClick={() => handleAction(onExecute)}
-        disabled={isExecuting}
+        disabled={isExecuting || !hasValidJson}
       >
         {isExecuting ? (
           <Loader2 className="h-4 w-4 animate-spin mr-1" />

@@ -1,12 +1,19 @@
 import { RefreshCw } from "lucide-react";
+import { PasReviewActionBadge } from "@/components/pas/pas-review-action-badge";
 import { ScenarioList } from "@/components/shared/scenario-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
   PasScenario,
   PasVariant,
+  ReviewActionCode,
   SuggestedOperation,
 } from "@/lib/pas-types";
+import { REVIEW_ACTIONS } from "@/lib/pas-types";
+
+function isReviewActionCode(code: string): code is ReviewActionCode {
+  return code in REVIEW_ACTIONS;
+}
 
 interface PasScenarioListProps {
   scenarios: PasScenario[];
@@ -34,9 +41,18 @@ export function PasScenarioList({
     <ScenarioList
       {...props}
       renderBadges={(scenario) => (
-        <Badge variant="secondary" className="text-[10px] shrink-0">
-          {scenario.orderType}
-        </Badge>
+        <>
+          <Badge variant="secondary" className="text-[10px] shrink-0">
+            {scenario.orderType}
+          </Badge>
+          {scenario.expectedReviewAction &&
+            isReviewActionCode(scenario.expectedReviewAction) && (
+              <PasReviewActionBadge
+                code={scenario.expectedReviewAction}
+                size="sm"
+              />
+            )}
+        </>
       )}
       getVariants={(s) => s.variants}
       shouldShowVariants={() => true}

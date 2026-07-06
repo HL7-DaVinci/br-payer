@@ -28,7 +28,7 @@ class PasScenarioServiceTest {
         return callCount.getAndIncrement() == 0 ? List.of(first) : List.of(second);
       }
     };
-    PasScenarioService service = new PasScenarioService(metadataProvider, FhirContext.forR4Cached());
+    PasScenarioService service = new PasScenarioService(metadataProvider, FhirContext.forR4Cached(), stubClassifier());
 
     List<PasScenarioService.PasScenarioDto> initial = service.getScenarios();
     List<PasScenarioService.PasScenarioDto> refreshed = service.getScenarios();
@@ -46,7 +46,7 @@ class PasScenarioServiceTest {
         return List.of(scenario("oxygen", "Home Oxygen"));
       }
     };
-    PasScenarioService service = new PasScenarioService(metadataProvider, FhirContext.forR4Cached());
+    PasScenarioService service = new PasScenarioService(metadataProvider, FhirContext.forR4Cached(), stubClassifier());
 
     assertTrue(service.findScenario("oxygen").isPresent());
     assertTrue(service.findScenario("missing").isEmpty());
@@ -63,7 +63,7 @@ class PasScenarioServiceTest {
         return List.of(scenario("oxygen", "Home Oxygen"));
       }
     };
-    PasScenarioService service = new PasScenarioService(metadataProvider, FhirContext.forR4Cached());
+    PasScenarioService service = new PasScenarioService(metadataProvider, FhirContext.forR4Cached(), stubClassifier());
 
     assertTrue(service.findVariantBundle("oxygen", null).isEmpty());
     assertTrue(service.findVariantBundle("oxygen", "").isEmpty());
@@ -84,5 +84,15 @@ class PasScenarioServiceTest {
         false,
         false,
         false);
+  }
+
+  private PasScenarioOutcomeClassifier stubClassifier() {
+    return new PasScenarioOutcomeClassifier(null) {
+      @Override
+      public PasScenarioOutcomeClassifier.ExpectedOutcome classify(String scenarioId,
+          org.hl7.fhir.r4.model.Bundle initialBundle) {
+        return null;
+      }
+    };
   }
 }

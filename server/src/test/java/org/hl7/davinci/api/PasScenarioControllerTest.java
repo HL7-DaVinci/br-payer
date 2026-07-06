@@ -78,6 +78,8 @@ class PasScenarioControllerTest {
         "Home Oxygen",
         "Description",
         "ServiceRequest",
+        "A4",
+        true,
         List.of(new PasVariantDto(
             "oxygen-initial",
             "Initial",

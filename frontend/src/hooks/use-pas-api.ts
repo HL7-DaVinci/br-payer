@@ -7,7 +7,7 @@ import type { PasError } from "@/lib/pas-types";
 // Fetch Helper
 // =============================================================================
 
-async function pasFetch<T>(url: string, body: unknown): Promise<T> {
+export async function pasFetch<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
     headers: {

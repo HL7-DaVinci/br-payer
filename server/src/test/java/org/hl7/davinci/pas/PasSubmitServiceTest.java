@@ -110,7 +110,7 @@ class PasSubmitServiceTest {
 
     // Verify stored ClaimResponse has NO pended tag
     verify(daoRegistry.getResourceDao(ClaimResponse.class)).create(argThat(cr2 ->
-        cr2.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) == null
+        cr2.getMeta().getTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE) == null
     ), any(RequestDetails.class));
   }
 
@@ -133,7 +133,7 @@ class PasSubmitServiceTest {
 
     // Verify stored ClaimResponse HAS pended tag
     verify(daoRegistry.getResourceDao(ClaimResponse.class)).create(argThat(cr2 ->
-        cr2.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) != null
+        cr2.getMeta().getTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE) != null
     ), any(RequestDetails.class));
   }
 
@@ -350,7 +350,7 @@ class PasSubmitServiceTest {
     IFhirResourceDao<ClaimResponse> crDao =
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
     verify(crDao).update(argThat(cr ->
-            cr.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) != null),
+            cr.getMeta().getTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE) != null),
         any(RequestDetails.class));
     verify(crDao, never()).metaDeleteOperation(any(), any(Meta.class), any(RequestDetails.class));
   }
@@ -569,8 +569,8 @@ class PasSubmitServiceTest {
 
     // Prior CR is pended and tagged
     ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
-    pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
-        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    pendedCr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM,
+        PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     mockClaimResponseSearch(pendedCr);
 
     service.submit(requestBundle);
@@ -619,8 +619,8 @@ class PasSubmitServiceTest {
 
     // Prior CR was pended (A4), tagged for scheduler
     ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
-    pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
-        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    pendedCr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM,
+        PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     mockClaimResponseSearch(pendedCr);
 
     // Update re-evaluates item and it transitions to A1
@@ -686,7 +686,7 @@ class PasSubmitServiceTest {
     IFhirResourceDao<ClaimResponse> crDao =
         (IFhirResourceDao<ClaimResponse>) daoRegistry.getResourceDao(ClaimResponse.class);
     verify(crDao).create(argThat(cr2 -> cr2.getMeta().getTag(
-        PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) != null),
+        PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE) != null),
         any(RequestDetails.class));
     verify(resolutionService, never()).scheduleResolution(any());
   }
@@ -700,8 +700,8 @@ class PasSubmitServiceTest {
     mockStoredClaimSearch(buildStoredPriorClaim());
 
     ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
-    pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
-        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    pendedCr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM,
+        PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     mockClaimResponseSearch(pendedCr);
 
     service.submit(requestBundle);
@@ -736,8 +736,8 @@ class PasSubmitServiceTest {
     mockStoredClaimSearch(buildStoredPriorClaim());
 
     ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
-    pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
-        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    pendedCr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM,
+        PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     pendedCr.addCommunicationRequest(new Reference("urn:uuid:doc-request"));
     mockClaimResponseSearch(pendedCr);
 
@@ -804,8 +804,8 @@ class PasSubmitServiceTest {
     mockStoredClaimSearch(buildStoredPriorClaim());
 
     ClaimResponse pendedCr = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
-    pendedCr.getMeta().addTag(PasSubmitService.PENDED_TAG_SYSTEM,
-        PasSubmitService.PENDED_TAG_CODE, "Pended Resolution");
+    pendedCr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM,
+        PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     mockClaimResponseSearch(pendedCr);
 
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
@@ -1141,7 +1141,7 @@ class PasSubmitServiceTest {
 
     verify(resolutionService, never()).scheduleResolution(any());
     verify(daoRegistry.getResourceDao(ClaimResponse.class)).create(argThat(stored ->
-        stored.getMeta().getTag(PasSubmitService.PENDED_TAG_SYSTEM, PasSubmitService.PENDED_TAG_CODE) == null
+        stored.getMeta().getTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE) == null
     ), any(RequestDetails.class));
   }
 
