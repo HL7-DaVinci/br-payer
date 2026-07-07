@@ -776,7 +776,7 @@ class PasSubmitServiceTest {
       cr.addCommunicationRequest(new Reference("urn:uuid:doc-request"));
       return null;
     }).when(responseBuilder).addCommunicationRequests(any(Bundle.class), any(Claim.class),
-        any(ClaimResponse.class), anyMap());
+        any(ClaimResponse.class), anyMap(), any());
 
     service.submit(requestBundle);
 
@@ -975,21 +975,24 @@ class PasSubmitServiceTest {
 
   // ===== Pended-update CommunicationRequest dedup =====
 
-  private static CommunicationRequest documentationRequest(String id, String trn,
+  private static CommunicationRequest documentationRequest(String id, String questionnaireCanonical,
       CommunicationRequest.CommunicationRequestStatus status) {
     CommunicationRequest cr = new CommunicationRequest();
     cr.setId(id);
     cr.setStatus(status);
     cr.addIdentifier(new Identifier()
-        .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(trn));
+        .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue("trn-" + id));
     cr.addExtension(PasConstants.EXT_SERVICE_LINE_NUMBER, new PositiveIntType(1));
+    cr.addExtension(PasConstants.EXT_REQUESTED_QUESTIONNAIRE,
+        new CanonicalType(questionnaireCanonical));
     cr.addPayload().setContent(new StringType(PasConstants.LOINC_QUESTIONNAIRE_REQUEST));
     return cr;
   }
 
   /** Response bundle shaped as addCommunicationRequests leaves it: fresh urn:uuid CR + CR ref. */
-  private Bundle updateResponseBundleWithFreshRequest(ClaimResponse existingCr, String trn) {
-    CommunicationRequest fresh = documentationRequest("cr-fresh", trn,
+  private Bundle updateResponseBundleWithFreshRequest(ClaimResponse existingCr,
+      String questionnaireCanonical) {
+    CommunicationRequest fresh = documentationRequest("cr-fresh", questionnaireCanonical,
         CommunicationRequest.CommunicationRequestStatus.ACTIVE);
     Bundle responseBundle = new Bundle();
     responseBundle.setType(Bundle.BundleType.COLLECTION);
@@ -1012,12 +1015,12 @@ class PasSubmitServiceTest {
     ClaimResponse prior = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
     prior.addCommunicationRequest(new Reference("CommunicationRequest/cr-open-1"));
     mockClaimResponseSearch(prior);
-    updateResponseBundleWithFreshRequest(prior, "home-o2-std-questionnaire");
+    updateResponseBundleWithFreshRequest(prior, HOME_O2_CANONICAL);
 
     IFhirResourceDao<CommunicationRequest> commReqDao =
         (IFhirResourceDao<CommunicationRequest>) daoRegistry.getResourceDao(CommunicationRequest.class);
     when(commReqDao.read(any(IdType.class), any(RequestDetails.class)))
-        .thenReturn(documentationRequest("cr-open-1", "home-o2-std-questionnaire",
+        .thenReturn(documentationRequest("cr-open-1", HOME_O2_CANONICAL,
             CommunicationRequest.CommunicationRequestStatus.ACTIVE));
 
     when(evaluator.evaluate(any(), any(), any(), any(), any()))
@@ -1031,6 +1034,14 @@ class PasSubmitServiceTest {
         .map(Reference::getReference).toList();
     assertEquals(List.of("CommunicationRequest/cr-open-1"), refs,
         "The urn:uuid duplicate must rewrite to the existing open request and dedupe");
+
+    List<String> itemTraces = prior.getItem().get(0)
+        .getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER).stream()
+        .map(e -> ((Identifier) e.getValue()).getValue()).toList();
+    assertTrue(itemTraces.contains("trn-cr-open-1"),
+        "the reused request's original trace number is synced onto the pended item");
+    assertFalse(itemTraces.contains("trn-cr-fresh"),
+        "the discarded duplicate's trace number must not leak onto the item");
   }
 
   @Test
@@ -1044,12 +1055,12 @@ class PasSubmitServiceTest {
     ClaimResponse prior = buildPriorClaimResponse(REVIEW_CODE_A4, "Pending");
     prior.addCommunicationRequest(new Reference("CommunicationRequest/cr-done-1"));
     mockClaimResponseSearch(prior);
-    updateResponseBundleWithFreshRequest(prior, "home-o2-std-questionnaire");
+    updateResponseBundleWithFreshRequest(prior, HOME_O2_CANONICAL);
 
     IFhirResourceDao<CommunicationRequest> commReqDao =
         (IFhirResourceDao<CommunicationRequest>) daoRegistry.getResourceDao(CommunicationRequest.class);
     when(commReqDao.read(any(IdType.class), any(RequestDetails.class)))
-        .thenReturn(documentationRequest("cr-done-1", "home-o2-std-questionnaire",
+        .thenReturn(documentationRequest("cr-done-1", HOME_O2_CANONICAL,
             CommunicationRequest.CommunicationRequestStatus.COMPLETED));
 
     when(evaluator.evaluate(any(), any(), any(), any(), any()))

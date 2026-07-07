@@ -11,6 +11,7 @@ import java.util.Map;
 import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.pas.PasPendedResolutionService;
 import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CommunicationRequest;
@@ -114,13 +115,16 @@ class SubmitAttachmentServiceTest {
     return cr;
   }
 
-  private CommunicationRequest documentationRequest(String id, int lineNumber, String trn) {
+  private CommunicationRequest documentationRequest(String id, int lineNumber,
+      String questionnaireCanonical) {
     CommunicationRequest request = new CommunicationRequest();
     request.setId("CommunicationRequest/" + id);
     request.setStatus(CommunicationRequestStatus.ACTIVE);
     request.addIdentifier(new Identifier()
-        .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(trn));
+        .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue("trn-" + id));
     request.addExtension(PasConstants.EXT_SERVICE_LINE_NUMBER, new PositiveIntType(lineNumber));
+    request.addExtension(PasConstants.EXT_REQUESTED_QUESTIONNAIRE,
+        new CanonicalType(questionnaireCanonical));
     return request;
   }
 
@@ -165,8 +169,8 @@ class SubmitAttachmentServiceTest {
 
   @Test
   void finalFalseDoesNotResolveThePend() {
-    CommunicationRequest crA = documentationRequest("cr-a", 1, "qA");
-    CommunicationRequest crB = documentationRequest("cr-b", 2, "qB");
+    CommunicationRequest crA = documentationRequest("cr-a", 1, "http://example.org/Questionnaire/A");
+    CommunicationRequest crB = documentationRequest("cr-b", 2, "http://example.org/Questionnaire/B");
     pendedClaimResponse(crA, crB);
     questionnaire("qA", "http://example.org/Questionnaire/A");
 
@@ -179,8 +183,8 @@ class SubmitAttachmentServiceTest {
 
   @Test
   void secondSubmissionWithFinalTrueResolvesThePend() {
-    CommunicationRequest crA = documentationRequest("cr-a", 1, "qA");
-    CommunicationRequest crB = documentationRequest("cr-b", 2, "qB");
+    CommunicationRequest crA = documentationRequest("cr-a", 1, "http://example.org/Questionnaire/A");
+    CommunicationRequest crB = documentationRequest("cr-b", 2, "http://example.org/Questionnaire/B");
     pendedClaimResponse(crA, crB);
     questionnaire("qA", "http://example.org/Questionnaire/A");
     questionnaire("qB", "http://example.org/Questionnaire/B");
@@ -196,8 +200,8 @@ class SubmitAttachmentServiceTest {
 
   @Test
   void lineItemScopedAttachmentCompletesOnlyThatLinesRequest() {
-    CommunicationRequest crA = documentationRequest("cr-a", 1, "qA");
-    CommunicationRequest crB = documentationRequest("cr-b", 2, "qB");
+    CommunicationRequest crA = documentationRequest("cr-a", 1, "http://example.org/Questionnaire/A");
+    CommunicationRequest crB = documentationRequest("cr-b", 2, "http://example.org/Questionnaire/B");
     pendedClaimResponse(crA, crB);
 
     submit(new DocumentReference(), List.of(2), false);
@@ -210,7 +214,7 @@ class SubmitAttachmentServiceTest {
   @SuppressWarnings("unchecked")
   @Test
   void storedQuestionnaireResponseCarriesTheTrackingIdIdentifier() {
-    CommunicationRequest crA = documentationRequest("cr-a", 1, "qA");
+    CommunicationRequest crA = documentationRequest("cr-a", 1, "http://example.org/Questionnaire/A");
     pendedClaimResponse(crA);
     questionnaire("qA", "http://example.org/Questionnaire/A");
 
@@ -225,7 +229,7 @@ class SubmitAttachmentServiceTest {
 
   @Test
   void mismatchedQuestionnaireCanonicalProducesInformationalIssue() {
-    CommunicationRequest crA = documentationRequest("cr-a", 1, "qA");
+    CommunicationRequest crA = documentationRequest("cr-a", 1, "http://example.org/Questionnaire/A");
     pendedClaimResponse(crA);
     questionnaire("qA", "http://example.org/Questionnaire/A");
     questionnaire("qZ", "http://example.org/Questionnaire/Z");

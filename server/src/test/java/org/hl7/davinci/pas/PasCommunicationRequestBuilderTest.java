@@ -18,7 +18,8 @@ class PasCommunicationRequestBuilderTest {
   @Test
   void buildQuestionnaireRequest_emitsLoincMarkerAsString() {
     CommunicationRequest request =
-        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/pat-1", "trn-1");
+        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/pat-1", "trn-1",
+            "http://example.org/Questionnaire/HomeOxygenTherapy");
 
     assertEquals(1, request.getPayload().size(),
         "payload is 0..1: one request per CommunicationRequest");
@@ -36,7 +37,8 @@ class PasCommunicationRequestBuilderTest {
   @Test
   void buildQuestionnaireRequest_carriesIdentifierWithTrn() {
     CommunicationRequest request =
-        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/pat-1", "ctx-1");
+        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/pat-1", "ctx-1",
+            "http://example.org/Questionnaire/HomeOxygenTherapy");
 
     assertFalse(request.getIdentifier().isEmpty(),
         "IdentifierUnlessVO invariant requires an identifier");

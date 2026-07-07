@@ -19,6 +19,7 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
@@ -203,7 +204,8 @@ public class PasSubmitService {
     // CommunicationRequest treatment as the create path, not just the existing CR's prior state.
     Bundle responseBundle = responseBuilder.wrapInResponseBundle(existingCr, requestBundle);
     if (anyStillPended) {
-      responseBuilder.addCommunicationRequests(responseBundle, claim, existingCr, result.itemDecisions());
+      responseBuilder.addCommunicationRequests(responseBundle, claim, existingCr,
+          result.itemDecisions(), authPrefix);
     }
     boolean awaitsDocumentation = persistDocumentationRequestsAndAwaits(
         responseBundle, existingCr, anyStillPended);
@@ -245,6 +247,7 @@ public class PasSubmitService {
   private boolean persistDocumentationRequestsAndAwaits(Bundle responseBundle,
       ClaimResponse claimResponse, boolean isPended) {
     persistCommunicationRequests(responseBundle, claimResponse);
+    syncItemTraceNumbers(responseBundle, claimResponse);
     return isPended && claimResponse.hasCommunicationRequest();
   }
 
@@ -339,9 +342,10 @@ public class PasSubmitService {
   }
 
   /**
-   * Equivalence key for a documentation request: questionnaire requests are identified by their
-   * TRN identifier (stable per questionnaire), attachment-code requests by payload codes plus
-   * service line (their identifier is a random trace value).
+   * Equivalence key for a documentation request: questionnaire requests are identified by the
+   * requested questionnaire canonical plus service line (their trace identifier is unique per
+   * request, so an equivalent re-request must match on what is asked for), attachment-code
+   * requests by payload codes plus service line.
    */
   private String documentationRequestKey(CommunicationRequest cr) {
     List<String> codes = cr.getPayload().stream()
@@ -357,10 +361,47 @@ public class PasSubmitService {
         ? String.valueOf(p.getValue())
         : "";
     if (codes.contains(PasConstants.LOINC_QUESTIONNAIRE_REQUEST)) {
-      String trn = cr.getIdentifierFirstRep().getValue();
-      return trn == null ? null : "questionnaire|" + line + "|" + trn;
+      Extension questionnaireExt = cr.getExtensionByUrl(PasConstants.EXT_REQUESTED_QUESTIONNAIRE);
+      String canonical = questionnaireExt != null && questionnaireExt.getValue() instanceof CanonicalType c
+          ? c.getValue()
+          : null;
+      return canonical == null ? null : "questionnaire|" + line + "|" + canonical;
     }
     return "code|" + line + "|" + String.join(",", codes);
+  }
+
+  /**
+   * Stamps each persisted questionnaire request's trace number onto the matching
+   * ClaimResponse.item as an itemTraceNumber, so the item and its CommunicationRequest carry the
+   * same payer-assigned trace on both the create and pended-update paths. Runs after request
+   * dedup so reused requests keep their original trace number.
+   */
+  private void syncItemTraceNumbers(Bundle responseBundle, ClaimResponse claimResponse) {
+    for (Bundle.BundleEntryComponent entry : responseBundle.getEntry()) {
+      if (!(entry.getResource() instanceof CommunicationRequest cr)) {
+        continue;
+      }
+      boolean questionnaireRequest = cr.getPayload().stream()
+          .anyMatch(p -> p.getContent() instanceof StringType s
+              && PasConstants.LOINC_QUESTIONNAIRE_REQUEST.equals(s.getValue()));
+      Extension lineExt = cr.getExtensionByUrl(PasConstants.EXT_SERVICE_LINE_NUMBER);
+      String trn = cr.getIdentifierFirstRep().getValue();
+      if (!questionnaireRequest || trn == null
+          || !(lineExt != null && lineExt.getValue() instanceof PositiveIntType line)) {
+        continue;
+      }
+      for (ClaimResponse.ItemComponent item : claimResponse.getItem()) {
+        if (item.getItemSequence() != line.getValue()) {
+          continue;
+        }
+        boolean alreadyPresent = item.getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER).stream()
+            .anyMatch(ext -> ext.getValue() instanceof Identifier id && trn.equals(id.getValue()));
+        if (!alreadyPresent) {
+          item.addExtension(PasExtensions.buildItemTraceNumberExtension(new Identifier()
+              .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(trn)));
+        }
+      }
+    }
   }
 
   // ===== Attached Documentation =====

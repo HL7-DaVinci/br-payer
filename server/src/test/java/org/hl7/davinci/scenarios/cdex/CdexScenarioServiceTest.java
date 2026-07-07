@@ -73,7 +73,8 @@ class CdexScenarioServiceTest {
         .thenReturn(List.of(pendedClaimResponse()));
 
     CommunicationRequest commReq =
-        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/p1", "q-hot-1");
+        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/p1", "q-hot-1",
+            "http://example.org/Questionnaire/HomeOxygenTherapy");
     commReq.setId("comm-1");
     when(commReqDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(commReq);
 
@@ -81,7 +82,8 @@ class CdexScenarioServiceTest {
     questionnaire.setId("q-hot-1");
     questionnaire.setUrl("http://example.org/Questionnaire/HomeOxygenTherapy");
     questionnaire.setTitle("Home Oxygen Therapy");
-    when(questionnaireDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(questionnaire);
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(RequestDetails.class)))
+        .thenReturn(List.of(questionnaire));
 
     Patient patient = new Patient();
     patient.setId("p1");
@@ -146,7 +148,8 @@ class CdexScenarioServiceTest {
     when(crDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(pended);
 
     CommunicationRequest commReq =
-        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/p1", "q-hot-1");
+        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/p1", "q-hot-1",
+            "http://example.org/Questionnaire/HomeOxygenTherapy");
     commReq.setId("comm-1");
     when(commReqDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(commReq);
 
@@ -155,7 +158,8 @@ class CdexScenarioServiceTest {
     questionnaire.setUrl("http://example.org/Questionnaire/HomeOxygenTherapy");
     questionnaire.addItem().setLinkId("1")
         .setType(org.hl7.fhir.r4.model.Questionnaire.QuestionnaireItemType.STRING);
-    when(questionnaireDao.read(any(IdType.class), any(RequestDetails.class))).thenReturn(questionnaire);
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class), any(RequestDetails.class)))
+        .thenReturn(List.of(questionnaire));
     when(patientDao.read(any(IdType.class), any(RequestDetails.class)))
         .thenThrow(new RuntimeException("no patient"));
 

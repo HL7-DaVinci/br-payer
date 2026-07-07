@@ -3,14 +3,13 @@ package org.hl7.davinci.cdex;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import org.hl7.davinci.cdshooks.error.OperationOutcomeBuilder;
-import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.pas.PasPendedResolutionService;
 import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Communication;
@@ -28,7 +27,6 @@ import org.hl7.fhir.instance.model.api.IBaseReference;
 import org.hl7.fhir.instance.model.api.IIdType;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
 import org.hl7.fhir.r4.model.PrimitiveType;
-import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
@@ -201,10 +199,9 @@ public class SubmitAttachmentService {
 
     if (attachment.content() instanceof QuestionnaireResponse qr && qr.hasQuestionnaire()) {
       String canonical = qr.getQuestionnaire();
-      String questionnaireId = resolveQuestionnaireLogicalId(canonical);
       List<CommunicationRequest> matching = new ArrayList<>();
       for (CommunicationRequest cr : candidates) {
-        if (Objects.equals(traceNumber(cr), questionnaireId)) {
+        if (canonicalsMatch(requestedQuestionnaire(cr), canonical)) {
           matching.add(cr);
         }
       }
@@ -260,18 +257,22 @@ public class SubmitAttachmentService {
     }
   }
 
-  private String traceNumber(CommunicationRequest cr) {
-    for (Identifier id : cr.getIdentifier()) {
-      if (PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM.equals(id.getSystem())) {
-        return id.getValue();
-      }
-    }
-    return cr.hasIdentifier() ? cr.getIdentifierFirstRep().getValue() : null;
+  private String requestedQuestionnaire(CommunicationRequest cr) {
+    Extension ext = cr.getExtensionByUrl(PasConstants.EXT_REQUESTED_QUESTIONNAIRE);
+    return ext != null && ext.getValue() instanceof CanonicalType c ? c.getValue() : null;
   }
 
-  private String resolveQuestionnaireLogicalId(String canonical) {
-    Questionnaire questionnaire = FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonical);
-    return questionnaire == null ? null : questionnaire.getIdElement().getIdPart();
+  /** Compares canonicals ignoring a |version suffix on either side. */
+  private static boolean canonicalsMatch(String a, String b) {
+    if (a == null || b == null) {
+      return false;
+    }
+    return stripVersion(a).equals(stripVersion(b));
+  }
+
+  private static String stripVersion(String canonical) {
+    int pipe = canonical.indexOf('|');
+    return pipe >= 0 ? canonical.substring(0, pipe) : canonical;
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})

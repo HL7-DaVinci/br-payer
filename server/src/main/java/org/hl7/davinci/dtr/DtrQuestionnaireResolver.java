@@ -41,7 +41,6 @@ import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
-import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException;
 
 /**
@@ -238,18 +237,12 @@ public class DtrQuestionnaireResolver {
    * oper-8-conformant not-found OperationOutcome.
    */
   public ContextResolution resolveContextLaunch(String context) {
-    Questionnaire direct = null;
-    try {
-      direct = daoRegistry.getResourceDao(Questionnaire.class)
-          .read(new IdType("Questionnaire", context), new SystemRequestDetails());
-    } catch (ResourceNotFoundException e) {
-      // Fall through to the CRD assertion-id registry.
-    }
-
-    if (direct != null) {
+    // A PAS context is the unique trace number on a stored documentation CommunicationRequest;
+    // the requested questionnaire is recorded on that request, never derived from the trace value.
+    Questionnaire fromTrace = questionnaireForTraceNumber(context);
+    if (fromTrace != null) {
       RecoveredOrder recovered = recoverOrderFromPas(context);
-      // A PAS TRN maps to exactly one questionnaire by design.
-      return new ContextResolution(direct, List.of(new CanonicalType(direct.getUrl())),
+      return new ContextResolution(fromTrace, List.of(new CanonicalType(fromTrace.getUrl())),
           DtrLaunchProvenance.PAS_TRN, recovered.orders(), recovered.coverage());
     }
 
@@ -300,6 +293,39 @@ public class DtrQuestionnaireResolver {
   }
 
   private record RecoveredOrder(List<Resource> orders, Coverage coverage) {
+  }
+
+  /**
+   * Finds the documentation CommunicationRequest carrying the given trace number as its
+   * identifier and resolves the questionnaire it requested.
+   */
+  private Questionnaire questionnaireForTraceNumber(String traceNumber) {
+    ca.uhn.fhir.jpa.searchparam.SearchParameterMap params =
+        new ca.uhn.fhir.jpa.searchparam.SearchParameterMap();
+    params.setLoadSynchronous(true);
+    params.add("identifier", new ca.uhn.fhir.rest.param.TokenParam(
+        PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM, traceNumber));
+    List<?> matches;
+    try {
+      matches = daoRegistry.getResourceDao(org.hl7.fhir.r4.model.CommunicationRequest.class)
+          .searchForResources(params, new SystemRequestDetails());
+    } catch (Exception e) {
+      logger.debug("Could not search CommunicationRequests for context {}: {}", traceNumber,
+          e.getMessage());
+      return null;
+    }
+    for (Object obj : matches) {
+      var cr = (org.hl7.fhir.r4.model.CommunicationRequest) obj;
+      Extension ext = cr.getExtensionByUrl(PasConstants.EXT_REQUESTED_QUESTIONNAIRE);
+      if (ext != null && ext.getValue() instanceof CanonicalType canonical) {
+        Questionnaire questionnaire =
+            FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonical.getValue());
+        if (questionnaire != null) {
+          return questionnaire;
+        }
+      }
+    }
+    return null;
   }
 
   /**

@@ -781,14 +781,6 @@ class PasResponseBuilderTest {
 
   @Test
   void buildSubmitResponse_pendedWithQuestionnaire_emitsCommunicationRequestNotTask() {
-    Questionnaire questionnaire = new Questionnaire();
-    questionnaire.setId("q1");
-    questionnaire.setUrl("http://example.org/Questionnaire/q1");
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    IFhirResourceDao qDao = mock(IFhirResourceDao.class);
-    when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(qDao);
-    when(qDao.searchForResources(any(), any())).thenReturn(List.of(questionnaire));
-
     Claim claim = buildClaim();
     claim.getItemFirstRep().addExtension(PasExtensions.buildItemTraceNumberExtension(
         new Identifier().setSystem("http://example.org/ITEM_TRACE_NUMBER").setValue("provider-trace")));
@@ -816,38 +808,25 @@ class PasResponseBuilderTest {
     assertTrue(commReq.getPayload().stream().anyMatch(p -> p.getContent() instanceof StringType
         && "102089-0".equals(((StringType) p.getContent()).getValue())),
         "questionnaire request conveys the 102089-0 LOINC marker");
-    // the provider-echoed request trace is retained; the payer questionnaire trace is appended
+    // the provider-echoed request trace is retained; payer traces are synced onto items from the
+    // persisted CommunicationRequests by PasSubmitService, not minted here
     List<Extension> trns =
         cr.getItem().get(0).getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER);
-    assertEquals(2, trns.size(), "echoed request TRN must survive alongside the payer TRN");
+    assertEquals(1, trns.size(), "only the echoed request TRN is present at build time");
     Identifier echoed = (Identifier) trns.get(0).getValue();
     assertEquals("provider-trace", echoed.getValue(), "provider-echoed request TRN must be retained");
-    Identifier payerTrn = (Identifier) trns.get(1).getValue();
-    assertEquals(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM, payerTrn.getSystem());
-    assertEquals("q1", payerTrn.getValue(), "payer questionnaire TRN is appended, correlating to the CR identifier");
-    assertEquals("q1", commReq.getIdentifierFirstRep().getValue(),
-        "CommunicationRequest identifier equals the payer item TRN it correlates to");
+    assertEquals(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM,
+        commReq.getIdentifierFirstRep().getSystem());
+    assertTrue(commReq.getIdentifierFirstRep().getValue().startsWith("AUTHTRN"),
+        "CommunicationRequest identifier is a payer-minted unique trace number");
+    Extension requested = commReq.getExtensionByUrl(PasConstants.EXT_REQUESTED_QUESTIONNAIRE);
+    assertNotNull(requested, "requested questionnaire canonical is recorded on the request");
+    assertEquals("http://example.org/Questionnaire/q1",
+        ((org.hl7.fhir.r4.model.CanonicalType) requested.getValue()).getValue());
   }
 
   @Test
-  void buildSubmitResponse_pendedWithTwoQuestionnaires_emitsTwoTrnsAndTwoCommunicationRequests() {
-    Questionnaire q1 = new Questionnaire();
-    q1.setId("q1");
-    q1.setUrl("http://example.org/Questionnaire/q1");
-    Questionnaire q2 = new Questionnaire();
-    q2.setId("q2");
-    q2.setUrl("http://example.org/Questionnaire/q2");
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    IFhirResourceDao qDao = mock(IFhirResourceDao.class);
-    when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(qDao);
-    when(qDao.searchForResources(any(), any())).thenAnswer(inv -> {
-      SearchParameterMap map = inv.getArgument(0);
-      String url = ((UriParam) map.get("url").get(0).get(0)).getValue();
-      if (url.endsWith("q1")) return List.of(q1);
-      if (url.endsWith("q2")) return List.of(q2);
-      return List.of();
-    });
-
+  void buildSubmitResponse_pendedWithTwoQuestionnaires_emitsDistinctTrnsAndTwoCommunicationRequests() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
         new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null,
@@ -857,35 +836,46 @@ class PasResponseBuilderTest {
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
     ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
 
-    // Each pended questionnaire canonical becomes its own item trace-number repetition
-    List<Extension> trns = cr.getItem().get(0).getExtensionsByUrl(PasConstants.ITEM_TRACE_NUMBER);
-    assertEquals(2, trns.size(), "each questionnaire canonical yields its own item TRN");
-    List<String> trnValues = trns.stream()
-        .map(e -> ((Identifier) e.getValue()).getValue()).toList();
-    assertTrue(trnValues.contains("q1") && trnValues.contains("q2"),
-        "both questionnaire logical ids are present as item TRNs");
-
     // Each questionnaire canonical becomes its own 102089-0 CommunicationRequest
     List<CommunicationRequest> commReqs = response.getEntry().stream()
         .map(Bundle.BundleEntryComponent::getResource)
         .filter(CommunicationRequest.class::isInstance)
         .map(CommunicationRequest.class::cast).toList();
     assertEquals(2, commReqs.size(), "two questionnaires produce two CommunicationRequests");
+
+    // Trace numbers are unique per documentation request, never derived from the questionnaire
     List<String> crIdentifiers = commReqs.stream()
         .map(c -> c.getIdentifierFirstRep().getValue()).toList();
-    assertTrue(crIdentifiers.contains("q1") && crIdentifiers.contains("q2"),
-        "each CommunicationRequest identifier equals its questionnaire's item TRN");
+    assertEquals(2, crIdentifiers.stream().distinct().count(),
+        "each CommunicationRequest gets its own unique trace number");
+    List<String> canonicals = commReqs.stream()
+        .map(c -> ((org.hl7.fhir.r4.model.CanonicalType) c
+            .getExtensionByUrl(PasConstants.EXT_REQUESTED_QUESTIONNAIRE).getValue()).getValue())
+        .toList();
+    assertTrue(canonicals.contains("http://example.org/Questionnaire/q1")
+        && canonicals.contains("http://example.org/Questionnaire/q2"),
+        "each CommunicationRequest records which questionnaire it asks for");
     assertEquals(2, cr.getCommunicationRequest().size(),
         "ClaimResponse references both CommunicationRequests");
   }
 
   @Test
-  void buildSubmitResponse_pendedWithQuestionnaire_skipsCommunicationRequestWhenTrnUnresolvable() {
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    IFhirResourceDao qDao = mock(IFhirResourceDao.class);
-    when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(qDao);
-    when(qDao.searchForResources(any(), any())).thenReturn(List.of());
+  void buildSubmitResponse_twoSubmissionsSameQuestionnaire_getDistinctTraceNumbers() {
+    var decisions = Map.of(1,
+        new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null,
+            "clinical", List.of("http://example.org/Questionnaire/q1")));
 
+    Bundle first = builder.buildSubmitResponse(buildClaim(), new Bundle(), decisions, "AUTH");
+    Bundle second = builder.buildSubmitResponse(buildClaim(), new Bundle(), decisions, "AUTH");
+
+    String firstTrn = firstCommunicationRequest(first).getIdentifierFirstRep().getValue();
+    String secondTrn = firstCommunicationRequest(second).getIdentifierFirstRep().getValue();
+    assertNotEquals(firstTrn, secondTrn,
+        "concurrent prior authorizations requesting the same questionnaire must not share a trace number");
+  }
+
+  @Test
+  void buildSubmitResponse_questionnaireNotInCatalog_stillEmitsCommunicationRequest() {
     Claim claim = buildClaim();
     var decisions = Map.of(1,
         new PasCoverageEvaluator.CoverageDecision(REVIEW_CODE_A4, "Pending", true, null, null,
@@ -893,11 +883,10 @@ class PasResponseBuilderTest {
 
     Bundle response = builder.buildSubmitResponse(claim, new Bundle(), decisions, "AUTH");
 
-    assertNull(firstCommunicationRequest(response),
-        "unactionable 102089-0 request must be skipped when no TRN is resolvable");
-    ClaimResponse cr = (ClaimResponse) response.getEntryFirstRep().getResource();
-    assertTrue(cr.getCommunicationRequest().isEmpty(),
-        "ClaimResponse.communicationRequest must not reference a skipped request");
+    CommunicationRequest commReq = firstCommunicationRequest(response);
+    assertNotNull(commReq,
+        "trace minting no longer depends on catalog resolution, so the request is always emitted");
+    assertTrue(commReq.getIdentifierFirstRep().getValue().startsWith("AUTHTRN"));
   }
 
   @Test

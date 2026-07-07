@@ -53,6 +53,7 @@ public class PasResponseBuilder {
 
   private final AtomicLong authCounter = new AtomicLong(0);
   private final AtomicLong pendCounter = new AtomicLong(0);
+  private final AtomicLong traceCounter = new AtomicLong(0);
   private final String serverBase;
   private final DaoRegistry daoRegistry;
 
@@ -78,7 +79,8 @@ public class PasResponseBuilder {
 
     // Per PAS IG, pended items needing documentation get a CommunicationRequest referenced
     // from ClaimResponse.communicationRequest; the provider builds the Task locally.
-    addCommunicationRequests(responseBundle, requestClaim, claimResponse, itemDecisions);
+    addCommunicationRequests(responseBundle, requestClaim, claimResponse, itemDecisions,
+        authNumberPrefix);
 
     return responseBundle;
   }
@@ -338,19 +340,11 @@ public class PasResponseBuilder {
       ClaimResponse.ItemComponent responseItem = cr.addItem();
       responseItem.setItemSequence(seq);
 
-      // itemTraceNumber is 0..*: retain the provider-echoed request trace(s), then append one
-      // payer trace per pended questionnaire canonical (each correlates to its 102089-0 request).
+      // itemTraceNumber is 0..*: retain the provider-echoed request trace(s). Payer traces for
+      // documentation requests are synced from the persisted CommunicationRequests after dedup,
+      // so items and requests always carry the same trace number on both create and update paths.
       for (Identifier traceId : PasExtensions.extractItemTraceNumbers(requestItem)) {
         responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(traceId));
-      }
-      if (REVIEW_CODE_A4.equals(decision.reviewActionCode())) {
-        for (String questionnaireCanonical : decision.questionnaireUrls()) {
-          String questionnaireKey = resolveQuestionnaireKey(questionnaireCanonical);
-          if (questionnaireKey != null) {
-            responseItem.addExtension(PasExtensions.buildItemTraceNumberExtension(new Identifier()
-                .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(questionnaireKey)));
-          }
-        }
       }
 
       // Adjudication with reviewAction extension
@@ -575,7 +569,8 @@ public class PasResponseBuilder {
    *   PAS IG: Request for Additional Information</a>
    */
   void addCommunicationRequests(Bundle responseBundle, Claim requestClaim,
-      ClaimResponse claimResponse, Map<Integer, CoverageDecision> itemDecisions) {
+      ClaimResponse claimResponse, Map<Integer, CoverageDecision> itemDecisions,
+      String authNumberPrefix) {
     String patientRef = requestClaim.hasPatient() ? requestClaim.getPatient().getReference() : null;
 
     for (Map.Entry<Integer, CoverageDecision> entry : itemDecisions.entrySet()) {
@@ -584,17 +579,13 @@ public class PasResponseBuilder {
       if (!decision.hasAdditionalDocumentationInfo()) continue;
 
       int lineNumber = entry.getKey();
-      // payload is 0..1: emit one 102089-0 CommunicationRequest per questionnaire canonical,
-      // its identifier the same TRN appended to the item so the two correlate.
+      // payload is 0..1: emit one 102089-0 CommunicationRequest per questionnaire canonical.
+      // Each gets a freshly minted unique trace number (X12 TRN02); when a pended update reuses
+      // an equivalent open request during persistence, the original trace number survives.
       for (String questionnaireCanonical : decision.questionnaireUrls()) {
-        String trn = resolveQuestionnaireKey(questionnaireCanonical);
-        if (trn == null) {
-          log.warn("Skipping 102089-0 CommunicationRequest for item {}: no TRN resolvable "
-              + "for questionnaire {}", lineNumber, questionnaireCanonical);
-        } else {
-          addCommunicationRequest(responseBundle, claimResponse,
-              PasCommunicationRequestBuilder.buildQuestionnaireRequest(lineNumber, patientRef, trn));
-        }
+        addCommunicationRequest(responseBundle, claimResponse,
+            PasCommunicationRequestBuilder.buildQuestionnaireRequest(lineNumber, patientRef,
+                nextTraceNumber(authNumberPrefix), questionnaireCanonical));
       }
       for (String code : decision.requestedAttachmentCodes()) {
         addCommunicationRequest(responseBundle, claimResponse,
@@ -603,16 +594,14 @@ public class PasResponseBuilder {
     }
   }
 
+  private String nextTraceNumber(String authNumberPrefix) {
+    return authNumberPrefix + "TRN" + String.format("%04d", traceCounter.incrementAndGet());
+  }
+
   private void addCommunicationRequest(Bundle responseBundle, ClaimResponse claimResponse,
       CommunicationRequest communicationRequest) {
     String fullUrl = "urn:uuid:" + communicationRequest.getId();
     responseBundle.addEntry().setFullUrl(fullUrl).setResource(communicationRequest);
     claimResponse.addCommunicationRequest(new Reference(fullUrl));
-  }
-
-  /** Maps a questionnaire canonical to its logical id via the catalog. */
-  private String resolveQuestionnaireKey(String canonical) {
-    Questionnaire questionnaire = FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonical);
-    return questionnaire != null ? questionnaire.getIdElement().getIdPart() : null;
   }
 }

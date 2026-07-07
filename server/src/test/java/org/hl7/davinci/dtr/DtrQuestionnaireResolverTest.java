@@ -76,6 +76,10 @@ class DtrQuestionnaireResolverTest {
 
   @Mock
   @SuppressWarnings("rawtypes")
+  private IFhirResourceDao commReqDao;
+
+  @Mock
+  @SuppressWarnings("rawtypes")
   private IFhirResourceDao medicationDao;
 
   @Mock
@@ -96,6 +100,10 @@ class DtrQuestionnaireResolverTest {
     lenient().when(contextRegistry.lookup(any())).thenReturn(java.util.Optional.empty());
     lenient().when(daoRegistry.getResourceDao(Patient.class)).thenReturn(patientDao);
     lenient().when(daoRegistry.getResourceDao(Questionnaire.class)).thenReturn(questionnaireDao);
+    lenient().when(daoRegistry.getResourceDao(org.hl7.fhir.r4.model.CommunicationRequest.class))
+        .thenReturn(commReqDao);
+    lenient().when(commReqDao.searchForResources(any(SearchParameterMap.class),
+        any(SystemRequestDetails.class))).thenReturn(List.of());
     lenient().when(daoRegistry.getResourceDao("Library")).thenReturn(libraryDao);
     lenient().when(patientDao.read(any(IdType.class), any(SystemRequestDetails.class)))
         .thenReturn(new Patient().setId("Patient/pat-1"));
@@ -106,13 +114,15 @@ class DtrQuestionnaireResolverTest {
   }
 
   @Test
-  @DisplayName("resolveContext returns the questionnaire named by the context id")
+  @DisplayName("resolveContext resolves a PAS trace-number context via the stored documentation request")
   void resolveContext_known_returnsQuestionnaire() {
     Questionnaire q = questionnaire("home-o2-std-questionnaire",
         "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire", "2.2.0");
-    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(q);
+    stubDocumentationRequestForTrace("AUTHTRN0001", q.getUrl());
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class),
+        any(SystemRequestDetails.class))).thenReturn(List.of(q));
 
-    Questionnaire resolved = resolver.resolveContext("home-o2-std-questionnaire");
+    Questionnaire resolved = resolver.resolveContext("AUTHTRN0001");
 
     assertEquals("http://example.org/fhir/Questionnaire/home-o2-std-questionnaire", resolved.getUrl());
   }
@@ -120,18 +130,12 @@ class DtrQuestionnaireResolverTest {
   @Test
   @DisplayName("resolveContext throws 422 for an unknown context id")
   void resolveContext_unknown_throws422() {
-    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class)))
-        .thenThrow(new ResourceNotFoundException("not found"));
-
     assertThrows(UnprocessableEntityException.class, () -> resolver.resolveContext("missing"));
   }
 
   @Test
   @DisplayName("resolveContext resolves a CRD coverage-assertion id via the context registry")
   void crdAssertionContextResolvesViaRegistry() {
-    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class)))
-        .thenThrow(new ResourceNotFoundException("not found"));
-
     String canonical = "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire";
     DeviceRequest registeredOrder = new DeviceRequest();
     registeredOrder.setId("DeviceRequest/dr-1");
@@ -150,9 +154,6 @@ class DtrQuestionnaireResolverTest {
   @Test
   @DisplayName("resolveContext returns an oper-8 not-found OperationOutcome when nothing resolves")
   void unresolvableContextReturnsOper8OperationOutcome() {
-    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class)))
-        .thenThrow(new ResourceNotFoundException("not found"));
-
     UnprocessableEntityException ex = assertThrows(UnprocessableEntityException.class,
         () -> resolver.resolveContext("unknown-ctx"));
 
@@ -643,10 +644,12 @@ class DtrQuestionnaireResolverTest {
   @DisplayName("resolveContextLaunch on a PAS TRN yields PAS_TRN provenance and recovers the pended order")
   @SuppressWarnings({ "rawtypes", "unchecked" })
   void resolveContextLaunch_pasTrn_recoversOrderAndCoverage() {
-    String context = "home-o2-std-questionnaire";
-    Questionnaire q = questionnaire(context,
+    String context = "AUTHTRN0007";
+    Questionnaire q = questionnaire("home-o2-std-questionnaire",
         "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire", "2.2.0");
-    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenReturn(q);
+    stubDocumentationRequestForTrace(context, q.getUrl());
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class),
+        any(SystemRequestDetails.class))).thenReturn(List.of(q));
 
     IFhirResourceDao claimResponseDao = mock(IFhirResourceDao.class);
     IFhirResourceDao claimDao = mock(IFhirResourceDao.class);
@@ -696,12 +699,70 @@ class DtrQuestionnaireResolverTest {
   }
 
   @Test
+  @DisplayName("two in-flight PAs on the same questionnaire recover their own order, not each other's")
+  @SuppressWarnings({ "rawtypes", "unchecked" })
+  void resolveContextLaunch_twoPendedPasSameQuestionnaire_recoversOwnOrder() {
+    Questionnaire q = questionnaire("home-o2-std-questionnaire",
+        "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire", "2.2.0");
+    stubDocumentationRequestForTrace("AUTHTRN0002", q.getUrl());
+    when(questionnaireDao.searchForResources(any(SearchParameterMap.class),
+        any(SystemRequestDetails.class))).thenReturn(List.of(q));
+
+    IFhirResourceDao claimResponseDao = mock(IFhirResourceDao.class);
+    IFhirResourceDao claimDao = mock(IFhirResourceDao.class);
+    IFhirResourceDao deviceRequestDao = mock(IFhirResourceDao.class);
+    when(daoRegistry.getResourceDao(org.hl7.fhir.r4.model.ClaimResponse.class)).thenReturn(claimResponseDao);
+    when(daoRegistry.getResourceDao(org.hl7.fhir.r4.model.Claim.class)).thenReturn(claimDao);
+    when(daoRegistry.getResourceDao("DeviceRequest")).thenReturn(deviceRequestDao);
+
+    when(claimResponseDao.searchForResources(any(SearchParameterMap.class),
+        any(SystemRequestDetails.class))).thenReturn(List.of(
+            pendedClaimResponseWithTrace("cr-1", "Claim/claim-1", "AUTHTRN0001"),
+            pendedClaimResponseWithTrace("cr-2", "Claim/claim-2", "AUTHTRN0002")));
+
+    when(claimDao.read(any(IdType.class), any(SystemRequestDetails.class))).thenAnswer(inv -> {
+      IdType id = inv.getArgument(0);
+      org.hl7.fhir.r4.model.Claim claim = new org.hl7.fhir.r4.model.Claim();
+      claim.setId(id.getIdPart());
+      org.hl7.fhir.r4.model.Claim.ItemComponent item = claim.addItem();
+      item.setSequence(1);
+      item.addExtension(new Extension(
+          "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-requestedService",
+          new Reference("DeviceRequest/dr-" + id.getIdPart())));
+      return claim;
+    });
+    when(deviceRequestDao.read(any(IdType.class), any(SystemRequestDetails.class)))
+        .thenAnswer(inv -> {
+          DeviceRequest order = new DeviceRequest();
+          order.setId(((IdType) inv.getArgument(0)).getIdPart());
+          return order;
+        });
+
+    DtrQuestionnaireResolver.ContextResolution result = resolver.resolveContextLaunch("AUTHTRN0002");
+
+    assertEquals(1, result.orders().size());
+    assertEquals("dr-claim-2", result.orders().get(0).getIdElement().getIdPart(),
+        "the trace number must select the second PA's order even though both request the same questionnaire");
+  }
+
+  private org.hl7.fhir.r4.model.ClaimResponse pendedClaimResponseWithTrace(String id,
+      String claimRef, String trn) {
+    org.hl7.fhir.r4.model.ClaimResponse cr = new org.hl7.fhir.r4.model.ClaimResponse();
+    cr.setId(id);
+    cr.setRequest(new Reference(claimRef));
+    org.hl7.fhir.r4.model.ClaimResponse.ItemComponent item = cr.addItem();
+    item.setItemSequence(1);
+    item.addExtension(new Extension(
+        "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/extension-itemTraceNumber",
+        new org.hl7.fhir.r4.model.Identifier()
+            .setSystem("urn:trnorg:PASPAYER").setValue(trn)));
+    return cr;
+  }
+
+  @Test
   @DisplayName("resolveContextLaunch on a CRD assertion yields CRD_CONTEXT provenance and registry order")
   @SuppressWarnings({ "rawtypes", "unchecked" })
   void resolveContextLaunch_crdContext_recoversOrderFromRegistry() {
-    when(questionnaireDao.read(any(IdType.class), any(SystemRequestDetails.class)))
-        .thenThrow(new ResourceNotFoundException("not found"));
-
     String canonical = "http://example.org/fhir/Questionnaire/home-o2-std-questionnaire";
     DeviceRequest registeredOrder = new DeviceRequest();
     registeredOrder.setId("DeviceRequest/dr-9");
@@ -718,6 +779,19 @@ class DtrQuestionnaireResolverTest {
     assertEquals(1, result.orders().size());
     assertEquals("DeviceRequest/dr-9",
         result.orders().get(0).getIdElement().toUnqualifiedVersionless().getValue());
+  }
+
+  @SuppressWarnings("unchecked")
+  private void stubDocumentationRequestForTrace(String trn, String canonical) {
+    org.hl7.fhir.r4.model.CommunicationRequest request =
+        new org.hl7.fhir.r4.model.CommunicationRequest();
+    request.addIdentifier(new org.hl7.fhir.r4.model.Identifier()
+        .setSystem(org.hl7.davinci.pas.PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM)
+        .setValue(trn));
+    request.addExtension(org.hl7.davinci.pas.PasConstants.EXT_REQUESTED_QUESTIONNAIRE,
+        new org.hl7.fhir.r4.model.CanonicalType(canonical));
+    when(commReqDao.searchForResources(any(SearchParameterMap.class),
+        any(SystemRequestDetails.class))).thenReturn(List.of(request));
   }
 
   private Coverage coverageWithContainedPayor() {

@@ -7,9 +7,11 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.hl7.davinci.cdex.CdexConstants;
+import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.pas.PasExtensions;
 import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
@@ -145,8 +147,8 @@ public class CdexScenarioService {
           "attachment-code", payloadValue, null, null, trn, lineNumber, status);
     }
 
-    Questionnaire questionnaire = readQuestionnaire(trn);
-    String canonical = questionnaire == null ? null : questionnaire.getUrl();
+    String canonical = requestedQuestionnaireCanonical(request);
+    Questionnaire questionnaire = readQuestionnaireByCanonical(canonical);
     String name = null;
     if (questionnaire != null) {
       name = questionnaire.hasTitle() ? questionnaire.getTitle() : questionnaire.getName();
@@ -155,17 +157,18 @@ public class CdexScenarioService {
         "questionnaire", null, canonical, name, trn, lineNumber, status);
   }
 
-  Questionnaire readQuestionnaire(String logicalId) {
-    if (logicalId == null || logicalId.isBlank()) {
+  private String requestedQuestionnaireCanonical(CommunicationRequest request) {
+    Extension ext = request.getExtensionByUrl(PasConstants.EXT_REQUESTED_QUESTIONNAIRE);
+    return ext != null && ext.getValue() instanceof CanonicalType canonical
+        ? canonical.getValue()
+        : null;
+  }
+
+  Questionnaire readQuestionnaireByCanonical(String canonical) {
+    if (canonical == null || canonical.isBlank()) {
       return null;
     }
-    try {
-      return daoRegistry.getResourceDao(Questionnaire.class)
-          .read(new IdType("Questionnaire/" + logicalId), new SystemRequestDetails());
-    } catch (RuntimeException e) {
-      logger.debug("Questionnaire/{} could not be read", logicalId);
-      return null;
-    }
+    return FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, canonical);
   }
 
   private Integer serviceLineNumber(CommunicationRequest request) {
@@ -272,10 +275,10 @@ public class CdexScenarioService {
 
     Resource content;
     if ("questionnaire".equals(request.type())) {
-      Questionnaire questionnaire = readQuestionnaire(request.trn());
+      Questionnaire questionnaire = readQuestionnaireByCanonical(request.questionnaireCanonical());
       if (questionnaire == null) {
-        logger.warn("Questionnaire for TRN {} could not be resolved; skipping attachment",
-            request.trn());
+        logger.warn("Questionnaire for documentation request {} (TRN {}) could not be resolved; "
+            + "skipping attachment", request.communicationRequestId(), request.trn());
         return null;
       }
       content = QuestionnaireResponseGenerator.generate(questionnaire, patientReference);

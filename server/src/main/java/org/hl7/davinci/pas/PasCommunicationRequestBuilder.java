@@ -2,6 +2,7 @@ package org.hl7.davinci.pas;
 
 import java.util.UUID;
 
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.CommunicationRequest;
@@ -17,15 +18,18 @@ public final class PasCommunicationRequestBuilder {
   }
 
   /**
-   * Questionnaire request: payload.content is the LOINC {@code 102089-0} marker; the questionnaire
-   * itself is named by the item trace number on the matching ClaimResponse.item. The identifier
-   * reuses that same trace number so the request satisfies profile-communicationrequest's
-   * IdentifierUnlessVO invariant and correlates to the pended item.
+   * Questionnaire request: payload.content is the LOINC {@code 102089-0} marker; the identifier is
+   * a payer-assigned unique trace number matching the itemTraceNumber on the pended item, which
+   * satisfies profile-communicationrequest's IdentifierUnlessVO invariant and doubles as the DTR
+   * context id. The requested questionnaire is recorded in a payer-internal extension since
+   * payload.content is constrained to the 1..1 marker string.
    */
   public static CommunicationRequest buildQuestionnaireRequest(int lineNumber, String patientRef,
-      String trn) {
+      String trn, String questionnaireCanonical) {
     CommunicationRequest request = base(lineNumber, patientRef, trn);
     request.addPayload().setContent(new StringType(PasConstants.LOINC_QUESTIONNAIRE_REQUEST));
+    request.addExtension(PasConstants.EXT_REQUESTED_QUESTIONNAIRE,
+        new CanonicalType(questionnaireCanonical));
     return request;
   }
 

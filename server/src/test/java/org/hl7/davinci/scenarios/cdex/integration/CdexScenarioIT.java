@@ -126,7 +126,8 @@ class CdexScenarioIT {
     daoRegistry.getResourceDao(Questionnaire.class).update(questionnaire, new SystemRequestDetails());
 
     CommunicationRequest commReq =
-        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/cdex-it-patient", "q-cdex-it");
+        PasCommunicationRequestBuilder.buildQuestionnaireRequest(1, "Patient/cdex-it-patient", "q-cdex-it",
+            "http://example.org/Questionnaire/CdexIt");
     daoRegistry.getResourceDao(CommunicationRequest.class).update(commReq, new SystemRequestDetails());
 
     ClaimResponse cr = new ClaimResponse();

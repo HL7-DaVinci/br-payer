@@ -14,6 +14,7 @@ import org.hl7.davinci.pas.PasConstants;
 import org.hl7.fhir.r4.model.Appointment;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.CommunicationRequest;
 import org.hl7.fhir.r4.model.Claim;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeableConcept;
@@ -1202,11 +1203,12 @@ class DtrQuestionnairePackageIT {
       String orgId = testOrganization.getIdElement().getIdPart();
       String coverageId = testCoverage.getIdElement().getIdPart();
 
-      // The context id is the pended questionnaire's logical id (the PAS item trace number).
+      // The context id is the unique payer trace number on the stored documentation request.
       Questionnaire hospitalBeds =
           FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, Q_CANONICAL);
       assertNotNull(hospitalBeds, "HospitalBeds questionnaire should be loaded");
-      String contextId = hospitalBeds.getIdElement().getIdPart();
+      String contextId = "IT-CTX-TRN-0001";
+      seedDocumentationRequest("ctx-pended-comm", contextId);
 
       // The ordered service behind the prior authorization.
       DeviceRequest order = new DeviceRequest();
@@ -1300,11 +1302,13 @@ class DtrQuestionnairePackageIT {
     void contextAndOrder_returnsUnionOfBothPaths() {
       String patientId = testPatient.getIdElement().getIdPart();
 
-      // Context names the HospitalBeds questionnaire (PAS TRN direct-read path).
+      // Context is a payer trace number whose documentation request names the HospitalBeds
+      // questionnaire (PAS TRN path).
       Questionnaire hospitalBeds =
           FhirUtil.resolveByCanonical(daoRegistry, Questionnaire.class, Q_CANONICAL);
       assertNotNull(hospitalBeds, "HospitalBeds questionnaire should be loaded");
-      String contextId = hospitalBeds.getIdElement().getIdPart();
+      String contextId = "IT-CTX-TRN-0002";
+      seedDocumentationRequest("ctx-union-comm", contextId);
 
       // Explicit order resolves to a different questionnaire (HomeOxygenDispatch) via PlanDefinition.
       DeviceRequest order = new DeviceRequest();
@@ -1339,6 +1343,18 @@ class DtrQuestionnairePackageIT {
   // ============================================================
   // HELPERS
   // ============================================================
+
+  private void seedDocumentationRequest(String id, String traceNumber) {
+    CommunicationRequest docRequest = new CommunicationRequest();
+    docRequest.setId(id);
+    docRequest.setStatus(CommunicationRequest.CommunicationRequestStatus.ACTIVE);
+    docRequest.addIdentifier(new Identifier()
+        .setSystem(PasConstants.QUESTIONNAIRE_TRACE_NUMBER_SYSTEM).setValue(traceNumber));
+    docRequest.addExtension(PasConstants.EXT_REQUESTED_QUESTIONNAIRE,
+        new CanonicalType(Q_CANONICAL));
+    daoRegistry.getResourceDao(CommunicationRequest.class)
+        .update(docRequest, new SystemRequestDetails());
+  }
 
   private QuestionnaireResponseItemComponent findItemByLinkId(
       List<QuestionnaireResponseItemComponent> items, String linkId) {

@@ -88,10 +88,15 @@ public final class PasConstants {
   public static final String LOINC_SYSTEM = "http://loinc.org";
   public static final String LOINC_QUESTIONNAIRE_REQUEST = "102089-0";
 
-  // Item trace number namespace identifying the DTR context for a questionnaire request. PAS
-  // PASIdentifier recommends a scheme of urn:trnorg:<TRN03>; the value carried is the DTR context id
-  // (the requested questionnaire's logical id).
+  // Item trace number namespace for payer-assigned documentation request traces. PAS
+  // PASIdentifier recommends a scheme of urn:trnorg:<TRN03>; the value is a unique trace number
+  // minted per documentation request (X12 TRN02 semantics), also usable as the DTR context id.
   public static final String QUESTIONNAIRE_TRACE_NUMBER_SYSTEM = "urn:trnorg:PASPAYER";
+
+  // Payer-internal extension recording which Questionnaire a 102089-0 CommunicationRequest asks
+  // for; the wire association for providers is the opaque trace number resolved through DTR.
+  public static final String EXT_REQUESTED_QUESTIONNAIRE =
+      "http://example.org/fhir/us/davinci-pas/StructureDefinition/extension-requestedQuestionnaire";
 
   // Internal meta tag marking a ClaimResponse as awaiting pended resolution
   public static final String PENDED_TAG_SYSTEM = "http://example.org/fhir/us/davinci-pas/internal-tags";
