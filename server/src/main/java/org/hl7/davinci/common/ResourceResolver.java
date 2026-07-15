@@ -478,6 +478,42 @@ public class ResourceResolver {
   }
 
   /**
+   * Searches the CRD client's FHIR server for the patient's active Coverage.
+   * Fallback for when prefetch does not include coverage, per the CRD IG
+   * expectation that servers query the EHR for data not returned in prefetch.
+   */
+  public static List<Coverage> searchActiveCoverageFromServer(String patientId,
+      CdsServiceRequestJson request) {
+
+    if (request == null || patientId == null || patientId.isBlank()
+        || request.getFhirServer() == null) {
+      return List.of();
+    }
+
+    try {
+      IGenericClient client = R4_CTX.newRestfulGenericClient(request.getFhirServer());
+
+      CdsServiceRequestAuthorizationJson authorization = request.getServiceRequestAuthorizationJson();
+      if (authorization != null && authorization.getAccessToken() != null) {
+        client.registerInterceptor(new BearerTokenAuthInterceptor(authorization.getAccessToken()));
+      }
+
+      Bundle bundle = client.search()
+          .forResource(Coverage.class)
+          .where(Coverage.PATIENT.hasId(patientId))
+          .and(Coverage.STATUS.exactly().code("active"))
+          .returnBundle(Bundle.class)
+          .execute();
+
+      return BundleUtil.toListOfResourcesOfType(R4_CTX, bundle, Coverage.class);
+    } catch (Exception e) {
+      logger.warn("Could not search Coverage for patient {} from server: {}", patientId,
+          e.getMessage());
+      return List.of();
+    }
+  }
+
+  /**
    * Strips urn:uuid: prefix from an ID string if present.
    */
   public static String normalizeId(String id) {

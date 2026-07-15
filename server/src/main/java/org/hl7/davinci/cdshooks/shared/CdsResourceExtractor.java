@@ -104,6 +104,18 @@ public final class CdsResourceExtractor {
       context.setCoverage(coverage);
       resolvePayorOrganizations(coverage, request, daoRegistry, context);
     }
+
+    // Per CRD IG: servers SHOULD query the EHR for data not returned in prefetch
+    if (context.getCoverage() == null
+        && request.getContext().get("patientId") instanceof String patientId) {
+      List<Coverage> coverages = ResourceResolver.searchActiveCoverageFromServer(patientId, request);
+      context.setCoverageCount(coverages.size());
+      if (!coverages.isEmpty()) {
+        Coverage coverage = coverages.get(0);
+        context.setCoverage(coverage);
+        resolvePayorOrganizations(coverage, request, daoRegistry, context);
+      }
+    }
   }
 
   private static void resolvePayorOrganizations(Coverage coverage, CdsServiceRequestJson request,

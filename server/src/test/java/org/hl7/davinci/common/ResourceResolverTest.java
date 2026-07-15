@@ -14,10 +14,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import org.hl7.fhir.instance.model.api.IIdType;
+import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
@@ -31,6 +36,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.sun.net.httpserver.HttpServer;
+
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.rest.api.server.SystemRequestDetails;
@@ -319,5 +327,62 @@ class ResourceResolverTest {
 
     Resource resolved = ResourceResolver.resolveOrderReference("DeviceRequest/dr-100", request);
     assertSame(order, resolved);
+  }
+
+  @Test
+  @DisplayName("searchActiveCoverageFromServer returns active coverage from the client FHIR server")
+  void searchActiveCoverageFromServer_returnsCoverageFromServer() throws Exception {
+    FhirContext fhirContext = FhirContext.forR4Cached();
+    HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+    server.createContext("/", exchange -> {
+      String body;
+      if (exchange.getRequestURI().getPath().endsWith("/metadata")) {
+        CapabilityStatement capabilityStatement = new CapabilityStatement();
+        capabilityStatement.setFhirVersion(Enumerations.FHIRVersion._4_0_1);
+        body = fhirContext.newJsonParser().encodeResourceToString(capabilityStatement);
+      } else {
+        Coverage coverage = new Coverage();
+        coverage.setId("cov-1");
+        coverage.setStatus(Coverage.CoverageStatus.ACTIVE);
+        Bundle searchset = new Bundle();
+        searchset.setType(Bundle.BundleType.SEARCHSET);
+        searchset.addEntry().setResource(coverage);
+        body = fhirContext.newJsonParser().encodeResourceToString(searchset);
+      }
+      byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+      exchange.getResponseHeaders().set("Content-Type", "application/fhir+json");
+      exchange.sendResponseHeaders(200, bytes.length);
+      try (OutputStream os = exchange.getResponseBody()) {
+        os.write(bytes);
+      }
+    });
+    server.start();
+
+    try {
+      CdsServiceRequestJson request = new CdsServiceRequestJson();
+      request.setFhirServer("http://localhost:" + server.getAddress().getPort());
+
+      List<Coverage> result = ResourceResolver.searchActiveCoverageFromServer("example", request);
+
+      assertEquals(1, result.size());
+      assertEquals("cov-1", result.get(0).getIdElement().getIdPart());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  @DisplayName("searchActiveCoverageFromServer returns empty list when the server is unreachable")
+  void searchActiveCoverageFromServer_unreachableServerReturnsEmpty() {
+    CdsServiceRequestJson request = new CdsServiceRequestJson();
+    request.setFhirServer("http://localhost:9");
+
+    assertTrue(ResourceResolver.searchActiveCoverageFromServer("example", request).isEmpty());
+  }
+
+  @Test
+  @DisplayName("searchActiveCoverageFromServer returns empty list without a fhirServer")
+  void searchActiveCoverageFromServer_noServerReturnsEmpty() {
+    assertTrue(ResourceResolver.searchActiveCoverageFromServer("example", new CdsServiceRequestJson()).isEmpty());
   }
 }

@@ -206,9 +206,9 @@ public abstract class CdsServiceBase {
     // Validate required FHIR resources are present
     validateExtractedResources(context);
 
-    // Per CDS Hooks spec: 412 = Required prefetch data could not be retrieved
+    // Per CRD IG: The server SHALL return a 400 error... "This includes situations where no Coverage is accessible"
     if (context.getCoverage() == null) {
-      throw new CdsHooksException.PreconditionFailedException(
+      throw new CdsHooksException.BadRequestException(
           "No Coverage resource is accessible for this patient. A Coverage resource with a valid payer identifier is required.");
     }
 
