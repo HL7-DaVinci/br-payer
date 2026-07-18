@@ -1,45 +1,57 @@
 ---
-kind: pipeline
 name: latest-amd64
+kind: pipeline
 type: docker
 platform:
   arch: amd64
   os: linux
 steps:
   - name: publish
-    image: plugins/docker
-    settings:
-      repo: hlseven/davinci-br-payer
-      tags: [latest-linux-amd64]
-      # auto_tag: true
-      username:
+    image: docker:latest
+    environment:
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_USERNAME:
         from_secret: docker_username
-      password:
+      DOCKER_PASSWORD:
         from_secret: docker_password
-trigger:
-  branch:
-    - main
+    volumes:
+      - name: dockersock
+        path: /var/run/docker.sock
+    commands:
+      - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      - docker build -t hlseven/davinci-br-payer:${DRONE_COMMIT_BRANCH}-linux-amd64 .
+      - docker push hlseven/davinci-br-payer:${DRONE_COMMIT_BRANCH}-linux-amd64
+volumes:
+  - name: dockersock
+    host:
+      path: /var/run/docker.sock
 ---
-kind: pipeline
 name: latest-arm64
+kind: pipeline
 type: docker
 platform:
   arch: arm64
   os: linux
 steps:
   - name: publish
-    image: plugins/docker
-    settings:
-      repo: hlseven/davinci-br-payer
-      tags: [latest-linux-arm64]
-      # auto_tag: true
-      username:
+    image: docker:latest
+    environment:
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_USERNAME:
         from_secret: docker_username
-      password:
+      DOCKER_PASSWORD:
         from_secret: docker_password
-trigger:
-  branch:
-    - main
+    volumes:
+      - name: dockersock
+        path: /var/run/docker.sock
+    commands:
+      - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      - docker build -t hlseven/davinci-br-payer:${DRONE_COMMIT_BRANCH}-linux-arm64 .
+      - docker push hlseven/davinci-br-payer:${DRONE_COMMIT_BRANCH}-linux-arm64
+volumes:
+  - name: dockersock
+    host:
+      path: /var/run/docker.sock
 ---
 name: manifest
 kind: pipeline
@@ -56,10 +68,15 @@ steps:
       password:
         from_secret: docker_password
       target: hlseven/davinci-br-payer:latest
-      template: hlseven/davinci-br-payer:latest-OS-ARCH
+      template: hlseven/davinci-br-payer:master-OS-ARCH
       platforms:
         - linux/amd64
         - linux/arm64
+      exclude:
+        - master
 trigger:
+  branch:
+    include:
+      - master
   status:
     - success
