@@ -5,6 +5,7 @@ import static org.hl7.davinci.common.FhirConstants.REVIEW_CODE_A1;
 import static org.hl7.davinci.common.FhirConstants.REVIEW_CODE_A4;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -106,6 +107,24 @@ class PasSubscriptionNotificationServiceTest {
 
     verifyNoInteractions(responseBuilder);
     verifyNoInteractions(topicDispatcher);
+  }
+
+  @Test
+  void dispatchResolvedClaimResponse_retriesWhenNoSubscribersMatch() {
+    ClaimResponse finalCr = buildClaimResponseWithReviewAction(REVIEW_CODE_A1);
+    finalCr.setId("ClaimResponse/cr-test");
+
+    when(crDao.read(any(IdType.class), any())).thenReturn(finalCr);
+    when(responseBuilder.buildNotificationResponseBundle(finalCr, daoRegistry))
+        .thenReturn(new Bundle());
+    when(topicDispatcher.dispatch(any(SubscriptionTopicDispatchRequest.class)))
+        .thenReturn(0)
+        .thenReturn(1);
+
+    service.dispatchResolvedClaimResponse("cr-test");
+
+    verify(topicDispatcher, timeout(10_000).times(2))
+        .dispatch(any(SubscriptionTopicDispatchRequest.class));
   }
 
   private ClaimResponse buildClaimResponseWithReviewAction(String reviewCode) {

@@ -16,6 +16,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -169,6 +172,29 @@ class PlanDefinitionServiceTest {
       assertEquals(1, searchMap.get("context-type").size(), "Payor-handled check requires program context type only");
       assertEquals(1, searchMap.get("context").size(), "Payor-handled check should OR over payor identifiers");
       assertEquals(1, searchMap.get("context").get(0).size(), "Single payor identifier in test fixture");
+    }
+
+    @Test
+    @DisplayName("X-Bypass-Payor-Check header substitutes the canonical payor identifiers")
+    void bypassHeaderSubstitutesCanonicalIdentifiers() {
+      MockHttpServletRequest request = new MockHttpServletRequest();
+      request.addHeader(PlanDefinitionService.BYPASS_PAYOR_CHECK_HEADER, "true");
+      RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+      try {
+        when(planDefinitionDao.searchForIds(any(SearchParameterMap.class), any(SystemRequestDetails.class)))
+            .thenReturn(List.of(new IdType("PlanDefinition/pd-1")));
+
+        List<Identifier> unknownPayor = List.of(
+            new Identifier().setSystem("http://example.org/other-payer").setValue("9999999999"));
+        assertTrue(planDefinitionService.isPayorHandled(unknownPayor));
+
+        ArgumentCaptor<SearchParameterMap> mapCaptor = ArgumentCaptor.forClass(SearchParameterMap.class);
+        verify(planDefinitionDao).searchForIds(mapCaptor.capture(), any(SystemRequestDetails.class));
+        assertEquals(3, mapCaptor.getValue().get("context").get(0).size(),
+            "Canonical identifiers replace the request's payor identifiers");
+      } finally {
+        RequestContextHolder.resetRequestAttributes();
+      }
     }
   }
 

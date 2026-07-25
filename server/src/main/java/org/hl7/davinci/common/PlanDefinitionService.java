@@ -25,6 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
@@ -42,6 +44,21 @@ public class PlanDefinitionService {
 
   private static final Logger logger = LoggerFactory.getLogger(PlanDefinitionService.class);
 
+  /**
+   * Test header that bypasses payor-handled enforcement by evaluating the request against the
+   * canonical seeded payer identity, so an arbitrary EHR's Coverage.payor matches the seeded
+   * PlanDefinitions. CRD treats identifier-less payors and multiple Coverages as sub-cases of
+   * the same conformance statement, so the header also relaxes those CDS request checks.
+   * Without the header, unknown payors keep the strict "payer not handled" behavior.
+   */
+  public static final String BYPASS_PAYOR_CHECK_HEADER = "X-Bypass-Payor-Check";
+
+  /** Payor identifiers carried by the seeded PlanDefinitions' program useContext. */
+  private static final List<Identifier> CANONICAL_PAYOR_IDENTIFIERS = List.of(
+      new Identifier().setSystem("http://hl7.org/fhir/sid/us-npi").setValue("1234567893"),
+      new Identifier().setSystem("http://hl7.org/fhir/sid/us-npi").setValue("8189991234"),
+      new Identifier().setSystem("urn:oid:2.16.840.1.113883.6.300").setValue("00001"));
+
   @Autowired
   private DaoRegistry daoRegistry;
 
@@ -52,6 +69,8 @@ public class PlanDefinitionService {
    * Finds PlanDefinitions based on the provided code, payor identifiers, and hook.
    */
   public List<PlanDefinition> findPlanDefinitions(Coding code, List<Identifier> payorIdentifiers, String hook) {
+
+    payorIdentifiers = applyPayorCheckBypass(payorIdentifiers);
 
     logger.info("Finding PlanDefinitions for code: {}|{}, payorIdentifiers: {}, hook: {}", code.getSystem(),
         code.getCode(), payorIdentifiers.stream().map(i -> i.getSystem() + "|" + i.getValue()).toList(), hook);
@@ -121,6 +140,8 @@ public class PlanDefinitionService {
    * Checks if any PlanDefinition exists for the given payor identifiers.
    */
   public boolean isPayorHandled(List<Identifier> payorIdentifiers) {
+    payorIdentifiers = applyPayorCheckBypass(payorIdentifiers);
+
     SearchParameterMap searchParams = new SearchParameterMap();
     searchParams.setCount(1);
 
@@ -139,6 +160,22 @@ public class PlanDefinitionService {
     return !daoRegistry.getResourceDao(PlanDefinition.class)
         .searchForIds(searchParams, new SystemRequestDetails())
         .isEmpty();
+  }
+
+  /** True when the current request carries the {@link #BYPASS_PAYOR_CHECK_HEADER} header. */
+  public static boolean payorCheckBypassed() {
+    return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+        && attrs.getRequest().getHeader(BYPASS_PAYOR_CHECK_HEADER) != null;
+  }
+
+  private static List<Identifier> applyPayorCheckBypass(List<Identifier> payorIdentifiers) {
+    if (payorCheckBypassed()) {
+      logger.info("{} header present; using canonical payor identifiers instead of {}",
+          BYPASS_PAYOR_CHECK_HEADER,
+          payorIdentifiers.stream().map(i -> i.getSystem() + "|" + i.getValue()).toList());
+      return CANONICAL_PAYOR_IDENTIFIERS;
+    }
+    return payorIdentifiers;
   }
 
   /**

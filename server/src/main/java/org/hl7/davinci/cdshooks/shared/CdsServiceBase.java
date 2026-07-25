@@ -213,7 +213,8 @@ public abstract class CdsServiceBase {
     }
 
     // Per CRD IG: The server SHALL return a 400 error...This includes situations where... multiple Coverages are accessible"
-    if (context.getCoverageCount() > 1) {
+    // The bypass header relaxes this to first-Coverage-wins (extraction already picked the first).
+    if (context.getCoverageCount() > 1 && !PlanDefinitionService.payorCheckBypassed()) {
       throw new CdsHooksException.BadRequestException(
           "Multiple Coverage resources are accessible for this patient. CRD requires a single primary Coverage in the request.");
     }
@@ -222,7 +223,8 @@ public abstract class CdsServiceBase {
     List<Identifier> payorIdentifiers = extractPayorIdentifiers(context);
 
     // Per CRD IG: The server SHALL return a 400 error...This includes situations where... the provided Coverage does not have a payer.identifier at all"
-    if (payorIdentifiers.isEmpty()) {
+    // The bypass header relaxes this; findPlanDefinitions substitutes the canonical payor identifiers.
+    if (payorIdentifiers.isEmpty() && !PlanDefinitionService.payorCheckBypassed()) {
       throw new CdsHooksException.BadRequestException(
           "Coverage resource (" + context.getCoverage().getId()
               + ") lacks valid payer identifier. Coverage.payor must reference an Organization with a valid identifier. Coverage.payor value: "
