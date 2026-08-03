@@ -55,7 +55,7 @@ public final class PasConstants {
   public static final String SUBSCRIPTION_MATCHING_TAG_CODE = "TOPIC";
 
   // Filter parameter
-  public static final String FILTER_ORG_IDENTIFIER = "orgIdentifier";
+  public static final String FILTER_ORG_IDENTIFIER = "org-identifier";
 
   // PAS Profile URLs
   public static final String PROFILE_PAS_REQUEST_BUNDLE = "http://hl7.org/fhir/us/davinci-pas/StructureDefinition/profile-pas-request-bundle";

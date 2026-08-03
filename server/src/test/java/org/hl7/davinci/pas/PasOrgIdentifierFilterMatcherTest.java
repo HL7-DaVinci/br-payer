@@ -139,7 +139,7 @@ class PasOrgIdentifierFilterMatcherTest {
 
   @Test
   void match_returnsSuccessWhenReceiverCodeMatchesOneOfCommaSeparatedValues() {
-    // spec-58 explicitly shows "orgIdentifier=N123456,4543315"
+    // spec-58 explicitly shows "org-identifier=N123456,4543315"
     ClaimResponse cr = buildClaimResponseWithReceiverCode("4543315");
     CanonicalTopicSubscriptionFilter filter = buildFilter(
         PasConstants.FILTER_ORG_IDENTIFIER, "N123456,4543315");

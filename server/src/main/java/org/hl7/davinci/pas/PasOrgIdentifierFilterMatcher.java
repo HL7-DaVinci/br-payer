@@ -16,7 +16,7 @@ import ca.uhn.fhir.rest.param.ParameterUtil;
 
 /**
  * Matches PAS subscription filters against ClaimResponse resources.
- * Handles the {@code orgIdentifier} filter parameter defined by the PAS IG,
+ * Handles the {@code org-identifier} filter parameter defined by the PAS IG,
  * which filters by the applicationReceiverCode from the TransmissionIdentifiers extension.
  * The receiver on the ClaimResponse is the requesting provider organization.
  */
@@ -30,7 +30,7 @@ public class PasOrgIdentifierFilterMatcher implements ISubscriptionTopicFilterMa
     if (!PasConstants.FILTER_ORG_IDENTIFIER.equals(filter.getFilterParameter())) {
       return InMemoryMatchResult.unsupportedFromParameterAndReason(
           filter.getFilterParameter(),
-          "Only orgIdentifier filter is supported for PAS subscriptions");
+          "Only org-identifier filter is supported for PAS subscriptions");
     }
 
     ClaimResponse cr = extractClaimResponse(resource);
@@ -50,9 +50,9 @@ public class PasOrgIdentifierFilterMatcher implements ISubscriptionTopicFilterMa
       return InMemoryMatchResult.noMatch();
     }
 
-    // spec-58 permits comma-separated values, e.g. "orgIdentifier=N123456,4543315";
+    // spec-58 permits comma-separated values, e.g. "org-identifier=N123456,4543315";
     // each element may also use the FHIR token format (system|value) per PAS IG example:
-    // "orgIdentifier=http://hl7.org/fhir/sid/us-npi|1234567893"
+    // "org-identifier=http://hl7.org/fhir/sid/us-npi|1234567893"
     String[] subscribedValues = filterValue.split(",");
     boolean matched = Arrays.stream(subscribedValues)
         .map(String::trim)

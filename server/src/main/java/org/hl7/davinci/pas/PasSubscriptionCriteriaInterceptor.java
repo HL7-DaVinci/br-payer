@@ -25,7 +25,7 @@ public class PasSubscriptionCriteriaInterceptor {
   private static final String PAS_TOPIC =
       "http://hl7.org/fhir/us/davinci-pas/SubscriptionTopic/PASSubscriptionTopic";
   private static final Pattern VALID_FILTER =
-      Pattern.compile("^(Bundle\\?)?orgIdentifier=[^&?]+$");
+      Pattern.compile("^(Bundle\\?)?org-identifier=[^&?]+$");
 
   @Hook(Pointcut.STORAGE_PRESTORAGE_RESOURCE_CREATED)
   public void created(IBaseResource resource) {
@@ -56,7 +56,7 @@ public class PasSubscriptionCriteriaInterceptor {
         : null;
     if (value == null || !VALID_FILTER.matcher(value).matches()) {
       throw new UnprocessableEntityException(
-          "PAS subscription filter criteria must be 'orgIdentifier=<sending system identifier>' per PAS 2.2.1 spec-58; got: "
+          "PAS subscription filter criteria must be 'org-identifier=<sending system identifier>' per PAS 2.2.1 spec-58; got: "
               + value);
     }
     if (!value.startsWith("Bundle?")) {

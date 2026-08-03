@@ -24,25 +24,25 @@ class PasSubscriptionCriteriaInterceptorTest {
 
   @Test
   void bareIgFormIsNormalizedToHapiParseableForm() {
-    Subscription sub = subscriptionWithFilter("orgIdentifier=1234567893");
+    Subscription sub = subscriptionWithFilter("org-identifier=1234567893");
     new PasSubscriptionCriteriaInterceptor().normalize(sub);
-    assertEquals("Bundle?orgIdentifier=1234567893",
+    assertEquals("Bundle?org-identifier=1234567893",
         ((StringType) sub.getCriteriaElement().getExtensionByUrl(FILTER_EXT).getValue()).getValue());
   }
 
   @Test
   void prefixedFormPassesThroughUnchanged() {
-    Subscription sub = subscriptionWithFilter("Bundle?orgIdentifier=1234567893");
+    Subscription sub = subscriptionWithFilter("Bundle?org-identifier=1234567893");
     new PasSubscriptionCriteriaInterceptor().normalize(sub);
-    assertEquals("Bundle?orgIdentifier=1234567893",
+    assertEquals("Bundle?org-identifier=1234567893",
         ((StringType) sub.getCriteriaElement().getExtensionByUrl(FILTER_EXT).getValue()).getValue());
   }
 
   @Test
   void multiValueFormIsAccepted() {
-    Subscription sub = subscriptionWithFilter("orgIdentifier=N123456,4543315");
+    Subscription sub = subscriptionWithFilter("org-identifier=N123456,4543315");
     new PasSubscriptionCriteriaInterceptor().normalize(sub);
-    assertEquals("Bundle?orgIdentifier=N123456,4543315",
+    assertEquals("Bundle?org-identifier=N123456,4543315",
         ((StringType) sub.getCriteriaElement().getExtensionByUrl(FILTER_EXT).getValue()).getValue());
   }
 
