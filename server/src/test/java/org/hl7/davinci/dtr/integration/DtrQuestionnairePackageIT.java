@@ -724,7 +724,7 @@ class DtrQuestionnairePackageIT {
           new Coding()
               .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
               .setCode("105585")
-              .setDisplay("Tacrolimus")));
+              .setDisplay("Methotrexate 2.5 MG Oral Tablet")));
       medRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
@@ -749,7 +749,7 @@ class DtrQuestionnairePackageIT {
           new Coding()
               .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
               .setCode("105585")
-              .setDisplay("Tacrolimus 1mg oral capsule")));
+              .setDisplay("Methotrexate 2.5 MG Oral Tablet")));
       mr.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
@@ -796,7 +796,7 @@ class DtrQuestionnairePackageIT {
           new Coding()
               .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
               .setCode("105585")
-              .setDisplay("Tacrolimus 1mg oral capsule")));
+              .setDisplay("Methotrexate 2.5 MG Oral Tablet")));
       mr.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
@@ -1031,7 +1031,7 @@ class DtrQuestionnairePackageIT {
 
     @Test
     @Timeout(value = 60, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-    @DisplayName("Appointment SNOMED 394579002 resolves questionnaire")
+    @DisplayName("Appointment SNOMED 183519002 resolves questionnaire")
     void orderResolution_appointmentProducesPackage() {
       Appointment appointment = new Appointment();
       appointment.setId("dtr-test-cardio-appt");
@@ -1039,14 +1039,14 @@ class DtrQuestionnairePackageIT {
       appointment.addServiceType(new CodeableConcept().addCoding(
           new Coding()
               .setSystem("http://snomed.info/sct")
-              .setCode("394579002")
-              .setDisplay("Cardiology")));
+              .setCode("183519002")
+              .setDisplay("Referral to cardiology service")));
 
       Parameters result = dtrPackageService.generatePackages(
           testCoverage, List.of(appointment), List.of(), null, null);
 
       Bundle bundle = extractPackageBundle(result);
-      assertNotNull(bundle, "Order-based resolution should produce a package for 394579002. "
+      assertNotNull(bundle, "Order-based resolution should produce a package for 183519002. "
           + "Warnings: " + extractWarnings(result));
     }
   }
@@ -1168,7 +1168,7 @@ class DtrQuestionnairePackageIT {
           new Coding()
               .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
               .setCode("197696")
-              .setDisplay("Hydrocodone")));
+              .setDisplay("72 HR fentanyl 0.075 MG/HR Transdermal System")));
       medRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(

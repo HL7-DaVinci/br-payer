@@ -111,7 +111,7 @@ class AppointmentBookServiceTest {
       context.setPatient(CdsHooksTestUtils.createTestPatient("test-patient"));
       context.setCoverage(CdsHooksTestUtils.createTestCoverage("test-coverage", "org1234"));
       context.setAppointments(List.of(
-          CdsHooksTestUtils.createTestAppointment("appt-1", "394579002", "test-patient"))); // Cardiology
+          CdsHooksTestUtils.createTestAppointment("appt-1", "183519002", "test-patient"))); // Cardiology
 
       assertDoesNotThrow(() -> appointmentBookService.validateExtractedResources(context));
     }
@@ -125,7 +125,7 @@ class AppointmentBookServiceTest {
     @DisplayName("Should process ALL appointments in context")
     void testSelectsAllAppointments() {
       ResolvedResources context = new ResolvedResources();
-      Appointment appt1 = CdsHooksTestUtils.createTestAppointment("appt-1", "394579002", "patient1"); // Cardiology
+      Appointment appt1 = CdsHooksTestUtils.createTestAppointment("appt-1", "183519002", "patient1"); // Cardiology
       Appointment appt2 = CdsHooksTestUtils.createTestAppointment("appt-2", "91251008", "patient1"); // Physical therapy
 
       context.setAppointments(List.of(appt1, appt2));

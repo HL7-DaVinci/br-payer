@@ -140,12 +140,12 @@ class FhirCodeExtractorTest {
     @Test
     @DisplayName("Appointment extracts service type codes")
     void appointment_extractsCodes() {
-      Appointment appointment = CdsHooksTestUtils.createTestAppointment("apt-1", "394579002", "patient-1");
+      Appointment appointment = CdsHooksTestUtils.createTestAppointment("apt-1", "183519002", "patient-1");
 
       List<Coding> codes = FhirCodeExtractor.extractCodes(appointment, false, null);
 
       assertFalse(codes.isEmpty());
-      assertEquals("394579002", codes.get(0).getCode());
+      assertEquals("183519002", codes.get(0).getCode());
     }
   }
 

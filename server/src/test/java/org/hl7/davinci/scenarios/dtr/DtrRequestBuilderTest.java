@@ -121,7 +121,7 @@ class DtrRequestBuilderTest {
         List.of(new Coding()
             .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
             .setCode("197696")
-            .setDisplay("Hydrocodone 5 MG / Acetaminophen 325 MG")),
+            .setDisplay("72 HR fentanyl 0.075 MG/HR Transdermal System")),
         List.of("order-select"),
         "MedicationRequest",
         List.of(),

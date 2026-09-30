@@ -289,7 +289,7 @@ class PasRequestBuilderTest {
 
   @Test
   void buildSubmitBundle_nonPasFocusCodeFallsBackToX12RequestedServiceCode() {
-    Coding snomedFocus = new Coding("http://snomed.info/sct", "394579002", "Cardiology");
+    Coding snomedFocus = new Coding("http://snomed.info/sct", "183519002", "Referral to cardiology service");
     ScenarioMetadata meta = buildMetaWithFocus("cardio", "Cardiology", snomedFocus, "ServiceRequest");
     Bundle bundle = PasRequestBuilder.buildSubmitBundle(meta, snomedFocus, seed, "I", "Initial", "test-trace");
 

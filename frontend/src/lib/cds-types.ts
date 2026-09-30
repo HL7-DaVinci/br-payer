@@ -874,7 +874,8 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
             {
               system: "http://www.ama-assn.org/go/cpt",
               code: "72148",
-              display: "MRI lumbar spine without contrast",
+              display:
+                "Magnetic resonance (eg, proton) imaging, spinal canal and contents, lumbar; without contrast material",
             },
           ],
           text: "MRI Lumbar Spine w/o Contrast",
@@ -969,7 +970,8 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
             {
               system: "http://www.nlm.nih.gov/research/umls/rxnorm",
               code: "1049502",
-              display: "Oxycodone 5 MG Oral Tablet",
+              display:
+                "12 HR oxycodone hydrochloride 10 MG Extended Release Oral Tablet",
             },
           ],
           text: "Oxycodone 5mg",
@@ -1013,7 +1015,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
             {
               system: "http://www.nlm.nih.gov/research/umls/rxnorm",
               code: "197696",
-              display: "Hydrocodone 5 MG / Acetaminophen 325 MG",
+              display: "72 HR fentanyl 0.075 MG/HR Transdermal System",
             },
           ],
           text: "Hydrocodone/Acetaminophen 5-325mg",
@@ -1140,7 +1142,7 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
             {
               system: "http://www.nlm.nih.gov/research/umls/rxnorm",
               code: "105611",
-              display: "Azathioprine 50 MG Oral Tablet",
+              display: "azathioprine 50 MG Oral Tablet [Imuran]",
             },
           ],
           text: "Azathioprine 50mg",
@@ -1338,8 +1340,8 @@ export const RESOURCE_TEMPLATES: Record<string, ResourceTemplate[]> = {
             coding: [
               {
                 system: "http://snomed.info/sct",
-                code: "394579002",
-                display: "Cardiology",
+                code: "183519002",
+                display: "Referral to cardiology service",
               },
             ],
           },

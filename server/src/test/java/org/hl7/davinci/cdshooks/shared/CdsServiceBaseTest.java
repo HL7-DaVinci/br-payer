@@ -244,11 +244,11 @@ class CdsServiceBaseTest {
     @Test
     @DisplayName("Should extract serviceType codes from Appointment")
     void testExtractCodes_Appointment_ServiceType() {
-      Appointment appointment = CdsHooksTestUtils.createTestAppointment("appt-1", "394579002", "patient1");
+      Appointment appointment = CdsHooksTestUtils.createTestAppointment("appt-1", "183519002", "patient1");
 
       List<Coding> codes = FhirCodeExtractor.extractCodes(appointment, false, null);
 
-      assertTrue(codes.stream().anyMatch(c -> "394579002".equals(c.getCode())));
+      assertTrue(codes.stream().anyMatch(c -> "183519002".equals(c.getCode())));
     }
 
     @Test
