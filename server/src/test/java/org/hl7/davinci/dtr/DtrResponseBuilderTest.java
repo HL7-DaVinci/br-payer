@@ -227,6 +227,56 @@ class DtrResponseBuilderTest {
     }
 
     @Test
+    @DisplayName("intendedUse is withpa when the order's coverage-information doc-purpose is withpa")
+    void intendedUseExtension_withPaFromOrderDocPurpose() {
+      DeviceRequest order = orderWithDocPurpose("withpa");
+      DtrQuestionnaireResolver.ResolvedQuestionnaire crdProvenance =
+          new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+              "http://example.org/Questionnaire/test|1.0", testQ,
+              DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE,
+              DtrQuestionnaireResolver.DtrLaunchProvenance.CRD_CONTEXT, new ArrayList<>(), null);
+
+      DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+          crdProvenance, List.of(order), List.of());
+
+      Coding coding = ((CodeableConcept) result.response().getExtensionByUrl(INTENDED_USE_EXT).getValue())
+          .getCodingFirstRep();
+      assertEquals("withpa", coding.getCode());
+      assertEquals("Include with prior authorization", coding.getDisplay());
+    }
+
+    @Test
+    @DisplayName("intendedUse stays withorder when the order's doc-purpose is withorder or absent")
+    void intendedUseExtension_withOrderOtherwise() {
+      DtrQuestionnaireResolver.ResolvedQuestionnaire crdProvenance =
+          new DtrQuestionnaireResolver.ResolvedQuestionnaire(
+              "http://example.org/Questionnaire/test|1.0", testQ,
+              DtrQuestionnaireResolver.ResolutionPath.QUESTIONNAIRE,
+              DtrQuestionnaireResolver.DtrLaunchProvenance.CRD_CONTEXT, new ArrayList<>(), null);
+
+      for (DeviceRequest order : List.of(orderWithDocPurpose("withorder"), orderWithDocPurpose(null))) {
+        DtrResponseBuilder.PrepopulationResult result = builder.buildResponse(testQ, testCoverage,
+            crdProvenance, List.of(order), List.of());
+        Coding coding = ((CodeableConcept) result.response().getExtensionByUrl(INTENDED_USE_EXT).getValue())
+            .getCodingFirstRep();
+        assertEquals("withorder", coding.getCode());
+      }
+    }
+
+    private DeviceRequest orderWithDocPurpose(String docPurpose) {
+      DeviceRequest order = new DeviceRequest();
+      order.setId("1697");
+      Extension coverageInfo = new Extension(
+          "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/ext-coverage-information");
+      coverageInfo.addExtension(new Extension("coverage", new Reference("Coverage/cov014")));
+      if (docPurpose != null) {
+        coverageInfo.addExtension(new Extension("doc-purpose", new CodeType(docPurpose)));
+      }
+      order.addExtension(coverageInfo);
+      return order;
+    }
+
+    @Test
     @DisplayName("QUESTIONNAIRE: all orders get qr-context")
     void questionnaire_allOrders() {
       DeviceRequest order1 = new DeviceRequest();

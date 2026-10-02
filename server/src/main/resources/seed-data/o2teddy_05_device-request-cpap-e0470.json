@@ -13,7 +13,7 @@
       {
         "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
         "code": "E0470",
-        "display": "Respiratory Assist Device, Bi-Level Pressure Capacity WITHOUT Backup Rate"
+        "display": "Rad w/o backup non-inv intfc"
       }
     ]
   },

@@ -10,6 +10,8 @@ import org.hl7.davinci.common.FhirCodeExtractor;
 import org.hl7.davinci.common.OrderResourceTypes;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.davinci.cdshooks.shared.PlanDefinitionFinder;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
@@ -105,10 +107,13 @@ public class PasCoverageEvaluator {
     List<PlanDefinition> plans = planDefinitionService.findPlanDefinitions(
         orderCode, payorIdentifiers, null);
 
-    // Filter dispatch plans as needed
+    Resource order = findOrderResource(dataBundle, orderCode);
     planDefinitionService
-        .removeDispatchPlansLackingEvidence(plans, findOrderResource(dataBundle, orderCode))
+        .removeDispatchPlansLackingEvidence(plans, order)
         .forEach(logger::info);
+    Parameters cqlParameters = order != null
+        ? PlanDefinitionFinder.buildCqlParameters(null, order)
+        : null;
 
     if (plans.isEmpty()) {
       return new CoverageDecision(REVIEW_CODE_A3, "Not Required", false);
@@ -119,7 +124,7 @@ public class PasCoverageEvaluator {
 
     for (PlanDefinition plan : plans) {
       RequestGroup requestGroup = planDefinitionService.applyPlanDefinition(
-          plan, patientId, dataBundle, null);
+          plan, patientId, dataBundle, cqlParameters);
       Extension coverageExt = CoverageInfoUtil.extractCoverageExtension(requestGroup, coverage, null);
       if (coverageExt == null) {
         continue;

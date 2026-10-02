@@ -13,7 +13,7 @@
       {
         "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
         "code": "E0465",
-        "display": "Ventilator"
+        "display": "Home vent invasive interface"
       }
     ]
   },

@@ -1,0 +1,269 @@
+{
+  "hook": "order-sign",
+  "hookInstance": "cc2344a5-db45-44a9-8a73-02b313297e8c",
+  "context": {
+    "userId": "Practitioner/PractitionerExample",
+    "patientId": "pat014",
+    "draftOrders": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "entry": [
+        {
+          "fullUrl": "urn:uuid:7f55bd94-7fda-4000-92f0-66c59ac06c79",
+          "resource": {
+            "resourceType": "DeviceRequest",
+            "status": "draft",
+            "intent": "original-order",
+            "codeCodeableConcept": {
+              "coding": [
+                {
+                  "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                  "code": "E0424",
+                  "display": "Stationary Compressed Gaseous Oxygen System, Rental"
+                }
+              ]
+            },
+            "subject": {
+              "reference": "Patient/pat014"
+            },
+            "authoredOn": "2023-01-01T00:00:00Z",
+            "requester": {
+              "reference": "Practitioner/PractitionerExample"
+            },
+            "performer": {
+              "reference": "Practitioner/pra1255"
+            },
+            "insurance": [
+              {
+                "reference": "Coverage/cov014"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "extension": {
+    "davinci-crd.configuration": {
+      "coverage-info": true,
+      "max-cards": 10
+    },
+    "davinci-crd.requestedVersion": "2.2"
+  },
+  "fhirServer": "http://localhost:8080/fhir",
+  "prefetch": {
+    "patient": {
+      "resourceType": "Patient",
+      "id": "pat014",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2026-10-02T15:48:59.766-04:00"
+      },
+      "identifier": [
+        {
+          "use": "usual",
+          "type": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                "code": "MR"
+              }
+            ],
+            "text": "Medical Record Number"
+          },
+          "system": "http://hl7.org/fhir/sid/us-medicare",
+          "value": "0M846129001NF"
+        }
+      ],
+      "name": [
+        {
+          "use": "official",
+          "family": "Roosevelt",
+          "given": [
+            "Theodor",
+            "Alan",
+            "Roosevelt"
+          ]
+        }
+      ],
+      "gender": "male",
+      "birthDate": "1946-07-04",
+      "address": [
+        {
+          "use": "home",
+          "type": "both",
+          "line": [
+            "7525 Colshire Dr"
+          ],
+          "city": "McLean",
+          "state": "VA",
+          "postalCode": "22102"
+        }
+      ]
+    },
+    "coverage": {
+      "resourceType": "Bundle",
+      "type": "searchset",
+      "total": 1,
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/Coverage/cov014",
+          "resource": {
+            "resourceType": "Coverage",
+            "id": "cov014",
+            "meta": {
+              "versionId": "1",
+              "lastUpdated": "2026-10-02T15:48:59.771-04:00",
+              "profile": [
+                "http://hl7.org/fhir/us/davinci-crd/StructureDefinition/profile-coverage"
+              ]
+            },
+            "status": "active",
+            "subscriberId": "10A3D58WH1600",
+            "beneficiary": {
+              "reference": "Patient/pat014"
+            },
+            "relationship": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/subscriber-relationship",
+                  "code": "self"
+                }
+              ]
+            },
+            "payor": [
+              {
+                "reference": "Organization/org1234"
+              }
+            ],
+            "class": [
+              {
+                "type": {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+                      "code": "plan"
+                    }
+                  ]
+                },
+                "value": "Medicare Part B"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "encounter": null,
+    "practitioner": {
+      "resourceType": "Practitioner",
+      "id": "PractitionerExample",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2026-10-02T15:48:59.307-04:00",
+        "profile": [
+          "http://hl7.org/fhir/us/core/StructureDefinition/us-core-practitioner|7.0.0"
+        ]
+      },
+      "language": "en",
+      "text": {
+        "status": "extensions",
+        "div": "<div xml:lang=\"en\" xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en\"><p class=\"res-header-id\"><b>Generated Narrative: Practitioner PractitionerExample</b></p><a name=\"PractitionerExample\"> </a><a name=\"hcPractitionerExample\"> </a><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Language: en</p><p style=\"margin-bottom: 0px\">Profile: <a href=\"http://hl7.org/fhir/us/core/STU7/StructureDefinition-us-core-practitioner.html\">US Core Practitioner Profileversion: null7.0.0)</a></p></div><p><b>Active Role</b>: <span title=\"Codes:{http://nucc.org/provider-taxonomy 363A00000X}\">Physician Assistant</span></p><p><b>identifier</b>: <a href=\"http://terminology.hl7.org/5.3.0/NamingSystem-npi.html\" title=\"National Provider Identifier\">United States National Provider Identifier</a>/1122334455</p><p><b>name</b>: Jane Doe </p></div>"
+      },
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/us/davinci-dtr/StructureDefinition/activeRole",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "http://nucc.org/provider-taxonomy",
+                "code": "363A00000X",
+                "display": "Physician Assistant"
+              }
+            ]
+          }
+        }
+      ],
+      "identifier": [
+        {
+          "system": "http://hl7.org/fhir/sid/us-npi",
+          "value": "1122334455"
+        }
+      ],
+      "name": [
+        {
+          "family": "Doe",
+          "given": [
+            "Jane"
+          ],
+          "prefix": [
+            "Dr."
+          ]
+        }
+      ]
+    },
+    "practitionerRoles": {
+      "resourceType": "Bundle",
+      "type": "searchset",
+      "total": 0,
+      "entry": []
+    },
+    "deviceHistory": {
+      "resourceType": "Bundle",
+      "type": "searchset",
+      "total": 1,
+      "entry": [
+        {
+          "fullUrl": "http://localhost:8080/fhir/DeviceRequest/devreq-014-e0250",
+          "resource": {
+            "resourceType": "DeviceRequest",
+            "id": "devreq-014-e0250",
+            "status": "active",
+            "intent": "original-order",
+            "codeCodeableConcept": {
+              "coding": [
+                {
+                  "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
+                  "code": "E0250",
+                  "display": "Hospital bed fixed height with any type of side rails, mattress"
+                }
+              ]
+            },
+            "subject": {
+              "reference": "Patient/pat014"
+            },
+            "authoredOn": "2023-01-01T00:00:00Z",
+            "requester": {
+              "reference": "Practitioner/pra-hfairchild"
+            },
+            "performer": {
+              "reference": "Practitioner/pra1255"
+            },
+            "insurance": [
+              {
+                "reference": "Coverage/cov014"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "medicationHistory": {
+      "resourceType": "Bundle",
+      "type": "searchset",
+      "total": 0,
+      "entry": []
+    },
+    "serviceHistory": {
+      "resourceType": "Bundle",
+      "type": "searchset",
+      "total": 0,
+      "entry": []
+    },
+    "questionnaireResponses": {
+      "resourceType": "Bundle",
+      "type": "searchset",
+      "total": 0,
+      "entry": []
+    }
+  }
+}

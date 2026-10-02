@@ -2,9 +2,7 @@ package org.hl7.davinci.dtr;
 
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -95,30 +93,21 @@ public class DtrPackageService {
 
     Coverage effectiveCoverage = coverage != null ? coverage : ctx.coverage();
 
-    // Explicit orders drive order-based PlanDefinition resolution and pre-population; the
-    // context-recovered orders scope qr-context/pre-population only. Both feed the response,
-    // deduplicated by resource reference.
+    // Explicit orders drive order-based PlanDefinition resolution, qr-context and
+    // pre-population. Context-recovered orders are used only when none were supplied,
+    // since their ids are payer-local and the EHR cannot resolve them.
     List<Resource> resolutionOrders = explicitOrders != null ? explicitOrders : List.of();
-    List<Resource> responseOrders = unionOrders(ctx.orders(), resolutionOrders);
+    List<Resource> responseOrders = responseOrders(ctx.orders(), resolutionOrders);
 
     return generateInternal(effectiveCoverage, resolutionOrders, responseOrders, canonicals,
         changedsince, adaptiveMode, ctx.provenance());
   }
 
-  private List<Resource> unionOrders(List<Resource> recovered, List<Resource> explicit) {
-    List<Resource> result = new ArrayList<>();
-    Set<String> seen = new HashSet<>();
-    for (List<Resource> group : List.of(
-        recovered != null ? recovered : List.<Resource>of(),
-        explicit != null ? explicit : List.<Resource>of())) {
-      for (Resource r : group) {
-        String key = r.fhirType() + "/" + r.getIdElement().getIdPart();
-        if (seen.add(key)) {
-          result.add(r);
-        }
-      }
+  static List<Resource> responseOrders(List<Resource> recovered, List<Resource> explicit) {
+    if (explicit != null && !explicit.isEmpty()) {
+      return explicit;
     }
-    return result;
+    return recovered != null ? recovered : List.of();
   }
 
   /**

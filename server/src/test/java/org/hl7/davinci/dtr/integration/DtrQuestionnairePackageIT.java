@@ -169,7 +169,13 @@ class DtrQuestionnairePackageIT {
     testCoverage.setStatus(Coverage.CoverageStatus.ACTIVE);
     testCoverage.setSubscriberId("DTR-TEST-MBI-001");
     testCoverage.setBeneficiary(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
-    testCoverage.addPayor(new Reference("Organization/" + testOrganization.getIdElement().getIdPart()));
+    // The resolver only trusts an inline or contained payor, never a payer-local id
+    // supplied by the sender, so the Coverage carries the Organization the way the
+    // provider sends it.
+    Organization containedPayor = testOrganization.copy();
+    containedPayor.setId("payor-org");
+    testCoverage.addContained(containedPayor);
+    testCoverage.addPayor(new Reference("#payor-org"));
     testCoverage = (Coverage) daoRegistry.getResourceDao(Coverage.class)
         .update(testCoverage, new SystemRequestDetails()).getResource();
 
@@ -724,7 +730,7 @@ class DtrQuestionnairePackageIT {
           new Coding()
               .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
               .setCode("105585")
-              .setDisplay("Methotrexate 2.5 MG Oral Tablet")));
+              .setDisplay("methotrexate 2.5 MG Oral Tablet")));
       medRequest.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
@@ -749,7 +755,7 @@ class DtrQuestionnairePackageIT {
           new Coding()
               .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
               .setCode("105585")
-              .setDisplay("Methotrexate 2.5 MG Oral Tablet")));
+              .setDisplay("methotrexate 2.5 MG Oral Tablet")));
       mr.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(
@@ -770,7 +776,7 @@ class DtrQuestionnairePackageIT {
           "MedicationDescription should be populated from the clinical launchContext. "
               + "Warnings: " + extractWarnings(result));
       assertTrue(
-          medItem.getAnswerFirstRep().getValue().toString().contains("Tacrolimus"),
+          medItem.getAnswerFirstRep().getValue().toString().contains("methotrexate"),
           "MedicationDescription should reflect the bound MedicationRequest's display, got: "
               + medItem.getAnswerFirstRep().getValue());
 
@@ -796,7 +802,7 @@ class DtrQuestionnairePackageIT {
           new Coding()
               .setSystem("http://www.nlm.nih.gov/research/umls/rxnorm")
               .setCode("105585")
-              .setDisplay("Methotrexate 2.5 MG Oral Tablet")));
+              .setDisplay("methotrexate 2.5 MG Oral Tablet")));
       mr.setSubject(new Reference("Patient/" + testPatient.getIdElement().getIdPart()));
 
       Parameters result = dtrPackageService.generatePackages(

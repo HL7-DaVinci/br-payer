@@ -13,7 +13,7 @@
       {
         "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
         "code": "E0601",
-        "display": "Continuous positive airway pressure (cpap) device"
+        "display": "Cont airway pressure device"
       }
     ]
   },

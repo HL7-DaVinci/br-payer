@@ -6,6 +6,7 @@ import org.hl7.davinci.common.CoverageInfoUtil;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.RequestGroup;
@@ -48,6 +49,19 @@ public class PlanDefinitionFinder {
   @Autowired
   private AppProperties appProperties;
 
+  public static Parameters buildCqlParameters(String hookName, Resource contextResource) {
+    Parameters cqlParameters = new Parameters();
+    if (hookName != null) {
+      cqlParameters.addParameter("Hook", new StringType(hookName));
+    }
+    if (!contextResource.hasIdElement() || contextResource.getIdElement().isEmpty()) {
+      contextResource.setId(IdType.newRandomUuid());
+    }
+    cqlParameters.addParameter("ContextResourceId",
+        new StringType(contextResource.getIdElement().getIdPart()));
+    return cqlParameters;
+  }
+
   /**
    * Executes a PlanDefinition and returns response with cards and system actions.
    *
@@ -63,8 +77,7 @@ public class PlanDefinitionFinder {
 
     CdsServiceResponseJson planResponse = new CdsServiceResponseJson();
 
-    Parameters cqlParameters = new Parameters();
-    cqlParameters.addParameter("Hook", new StringType(hookName));
+    Parameters cqlParameters = buildCqlParameters(hookName, contextResource);
 
     String patientId = context.getPatient().getIdElement().getIdPart();
     RequestGroup requestGroup = planDefinitionService.applyPlanDefinition(plan, patientId, dataBundle, cqlParameters);

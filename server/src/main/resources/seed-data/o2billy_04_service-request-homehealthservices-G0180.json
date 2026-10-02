@@ -13,7 +13,7 @@
       {
         "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
         "code": "G0180",
-        "display": "Medicare-covered home health services under a home health plan of care"
+        "display": "Md certification hha patient"
       }
     ]
   },

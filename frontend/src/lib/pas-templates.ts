@@ -296,7 +296,7 @@ export const PAS_TEMPLATES: PasTemplate[] = [
         {
           system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
           code: "E0260",
-          display: "Hospital bed, semi-electric",
+          display: "Hosp bed semi-electr w/ matt",
         },
         "professional",
         { traceNumber: INITIAL_PROFESSIONAL_TRACE },
@@ -329,7 +329,7 @@ export const PAS_TEMPLATES: PasTemplate[] = [
         {
           system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
           code: "E0260",
-          display: "Hospital bed, semi-electric",
+          display: "Hosp bed semi-electr w/ matt",
         },
         "professional",
       ),
@@ -346,7 +346,7 @@ export const PAS_TEMPLATES: PasTemplate[] = [
         {
           system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
           code: "E0260",
-          display: "Hospital bed, semi-electric",
+          display: "Hosp bed semi-electr w/ matt",
         },
         "professional",
         {
@@ -443,7 +443,7 @@ export const PAS_TEMPLATES: PasTemplate[] = [
         {
           system: "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
           code: "E0260",
-          display: "Hospital bed, semi-electric",
+          display: "Hosp bed semi-electr w/ matt",
         },
         "professional",
         {
@@ -630,7 +630,7 @@ export const PAS_TEMPLATES: PasTemplate[] = [
                       system:
                         "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
                       code: "E0260",
-                      display: "Hospital bed, semi-electric",
+                      display: "Hosp bed semi-electr w/ matt",
                     },
                   ],
                 },

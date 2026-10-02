@@ -3,6 +3,7 @@ using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1' called FHIRHelpers
 include CRDHelpers version '1.0.0' called CRD
 include CoverageExtensions version '1.0.0' called Ext
+parameter ContextResourceId String
 
 context Patient
 
@@ -29,7 +30,7 @@ define "Benzodiazepine Codes":
 // ============================================================
 
 define "Coverage": First([Coverage])
-define "Medication Request": First([MedicationRequest])
+define "Medication Request": First([MedicationRequest] R where R.id = ContextResourceId)
 
 define "Requested Medication Coding":
   CRD."Get Medication Code"("Medication Request")

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.hl7.davinci.cdex.CdexConstants;
+import org.hl7.davinci.pas.PasConstants;
 import org.hl7.davinci.cdex.SubmitAttachmentService;
 import org.hl7.fhir.r4.model.ClaimResponse;
 import org.hl7.fhir.r4.model.CodeType;
@@ -14,6 +15,7 @@ import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.Enumerations.DocumentReferenceStatus;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
 import org.hl7.fhir.r4.model.Reference;
@@ -94,6 +96,9 @@ class SubmitAttachmentIT {
             return false;
           }
         });
+    Patient subject = new Patient();
+    subject.setId("it-subject");
+    daoRegistry.getResourceDao(Patient.class).update(subject, new SystemRequestDetails());
   }
 
   private static ParametersParameterComponent attachmentWith(Resource content) {
@@ -119,6 +124,7 @@ class SubmitAttachmentIT {
     cr.setUse(ClaimResponse.Use.PREAUTHORIZATION);
     cr.setOutcome(ClaimResponse.RemittanceOutcome.QUEUED);
     cr.setPatient(new Reference("Patient/it-subject"));
+    cr.getMeta().addTag(PasConstants.PENDED_TAG_SYSTEM, PasConstants.PENDED_TAG_CODE, "Pended Resolution");
     daoRegistry.getResourceDao(ClaimResponse.class).create(cr, new SystemRequestDetails());
 
     OperationOutcome outcome = submitService.submit(

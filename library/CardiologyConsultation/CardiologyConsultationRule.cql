@@ -3,6 +3,7 @@ using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1' called FHIRHelpers
 include CRDHelpers version '1.0.0' called CRD
 include CoverageExtensions version '1.0.0' called Ext
+parameter ContextResourceId String
 
 context Patient
 
@@ -18,7 +19,7 @@ define "Questionnaire Canonical": 'http://example.org/fhir/Questionnaire/Cardiol
 // ============================================================
 
 define "Coverage": First([Coverage])
-define "Appointment": First([Appointment])
+define "Appointment": First([Appointment] A where A.id = ContextResourceId)
 
 define "Appointment Coding":
   if "Appointment" is not null and "Appointment".serviceType is not null then

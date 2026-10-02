@@ -3,6 +3,7 @@ using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1' called FHIRHelpers
 include CRDHelpers version '1.0.0' called CRD
 include CoverageExtensions version '1.0.0' called Ext
+parameter ContextResourceId String
 
 context Patient
 
@@ -17,7 +18,7 @@ define "Assertion Prefix": 'excluded'
 // ============================================================
 
 define "Coverage": First([Coverage])
-define "Device Request": First([DeviceRequest])
+define "Device Request": First([DeviceRequest] R where R.id = ContextResourceId)
 
 define "Device Coding":
   if "Device Request" is not null and "Device Request".code is CodeableConcept then

@@ -14,6 +14,7 @@ import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IdType;
@@ -37,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import static org.hl7.davinci.common.CrdConstants.COVERAGE_INFO_EXT;
 import static org.hl7.davinci.common.CrdConstants.DOC_REASON_SYSTEM;
 import static org.hl7.davinci.common.FhirConstants.*;
 import static org.hl7.davinci.dtr.DtrConstants.*;
@@ -184,7 +186,7 @@ public class DtrResponseBuilder {
 
     qr.setAuthored(new Date());
 
-    addCoverageAndIntendedUseExtensions(qr, coverage, provenance.provenance());
+    addCoverageAndIntendedUseExtensions(qr, coverage, provenance.provenance(), allOrders);
 
     // qr-context extensions
     addQrContextExtensions(qr, provenance, allOrders);
@@ -419,19 +421,40 @@ public class DtrResponseBuilder {
     // Authored timestamp
     qr.setAuthored(new Date());
 
-    addCoverageAndIntendedUseExtensions(qr, coverage, provenance.provenance());
+    addCoverageAndIntendedUseExtensions(qr, coverage, provenance.provenance(), allOrders);
 
     // qr-context extensions -- provenance-aware scoping
     addQrContextExtensions(qr, provenance, allOrders);
   }
 
+  static boolean anyOrderRequestsWithPa(List<Resource> orders) {
+    if (orders == null) {
+      return false;
+    }
+    for (Resource order : orders) {
+      if (!(order instanceof DomainResource domain)) {
+        continue;
+      }
+      for (Extension coverageInfo : domain.getExtensionsByUrl(COVERAGE_INFO_EXT)) {
+        for (Extension purpose : coverageInfo.getExtensionsByUrl("doc-purpose")) {
+          if (purpose.getValue() instanceof CodeType code
+              && INTENDED_USE_WITH_PA.equals(code.getValue())) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   private void addCoverageAndIntendedUseExtensions(QuestionnaireResponse qr, Coverage coverage,
-      DtrQuestionnaireResolver.DtrLaunchProvenance provenance) {
+      DtrQuestionnaireResolver.DtrLaunchProvenance provenance, List<Resource> orders) {
     Extension coverageExt = new Extension(QR_COVERAGE_EXT);
     coverageExt.setValue(toRelativeTypedReference(coverage));
     qr.addExtension(coverageExt);
 
-    boolean priorAuth = provenance == DtrQuestionnaireResolver.DtrLaunchProvenance.PAS_TRN;
+    boolean priorAuth = provenance == DtrQuestionnaireResolver.DtrLaunchProvenance.PAS_TRN
+        || anyOrderRequestsWithPa(orders);
     Extension intendedUseExt = new Extension(INTENDED_USE_EXT);
     CodeableConcept intendedUseCC = new CodeableConcept();
     intendedUseCC.addCoding(new Coding()

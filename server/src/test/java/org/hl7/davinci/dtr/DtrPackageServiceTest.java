@@ -19,6 +19,7 @@ import org.hl7.fhir.r4.model.QuestionnaireResponse;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.hl7.fhir.r4.model.DeviceRequest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -508,5 +509,20 @@ class DtrPackageServiceTest {
 
     verify(mockResponseBuilder).buildResponse(any(), any(), any(), any(), any());
     verify(mockResponseBuilder, never()).buildAdaptiveResponse(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void responseOrders_prefersExplicitOrdersOverRecoveredCopies() {
+    DeviceRequest recovered = new DeviceRequest();
+    recovered.setId("1828");
+    DeviceRequest explicit = new DeviceRequest();
+    explicit.setId("1697");
+
+    assertEquals(List.of(explicit),
+        DtrPackageService.responseOrders(List.of(recovered), List.of(explicit)));
+    assertEquals(List.of(recovered),
+        DtrPackageService.responseOrders(List.of(recovered), List.of()));
+    assertEquals(List.of(),
+        DtrPackageService.responseOrders(null, null));
   }
 }

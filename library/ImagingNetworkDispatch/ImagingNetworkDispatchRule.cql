@@ -3,6 +3,7 @@ using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1' called FHIRHelpers
 include CRDHelpers version '1.0.0' called CRD
 include CoverageExtensions version '1.0.0' called Ext
+parameter ContextResourceId String
 
 context Patient
 
@@ -12,7 +13,7 @@ define "Assertion Prefix": 'imaging-dispatch'
 define "In Network Facility NPIs": { '5556667778', '9998887776', '1231231234' }
 
 define "Coverage": First([Coverage])
-define "Service Request": First([ServiceRequest])
+define "Service Request": First([ServiceRequest] R where R.id = ContextResourceId)
 define "Performing Organization": First([Organization])
 
 define "Service Coding":

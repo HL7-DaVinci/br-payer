@@ -36,7 +36,7 @@
         {
           "resource": {
             "resourceType": "DeviceRequest",
-            "id": "device-request-1",
+            "id": "device-request-2",
             "status": "draft",
             "intent": "order",
             "codeCodeableConcept": {

@@ -13,7 +13,7 @@
       {
         "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
         "code": "E0607",
-        "display": "Home blood glucose monitor"
+        "display": "Blood glucose monitor home"
       }
     ]
   },

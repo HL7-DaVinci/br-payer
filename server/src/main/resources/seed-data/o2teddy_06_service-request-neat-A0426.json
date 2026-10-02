@@ -25,7 +25,7 @@
       {
         "system": "http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets",
         "code": "A0426",
-        "display": "Ambulance service, advanced life support, non-emergency transport, level 1 (als 1)"
+        "display": "Als 1"
       }
     ],
     "text": "Ambulance service Non-Emergency Transport"

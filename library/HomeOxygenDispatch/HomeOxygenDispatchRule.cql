@@ -3,6 +3,7 @@ using FHIR version '4.0.1'
 include FHIRHelpers version '4.0.1' called FHIRHelpers
 include CRDHelpers version '1.0.0' called CRD
 include CoverageExtensions version '1.0.0' called Ext
+parameter ContextResourceId String
 
 context Patient
 
@@ -12,7 +13,7 @@ define "Assertion Prefix": 'oxygen-dispatch'
 define "Contracted Supplier NPIs": { '1112223334', '4445556667', '7778889990' }
 
 define "Coverage": First([Coverage])
-define "Device Request": First([DeviceRequest])
+define "Device Request": First([DeviceRequest] R where R.id = ContextResourceId)
 define "DME Supplier": First([Organization])
 
 define "Device Coding":

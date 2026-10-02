@@ -13,6 +13,7 @@ import org.hl7.davinci.common.CoverageInfoUtil;
 import org.hl7.davinci.common.FhirUtil;
 import org.hl7.davinci.common.FhirCodeExtractor;
 import org.hl7.davinci.common.PayorIdentifierUtil;
+import org.hl7.davinci.cdshooks.shared.PlanDefinitionFinder;
 import org.hl7.davinci.common.PlanDefinitionService;
 import org.hl7.davinci.common.ResourceResolver;
 import org.hl7.davinci.pas.PasConstants;
@@ -524,7 +525,7 @@ public class DtrQuestionnaireResolver {
           }
 
           RequestGroup requestGroup = planDefinitionService.applyPlanDefinition(
-              plan, patientId, dataBundle, null);
+              plan, patientId, dataBundle, PlanDefinitionFinder.buildCqlParameters(null, order));
 
           List<Extension> coverageInfoExts = extractCoverageInfoExtensions(requestGroup);
           if (coverageInfoExts.isEmpty()) {

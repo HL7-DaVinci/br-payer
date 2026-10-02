@@ -2,6 +2,7 @@ package org.hl7.davinci.pas;
 
 import static org.hl7.davinci.common.FhirConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,11 +26,13 @@ import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DeviceRequest;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.RequestGroup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class PasCoverageEvaluatorTest {
 
@@ -104,6 +107,29 @@ class PasCoverageEvaluatorTest {
 
       assertEquals(REVIEW_CODE_A3, decision.reviewActionCode());
       assertFalse(decision.isPended());
+    }
+
+    @Test
+    void evaluate_passesTheOrderIdToTheRulesAsContextResourceId() {
+      DeviceRequest order = new DeviceRequest();
+      order.setId("dr-1");
+      order.setCode(new CodeableConcept().addCoding(orderCode));
+      Bundle bundle = new Bundle();
+      bundle.addEntry().setResource(order);
+      PlanDefinition plan = new PlanDefinition();
+      RequestGroup rg = buildRequestGroupWithCoverageExt(
+          buildCoverageInfoExt("covered", "auth-needed", "clinical"));
+      when(planDefinitionService.findPlanDefinitions(eq(orderCode), any(), isNull()))
+          .thenReturn(List.of(plan));
+      when(planDefinitionService.applyPlanDefinition(eq(plan), eq(patientId), eq(bundle), any()))
+          .thenReturn(rg);
+
+      evaluator.evaluate(orderCode, List.of(), coverage, patientId, bundle);
+
+      ArgumentCaptor<Parameters> captor = ArgumentCaptor.forClass(Parameters.class);
+      verify(planDefinitionService).applyPlanDefinition(eq(plan), eq(patientId), eq(bundle), captor.capture());
+      assertNotNull(captor.getValue(), "rules need the context order id");
+      assertEquals("dr-1", captor.getValue().getParameterValue("ContextResourceId").primitiveValue());
     }
 
     @Test

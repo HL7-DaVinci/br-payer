@@ -33,6 +33,7 @@ import org.hl7.fhir.r4.model.MedicationRequest;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.SupplyRequest;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.PlanDefinition;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.QuestionnaireResponse;
@@ -188,7 +189,7 @@ class DtrQuestionnaireResolverTest {
     mockLibraryWithDataRequirements("TestMedRule", "MedicationRequest");
 
     String canonical = "http://example.org/Questionnaire/med-check";
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-med", canonical, "1.0.0");
@@ -207,6 +208,11 @@ class DtrQuestionnaireResolverTest {
     ArgumentCaptor<Coding> codingCaptor = ArgumentCaptor.forClass(Coding.class);
     verify(planDefinitionService).findPlanDefinitions(codingCaptor.capture(), anyList(), isNull());
     assertEquals("197361", codingCaptor.getValue().getCode());
+
+    ArgumentCaptor<Parameters> cqlParameters = ArgumentCaptor.forClass(Parameters.class);
+    verify(planDefinitionService).applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), cqlParameters.capture());
+    assertNotNull(cqlParameters.getValue(), "rules need the context order id");
+    assertEquals("mr-1", cqlParameters.getValue().getParameterValue("ContextResourceId").primitiveValue());
   }
 
   @Test
@@ -230,7 +236,7 @@ class DtrQuestionnaireResolverTest {
     mockLibraryWithDataRequirements("TestSupplyRule"); // no patient-queryable types
 
     String canonical = "http://example.org/Questionnaire/supply-check";
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-supply", canonical, "1.0.0");
@@ -267,7 +273,7 @@ class DtrQuestionnaireResolverTest {
 
     String canonicalOne = "http://example.org/Questionnaire/q-one";
     String canonicalTwo = "http://example.org/Questionnaire/q-two";
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(requestGroupWithQuestionnaires(canonicalOne, canonicalTwo));
 
     Questionnaire qOne = questionnaire("q-1", canonicalOne, "1.0.0");
@@ -305,7 +311,7 @@ class DtrQuestionnaireResolverTest {
     mockLibraryWithDataRequirements("TestAbsRule", "Procedure");
 
     String canonical = "http://example.org/Questionnaire/q-abs";
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-abs"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-abs"), any(Bundle.class), any()))
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-abs", canonical, "1.0.0");
@@ -374,7 +380,7 @@ class DtrQuestionnaireResolverTest {
     // Library declares Condition and Procedure -- only these should be queried
     mockLibraryWithDataRequirements("TestDataRule", "Condition", "Procedure", "Coverage");
 
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(new RequestGroup());
 
     resolver.resolve(null, List.of(order), coverageWithContainedPayor());
@@ -418,7 +424,7 @@ class DtrQuestionnaireResolverTest {
           throw new RuntimeException("Library not found for id " + requestedId.getValue());
         });
 
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(new RequestGroup());
 
     resolver.resolve(null, List.of(order), coverageWithContainedPayor());
@@ -454,7 +460,7 @@ class DtrQuestionnaireResolverTest {
         .thenReturn(List.of(plan));
     mockLibraryWithDataRequirements("ClinicalRule", "AllergyIntolerance", "Immunization");
 
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(new RequestGroup());
 
     resolver.resolve(null, List.of(order), coverageWithContainedPayor());
@@ -487,7 +493,7 @@ class DtrQuestionnaireResolverTest {
     // Library with no dataRequirement entries
     mockLibraryWithDataRequirements("EmptyRule");
 
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(new RequestGroup());
 
     resolver.resolve(null, List.of(order), coverageWithContainedPayor());
@@ -519,7 +525,7 @@ class DtrQuestionnaireResolverTest {
     mockLibraryWithDataRequirements("SignRule");
 
     String canonical = "http://example.org/Questionnaire/sign-check";
-    when(planDefinitionService.applyPlanDefinition(eq(signPlan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(signPlan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-sign", canonical, "1.0.0");
@@ -556,7 +562,7 @@ class DtrQuestionnaireResolverTest {
     mockLibraryWithDataRequirements("SatisfiedRule");
 
     String canonical = "http://example.org/Questionnaire/satisfied-check";
-    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(plan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-satisfied", canonical, "1.0.0");
@@ -626,7 +632,7 @@ class DtrQuestionnaireResolverTest {
     mockLibraryWithDataRequirements("DispatchRule");
 
     String canonical = "http://example.org/Questionnaire/dispatch-check";
-    when(planDefinitionService.applyPlanDefinition(eq(dispatchPlan), eq("pat-1"), any(Bundle.class), isNull()))
+    when(planDefinitionService.applyPlanDefinition(eq(dispatchPlan), eq("pat-1"), any(Bundle.class), any()))
         .thenReturn(requestGroupWithQuestionnaires(canonical));
 
     Questionnaire questionnaire = questionnaire("q-dispatch", canonical, "1.0.0");

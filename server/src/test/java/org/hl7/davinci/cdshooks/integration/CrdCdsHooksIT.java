@@ -365,6 +365,52 @@ class CrdCdsHooksIT implements IServerSupport {
         assertFalse(systemActions.isEmpty(), "Should have system actions for orders");
       }
     }
+
+    @Test
+    @DisplayName("order-sign billing code comes from the signed order, not from device history")
+    void orderSign_billingCodeFromContextOrder() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-history-before-draft.json");
+
+      JsonObject response = postToCdsService("order-sign-crd", requestBody);
+
+      assertNotNull(response);
+      JsonArray actions = response.getAsJsonArray("systemActions");
+      assertEquals(1, actions.size());
+      JsonObject resource = actions.get(0).getAsJsonObject().getAsJsonObject("resource");
+      assertEquals("draft-dme-e0424", resource.get("id").getAsString());
+      assertEquals("E0424", billingCodeOf(resource));
+    }
+
+    @Test
+    @DisplayName("order-sign draft without an id (urn fullUrl) still gets its own billing code")
+    void orderSign_draftWithoutIdKeepsItsOwnBillingCode() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-history-before-draft-no-id.json");
+
+      JsonObject response = postToCdsService("order-sign-crd", requestBody);
+
+      assertNotNull(response);
+      JsonArray actions = response.getAsJsonArray("systemActions");
+      assertEquals(1, actions.size());
+      assertEquals("E0424", billingCodeOf(actions.get(0).getAsJsonObject().getAsJsonObject("resource")));
+    }
+
+    @Test
+    @DisplayName("order-sign with several drafts gives each action its own order's billing code")
+    void orderSign_multipleDraftsKeepTheirOwnBillingCode() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("order-sign-multiple.json");
+
+      JsonObject response = postToCdsService("order-sign-crd", requestBody);
+
+      assertNotNull(response);
+      JsonArray actions = response.getAsJsonArray("systemActions");
+      assertEquals(2, actions.size());
+      for (JsonElement element : actions) {
+        JsonObject resource = element.getAsJsonObject().getAsJsonObject("resource");
+        String orderCode = resource.getAsJsonObject("codeCodeableConcept")
+            .getAsJsonArray("coding").get(0).getAsJsonObject().get("code").getAsString();
+        assertEquals(orderCode, billingCodeOf(resource));
+      }
+    }
   }
 
   // ============================================================
@@ -432,6 +478,24 @@ class CrdCdsHooksIT implements IServerSupport {
 
       assertNotNull(response, "Response should not be null");
       assertTrue(response.has("cards"), "Response should have 'cards' array");
+    }
+
+    @Test
+    @DisplayName("appointment-book with two appointments gives each action its own billing code")
+    void appointmentBook_twoAppointmentsKeepTheirOwnBillingCode() throws IOException {
+      String requestBody = CdsHooksTestUtils.loadFixture("appointment-book-two-appointments.json");
+
+      JsonObject response = postToCdsService("appointment-book-crd", requestBody);
+
+      assertNotNull(response);
+      JsonArray actions = response.getAsJsonArray("systemActions");
+      assertEquals(2, actions.size());
+      for (JsonElement element : actions) {
+        JsonObject resource = element.getAsJsonObject().getAsJsonObject("resource");
+        String serviceCode = resource.getAsJsonArray("serviceType").get(0).getAsJsonObject()
+            .getAsJsonArray("coding").get(0).getAsJsonObject().get("code").getAsString();
+        assertEquals(serviceCode, billingCodeOf(resource));
+      }
     }
 
     @Test
@@ -729,6 +793,18 @@ class CrdCdsHooksIT implements IServerSupport {
    * Test fixtures have hardcoded "http://localhost:8080/fhir" but the test server
    * starts on a random port.
    */
+  private static String billingCodeOf(JsonObject resource) {
+    JsonArray coverageInfo = resource.getAsJsonArray("extension").get(0).getAsJsonObject()
+        .getAsJsonArray("extension");
+    for (JsonElement element : coverageInfo) {
+      JsonObject sub = element.getAsJsonObject();
+      if ("billingCode".equals(sub.get("url").getAsString())) {
+        return sub.getAsJsonObject("valueCoding").get("code").getAsString();
+      }
+    }
+    return null;
+  }
+
   private String fixFhirServerUrl(String requestBody) {
     // Replace any hardcoded fhirServer URLs with the actual test server URL
     return requestBody.replaceAll(
